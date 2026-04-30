@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import type { Metadata } from "next";
-import { Badge, Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Badge, Box, Button, Flex, Heading, Text } from "@radix-ui/themes";
 import { authOptions } from "@/lib/auth";
 import { getServerTrpc } from "@/lib/trpc-server";
 import { VideoPlayer } from "@/components/VideoPlayer";
@@ -140,7 +140,39 @@ export default async function VideoPage({
       )}
       <MorphLandingSignal />
       <Box>
-        {video.videoUrl ? (
+        {!session?.user ? (
+          <Box
+            className="player-frame"
+            style={{
+              backgroundImage: video.thumbnailUrl
+                ? `url(${video.thumbnailUrl})`
+                : undefined,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              cursor: "default",
+            }}
+          >
+            <Flex
+              align="center"
+              justify="center"
+              direction="column"
+              gap="3"
+              style={{
+                height: "100%",
+                background: "rgba(0, 0, 0, 0.6)",
+              }}
+            >
+              <Text size="3" weight="medium" style={{ color: "white" }}>
+                Sign in to watch this video
+              </Text>
+              <Button asChild size="2" variant="solid">
+                <Link href={`/login?callbackUrl=/videos/${video.id}`}>
+                  Sign in
+                </Link>
+              </Button>
+            </Flex>
+          </Box>
+        ) : video.videoUrl ? (
           <VideoPlayer
             url={video.videoUrl}
             thumbnailUrl={video.thumbnailUrl}
