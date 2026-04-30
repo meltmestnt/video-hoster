@@ -99,7 +99,13 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
     setOutputKind("video");
     setGifError(null);
     setGifProgress(0);
+    setPlaybackRate(1);
   }, [open, file]);
+
+  // Live preview of speed: drive the <video> element's playbackRate.
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.playbackRate = playbackRate;
+  }, [playbackRate]);
 
   // For GIFs the API caps duration at 20s — auto-clamp the trim window when
   // the user switches to gif mode so they can see the limit immediately.
@@ -190,6 +196,7 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
     rotation,
     cropAspect,
     zoom,
+    playbackRate: playbackRate !== 1 ? playbackRate : undefined,
     sourceWidth: sourceW || undefined,
     sourceHeight: sourceH || undefined,
   });
@@ -461,6 +468,28 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
               </Box>
               <Text size="1" color="gray" style={{ width: 40 }}>
                 {zoom.toFixed(2)}×
+              </Text>
+            </Flex>
+
+            {/* Speed */}
+            <Flex align="center" gap="3">
+              <Text size="2" weight="medium" style={{ width: 76 }}>
+                Speed
+              </Text>
+              <Box style={{ flex: 1 }}>
+                <Slider
+                  value={[Math.round(playbackRate * 100)]}
+                  min={50}
+                  max={200}
+                  step={5}
+                  onValueChange={(v) =>
+                    setPlaybackRate((v[0] ?? 100) / 100)
+                  }
+                  aria-label="Playback speed"
+                />
+              </Box>
+              <Text size="1" color="gray" style={{ width: 40 }}>
+                {playbackRate.toFixed(2)}×
               </Text>
             </Flex>
 
