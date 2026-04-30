@@ -12,6 +12,7 @@ const nextConfig = {
     ],
   },
   async rewrites() {
+    if (process.env.NODE_ENV !== "development") return [];
     return [
       { source: "/trpc/:path*", destination: "http://localhost:4000/trpc/:path*" },
     ];
