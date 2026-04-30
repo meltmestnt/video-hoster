@@ -208,6 +208,22 @@ export class VideosService {
     return this.videos.count({ where: { ownerId, status: "ready" } });
   }
 
+  /**
+   * Lightweight projection of every public ready video's id and last-modified
+   * timestamp. Used to build the SEO sitemap; does not include private videos
+   * regardless of viewer.
+   */
+  async listPublicForSitemap(): Promise<
+    Array<{ id: string; createdAt: Date }>
+  > {
+    return this.videos.find({
+      select: { id: true, createdAt: true },
+      where: { status: "ready", visibility: "public" },
+      order: { createdAt: "DESC" },
+      take: 5000,
+    });
+  }
+
   async list({
     cursor,
     limit,

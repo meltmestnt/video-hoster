@@ -239,7 +239,9 @@ button:disabled,
 /* ───── video card hover/click ───── */
 
 .video-card {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   border-radius: var(--radius-3);
   overflow: hidden;
   cursor: pointer;
@@ -247,6 +249,12 @@ button:disabled,
     transform 160ms cubic-bezier(0.2, 0, 0.2, 1),
     box-shadow 160ms cubic-bezier(0.2, 0, 0.2, 1);
   will-change: transform;
+}
+
+.video-card > .rt-Card {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
 }
 @media (prefers-reduced-motion: no-preference) {
   .video-card:hover {

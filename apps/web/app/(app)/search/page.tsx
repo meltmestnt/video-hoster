@@ -1,11 +1,10 @@
+import type { Metadata } from "next";
 import { Badge, Flex, Heading, Text } from "@radix-ui/themes";
-import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { getServerTrpc } from "@/lib/trpc-server";
 import { VideoCard } from "@/components/VideoCard";
 import { VideoSortSelect } from "@/components/VideoSortSelect";
 import type { VideoSort } from "@repo/shared";
+import { absoluteUrl } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 
@@ -20,9 +19,36 @@ interface SearchPageProps {
   searchParams: Promise<{ q?: string; tag?: string; sort?: string }>;
 }
 
+export async function generateMetadata({
+  searchParams,
+}: SearchPageProps): Promise<Metadata> {
+  const { q = "", tag = "" } = await searchParams;
+  const trimmedQ = q.trim();
+  const trimmedTag = tag.trim();
+  const titleBits: string[] = [];
+  if (trimmedQ) titleBits.push(`"${trimmedQ}"`);
+  if (trimmedTag) titleBits.push(`#${trimmedTag}`);
+  const titleSuffix = titleBits.length ? ` ${titleBits.join(" ")}` : "";
+
+  // Don't index empty or arbitrary search queries — they explode the URL
+  // surface and add no value. Only the bare /search and tag pages get
+  // indexed; tag pages are useful entry points from external links.
+  const indexable = !trimmedQ && (!trimmedTag || trimmedTag.length > 0);
+
+  return {
+    title: `Search${titleSuffix}`,
+    description:
+      titleBits.length > 0
+        ? `Search results for ${titleBits.join(" and ")} on Denis's videos.`
+        : "Search videos by title or tag on Denis's videos.",
+    alternates: { canonical: absoluteUrl("/search") },
+    robots: indexable
+      ? undefined
+      : { index: false, follow: true, googleBot: { index: false, follow: true } },
+  };
+}
+
 export default async function SearchPage({ searchParams }: SearchPageProps) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) redirect("/login");
 
   const { q = "", tag = "", sort: sortRaw } = await searchParams;
   const trimmedQ = q.trim();

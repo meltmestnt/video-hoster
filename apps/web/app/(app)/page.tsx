@@ -1,10 +1,26 @@
+import type { Metadata } from "next";
 import { Flex, Heading, Text } from "@radix-ui/themes";
 import { getServerTrpc } from "@/lib/trpc-server";
 import { Dashboard } from "@/components/Dashboard";
 import { VideoSortSelect } from "@/components/VideoSortSelect";
 import type { VideoSort } from "@repo/shared";
+import { absoluteUrl } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "All videos",
+  description:
+    "Browse the latest public videos uploaded to Denis's videos. Sort by newest, most liked, or most disliked.",
+  alternates: { canonical: absoluteUrl("/") },
+  openGraph: {
+    title: "All videos — Denis's videos",
+    description:
+      "Browse the latest public videos uploaded to Denis's videos.",
+    url: absoluteUrl("/"),
+    type: "website",
+  },
+};
 
 const VALID_SORTS: VideoSort[] = ["newest", "mostLiked", "mostDisliked"];
 function normalizeSort(raw: string | undefined): VideoSort {

@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
+import type { Metadata } from "next";
 import { Badge, Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { authOptions } from "@/lib/auth";
 import { getServerTrpc } from "@/lib/trpc-server";
@@ -11,8 +12,61 @@ import { DeleteVideoButton } from "@/components/DeleteVideoButton";
 import { VideoReactions } from "@/components/VideoReactions";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { MorphLandingSignal } from "@/components/MorphLandingSignal";
+import { absoluteUrl } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const trpc = await getServerTrpc();
+  let video;
+  try {
+    video = await trpc.videos.byId.query({ id });
+  } catch {
+    return {
+      title: "Video not found",
+      robots: { index: false, follow: false },
+    };
+  }
+  // Private videos must not be indexed even if we 200 for their owner.
+  const isPrivate = video.visibility === "private";
+  const description = video.description?.trim()
+    ? video.description.slice(0, 200)
+    : `Watch "${video.title}" by ${video.owner.name} on Denis's videos.`;
+  const canonical = absoluteUrl(`/videos/${video.id}`);
+  const ogImage = video.thumbnailUrl ?? undefined;
+
+  return {
+    title: video.title,
+    description,
+    alternates: { canonical },
+    keywords: video.tags.map((t) => t.name),
+    robots: isPrivate
+      ? { index: false, follow: false, googleBot: { index: false, follow: false } }
+      : undefined,
+    openGraph: {
+      type: "video.other",
+      title: video.title,
+      description,
+      url: canonical,
+      siteName: "Denis's videos",
+      images: ogImage ? [{ url: ogImage }] : undefined,
+      videos: video.videoUrl
+        ? [{ url: video.videoUrl, type: video.mimeType }]
+        : undefined,
+    },
+    twitter: {
+      card: "player",
+      title: video.title,
+      description,
+      images: ogImage ? [ogImage] : undefined,
+    },
+  };
+}
 
 export default async function VideoPage({
   params,
@@ -21,7 +75,9 @@ export default async function VideoPage({
 }) {
   const { id } = await params;
   const session = await getServerSession(authOptions);
-  if (!session?.user) redirect("/login");
+  // Public videos render for anonymous viewers (Googlebot, link previews,
+  // signed-out browsing). Private videos throw NotFound from the API for
+  // anyone except their owner — no extra redirect needed here.
   const trpc = await getServerTrpc();
 
   let video;
@@ -39,8 +95,49 @@ export default async function VideoPage({
 
   const isOwner = !!session?.user?.id && session.user.id === video.owner.id;
 
+  const jsonLd =
+    video.visibility === "private"
+      ? null
+      : {
+          "@context": "https://schema.org",
+          "@type": "VideoObject",
+          name: video.title,
+          description:
+            video.description?.trim() ||
+            `Video "${video.title}" by ${video.owner.name}.`,
+          thumbnailUrl: video.thumbnailUrl ? [video.thumbnailUrl] : undefined,
+          uploadDate: new Date(video.createdAt).toISOString(),
+          contentUrl: video.videoUrl ?? undefined,
+          embedUrl: absoluteUrl(`/videos/${video.id}`),
+          encodingFormat: video.mimeType,
+          keywords: video.tags.map((t) => t.name).join(", ") || undefined,
+          author: {
+            "@type": "Person",
+            name: video.owner.name,
+          },
+          interactionStatistic: [
+            {
+              "@type": "InteractionCounter",
+              interactionType: { "@type": "LikeAction" },
+              userInteractionCount: video.likeCount,
+            },
+            {
+              "@type": "InteractionCounter",
+              interactionType: { "@type": "DislikeAction" },
+              userInteractionCount: video.dislikeCount,
+            },
+          ],
+        };
+
   return (
     <div className="video-page">
+      {jsonLd && (
+        <script
+          type="application/ld+json"
+          // Static server-rendered string; safe to inline.
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      )}
       <MorphLandingSignal />
       <Box>
         {video.videoUrl ? (

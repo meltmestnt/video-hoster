@@ -111,6 +111,10 @@ export const appRouter = router({
         ),
       ),
 
+    sitemap: publicProcedure.query(({ ctx }) =>
+      ctx.services.videos.listPublicForSitemap(),
+    ),
+
     createUpload: verifiedProcedure
       .input(createUploadInputSchema)
       .mutation(({ ctx, input }) =>
