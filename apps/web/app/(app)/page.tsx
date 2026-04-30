@@ -11,12 +11,12 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "All videos",
   description:
-    "Browse the latest public videos uploaded to Denis's videos. Sort by newest, most liked, or most disliked.",
+    "Browse the latest public videos uploaded to Video Hoster. Sort by newest, most liked, or most disliked.",
   alternates: { canonical: absoluteUrl("/") },
   openGraph: {
-    title: "All videos — Denis's videos",
+    title: "All videos — Video Hoster",
     description:
-      "Browse the latest public videos uploaded to Denis's videos.",
+      "Browse the latest public videos uploaded to Video Hoster.",
     url: absoluteUrl("/"),
     type: "website",
   },
@@ -49,7 +49,7 @@ export default async function DashboardPage({
               All videos
             </Heading>
             <Text as="p" color="gray" size="2">
-              Recent uploads from everyone on Denis's videos.
+              Recent uploads from everyone on Video Hoster.
             </Text>
           </div>
           <VideoSortSelect value={sort} />

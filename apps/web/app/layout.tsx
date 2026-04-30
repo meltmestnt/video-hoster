@@ -6,7 +6,7 @@ import { Theme } from "@radix-ui/themes";
 import { Providers } from "./providers";
 import { siteUrl } from "@/lib/site";
 
-const SITE_NAME = "Denis's videos";
+const SITE_NAME = "Video Hoster";
 const SITE_DESCRIPTION =
   "A minimalist video hosting platform — watch and share short videos.";
 

@@ -134,9 +134,9 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
     setRotation(ROTATIONS[(idx + 1) % ROTATIONS.length]);
   };
 
-  // CSS preview of crop+zoom: we render the video at 100% then overlay
-  // a centered window of the right aspect ratio with everything outside
-  // dimmed. The actual encoding still happens via ffmpeg on apply.
+  // CSS preview crop window: aspect ratio only. Zoom is applied as a
+  // transform on the video itself so it doesn't fight a width change here
+  // (which would race the transform's transition and pulse visually).
   const previewBoxStyle = useMemo<React.CSSProperties>(() => {
     if (!sourceW || !sourceH) return {};
     let aspect = sourceW / sourceH;
@@ -146,9 +146,11 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
     }
     return {
       aspectRatio: `${aspect}`,
-      width: zoom > 1 ? `${100 / zoom}%` : "100%",
+      height: "100%",
+      maxWidth: "100%",
+      maxHeight: "100%",
     };
-  }, [sourceW, sourceH, cropAspect, zoom]);
+  }, [sourceW, sourceH, cropAspect]);
 
   const buildEditOptions = (): EditOptions => ({
     trimStart: trimStart > 0 ? trimStart : undefined,
@@ -240,7 +242,6 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
                     objectFit: "cover",
                     transform: `rotate(${rotation}deg) scale(${zoom})`,
                     transformOrigin: "center center",
-                    transition: "transform 200ms ease",
                   }}
                 />
               </Box>

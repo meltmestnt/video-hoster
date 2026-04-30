@@ -10,7 +10,9 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "dev": "nest start --watch",
     "build": "nest build",
@@ -18,10 +20,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.701.0",
+    "@aws-sdk/client-s3": "^3.1040.0",
     "@aws-sdk/client-sesv2": "^3.701.0",
-    "@aws-sdk/lib-storage": "^3.701.0",
-    "@aws-sdk/s3-request-presigner": "^3.701.0",
+    "@aws-sdk/lib-storage": "^3.1040.0",
+    "@aws-sdk/s3-request-presigner": "^3.1040.0",
     "@ffprobe-installer/ffprobe": "^2.1.2",
     "@nestjs/common": "^10.4.13",
     "@nestjs/config": "^3.3.0",

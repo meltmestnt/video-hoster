@@ -51,7 +51,7 @@ export class MailService {
   }
 
   async sendConfirmation(toEmail: string, link: string): Promise<void> {
-    const subject = "Confirm your account on Denis's videos";
+    const subject = "Confirm your account on Video Hoster";
     const html = `<p>Confirm your account by clicking the link below:</p>
 <p><a href="${link}">${link}</a></p>`;
     const text = `Confirm your account by visiting:\n${link}\n`;

@@ -39,8 +39,8 @@ export async function generateMetadata({
     title: `Search${titleSuffix}`,
     description:
       titleBits.length > 0
-        ? `Search results for ${titleBits.join(" and ")} on Denis's videos.`
-        : "Search videos by title or tag on Denis's videos.",
+        ? `Search results for ${titleBits.join(" and ")} on Video Hoster.`
+        : "Search videos by title or tag on Video Hoster.",
     alternates: { canonical: absoluteUrl("/search") },
     robots: indexable
       ? undefined

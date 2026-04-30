@@ -67,7 +67,7 @@ export function TopBar({
       <Flex align="center" justify="between" px="4" py="3" gap="3">
         <Link href="/">
           <Heading size="5" style={{ letterSpacing: "-0.02em" }}>
-            Denis's videos
+            Video Hoster
           </Heading>
         </Link>
         <Box asChild style={{ flex: 1, maxWidth: 520 }}>

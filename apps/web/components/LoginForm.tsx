@@ -49,7 +49,7 @@ export function LoginForm() {
       }}
     >
       <Heading size="6" mb="2">
-        Denis's videos
+        Video Hoster
       </Heading>
       <Text as="p" color="gray" size="2" mb="5">
         Sign in to upload, watch, and discuss videos.
