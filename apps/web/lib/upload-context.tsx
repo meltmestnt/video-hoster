@@ -11,7 +11,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
-import { compressTo480p } from "@/lib/compress-video";
+import { compressTo480p, type EditOptions } from "@/lib/compress-video";
 
 // Cross-tab coordination: while one tab is uploading, every ~HEARTBEAT_MS it
 // broadcasts its activity. Receiving tabs treat any heartbeat seen within
@@ -57,7 +57,11 @@ interface UploadState {
 }
 
 interface UploadContextValue extends UploadState {
-  start: (file: File, meta: UploadMeta) => Promise<void>;
+  start: (
+    file: File,
+    meta: UploadMeta,
+    edit?: EditOptions,
+  ) => Promise<void>;
   reset: () => void;
   dismissSuccess: () => void;
   otherTabUploading: boolean;
@@ -209,7 +213,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
   );
 
   const start = useCallback(
-    async (file: File, meta: UploadMeta) => {
+    async (file: File, meta: UploadMeta, edit?: EditOptions) => {
       if (otherTabUploading) {
         throw new Error(
           "Another tab is already uploading. Wait for that one to finish.",
@@ -242,6 +246,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         try {
           const compressed = await compressTo480p(file, {
             onProgress: (p) => setState((s) => ({ ...s, progress: p })),
+            edit,
           });
           payload = compressed;
           payloadMime = "video/mp4";

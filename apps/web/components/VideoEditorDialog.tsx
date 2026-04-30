@@ -1,0 +1,432 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Box,
+  Button,
+  Dialog,
+  Flex,
+  IconButton,
+  SegmentedControl,
+  Slider,
+  Text,
+} from "@radix-ui/themes";
+import {
+  PauseIcon,
+  PlayIcon,
+  ResetIcon,
+  ReloadIcon,
+} from "@radix-ui/react-icons";
+import {
+  extract,
+  type CropAspect,
+  type EditOptions,
+  type Rotation,
+} from "@/lib/compress-video";
+import { DownloadIcon } from "@radix-ui/react-icons";
+
+interface Props {
+  open: boolean;
+  file: File | null;
+  onCancel: () => void;
+  onApply: (options: EditOptions) => void;
+}
+
+const ROTATIONS: Rotation[] = [0, 90, 180, 270];
+const CROP_ASPECTS: { value: CropAspect; label: string }[] = [
+  { value: "original", label: "Original" },
+  { value: "16:9", label: "16:9" },
+  { value: "4:3", label: "4:3" },
+  { value: "1:1", label: "1:1" },
+];
+
+function format(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
+  const total = Math.floor(seconds);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const url = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
+
+  const [duration, setDuration] = useState(0);
+  const [sourceW, setSourceW] = useState(0);
+  const [sourceH, setSourceH] = useState(0);
+
+  const [trimStart, setTrimStart] = useState(0);
+  const [trimEnd, setTrimEnd] = useState(0);
+  const [rotation, setRotation] = useState<Rotation>(0);
+  const [cropAspect, setCropAspect] = useState<CropAspect>("original");
+  const [zoom, setZoom] = useState(1);
+
+  const [playing, setPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [extractBusy, setExtractBusy] = useState<null | "audio" | "video">(
+    null,
+  );
+  const [extractError, setExtractError] = useState<string | null>(null);
+
+  // Reset on file/open change.
+  useEffect(() => {
+    if (!open) return;
+    setRotation(0);
+    setCropAspect("original");
+    setZoom(1);
+    setTrimStart(0);
+    setTrimEnd(0);
+    setCurrentTime(0);
+    setPlaying(false);
+  }, [open, file]);
+
+  // Cleanup object URL.
+  useEffect(() => {
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [url]);
+
+  const onLoadedMetadata = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    setDuration(v.duration);
+    setTrimEnd(v.duration);
+    setSourceW(v.videoWidth);
+    setSourceH(v.videoHeight);
+  };
+
+  const onTimeUpdate = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    setCurrentTime(v.currentTime);
+    // Loop playback within the trim window.
+    if (v.currentTime > trimEnd) {
+      v.currentTime = trimStart;
+    }
+  };
+
+  const togglePlay = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.paused) {
+      if (v.currentTime < trimStart || v.currentTime > trimEnd) {
+        v.currentTime = trimStart;
+      }
+      v.play();
+      setPlaying(true);
+    } else {
+      v.pause();
+      setPlaying(false);
+    }
+  };
+
+  const seekTo = (t: number) => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.currentTime = t;
+    setCurrentTime(t);
+  };
+
+  const cycleRotation = () => {
+    const idx = ROTATIONS.indexOf(rotation);
+    setRotation(ROTATIONS[(idx + 1) % ROTATIONS.length]);
+  };
+
+  // CSS preview of crop+zoom: we render the video at 100% then overlay
+  // a centered window of the right aspect ratio with everything outside
+  // dimmed. The actual encoding still happens via ffmpeg on apply.
+  const previewBoxStyle = useMemo<React.CSSProperties>(() => {
+    if (!sourceW || !sourceH) return {};
+    let aspect = sourceW / sourceH;
+    if (cropAspect !== "original") {
+      const [a, b] = cropAspect.split(":").map(Number);
+      aspect = a / b;
+    }
+    return {
+      aspectRatio: `${aspect}`,
+      width: zoom > 1 ? `${100 / zoom}%` : "100%",
+    };
+  }, [sourceW, sourceH, cropAspect, zoom]);
+
+  const buildEditOptions = (): EditOptions => ({
+    trimStart: trimStart > 0 ? trimStart : undefined,
+    trimEnd: trimEnd < duration ? trimEnd : undefined,
+    rotation,
+    cropAspect,
+    zoom,
+    sourceWidth: sourceW || undefined,
+    sourceHeight: sourceH || undefined,
+  });
+
+  const apply = () => {
+    onApply(buildEditOptions());
+  };
+
+  const triggerDownload = (blob: Blob, filename: string) => {
+    const href = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = href;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    // Defer revoke so the download has time to start in some browsers.
+    window.setTimeout(() => URL.revokeObjectURL(href), 5_000);
+  };
+
+  const runExtract = async (mode: "audio" | "video") => {
+    if (!file) return;
+    setExtractError(null);
+    setExtractBusy(mode);
+    try {
+      const blob = await extract(mode, file, { edit: buildEditOptions() });
+      const stem =
+        file.name.replace(/\.[^.]+$/, "") +
+        (mode === "audio" ? "-audio" : "-video-only");
+      const ext = mode === "audio" ? "mp3" : "mp4";
+      triggerDownload(blob, `${stem}.${ext}`);
+    } catch (err) {
+      setExtractError((err as Error).message);
+    } finally {
+      setExtractBusy(null);
+    }
+  };
+
+  return (
+    <Dialog.Root open={open} onOpenChange={(o) => !o && onCancel()}>
+      <Dialog.Content maxWidth="720px">
+        <Dialog.Title>Edit video</Dialog.Title>
+        <Dialog.Description size="2" color="gray" mb="4">
+          Trim, rotate, crop, and zoom before uploading.
+        </Dialog.Description>
+
+        {url ? (
+          <Flex direction="column" gap="3">
+            {/* Preview */}
+            <Box
+              style={{
+                position: "relative",
+                background: "black",
+                borderRadius: "var(--radius-3)",
+                overflow: "hidden",
+                aspectRatio: "16 / 9",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Box
+                style={{
+                  position: "relative",
+                  ...previewBoxStyle,
+                  maxWidth: "100%",
+                  maxHeight: "100%",
+                  overflow: "hidden",
+                }}
+              >
+                <video
+                  ref={videoRef}
+                  src={url}
+                  onLoadedMetadata={onLoadedMetadata}
+                  onTimeUpdate={onTimeUpdate}
+                  onEnded={() => setPlaying(false)}
+                  muted
+                  playsInline
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    transform: `rotate(${rotation}deg) scale(${zoom})`,
+                    transformOrigin: "center center",
+                    transition: "transform 200ms ease",
+                  }}
+                />
+              </Box>
+            </Box>
+
+            {/* Transport */}
+            <Flex align="center" gap="3">
+              <IconButton size="2" variant="solid" onClick={togglePlay}>
+                {playing ? <PauseIcon /> : <PlayIcon />}
+              </IconButton>
+              <Text size="1" color="gray" style={{ width: 90 }}>
+                {format(currentTime)} / {format(duration)}
+              </Text>
+              <Box style={{ flex: 1 }}>
+                <Slider
+                  value={[Math.round(currentTime * 1000)]}
+                  min={0}
+                  max={Math.max(1, Math.round(duration * 1000))}
+                  step={1}
+                  onValueChange={(v) => seekTo((v[0] ?? 0) / 1000)}
+                  size="1"
+                  aria-label="Seek"
+                />
+              </Box>
+            </Flex>
+
+            {/* Trim */}
+            <Box>
+              <Flex justify="between" mb="1">
+                <Text size="2" weight="medium">
+                  Trim
+                </Text>
+                <Text size="1" color="gray">
+                  {format(trimStart)} → {format(trimEnd)}
+                </Text>
+              </Flex>
+              <Flex direction="column" gap="2">
+                <Flex align="center" gap="2">
+                  <Text size="1" color="gray" style={{ width: 36 }}>
+                    Start
+                  </Text>
+                  <Box style={{ flex: 1 }}>
+                    <Slider
+                      value={[Math.round(trimStart * 1000)]}
+                      min={0}
+                      max={Math.max(1, Math.round(duration * 1000))}
+                      step={1}
+                      onValueChange={(v) => {
+                        const next = Math.min(
+                          (v[0] ?? 0) / 1000,
+                          Math.max(0, trimEnd - 0.1),
+                        );
+                        setTrimStart(next);
+                        seekTo(next);
+                      }}
+                      size="1"
+                      aria-label="Trim start"
+                    />
+                  </Box>
+                </Flex>
+                <Flex align="center" gap="2">
+                  <Text size="1" color="gray" style={{ width: 36 }}>
+                    End
+                  </Text>
+                  <Box style={{ flex: 1 }}>
+                    <Slider
+                      value={[Math.round(trimEnd * 1000)]}
+                      min={0}
+                      max={Math.max(1, Math.round(duration * 1000))}
+                      step={1}
+                      onValueChange={(v) => {
+                        const next = Math.max(
+                          (v[0] ?? 0) / 1000,
+                          trimStart + 0.1,
+                        );
+                        setTrimEnd(next);
+                        seekTo(next);
+                      }}
+                      size="1"
+                      aria-label="Trim end"
+                    />
+                  </Box>
+                </Flex>
+              </Flex>
+            </Box>
+
+            {/* Rotate */}
+            <Flex align="center" gap="3">
+              <Text size="2" weight="medium" style={{ width: 76 }}>
+                Rotate
+              </Text>
+              <Button variant="soft" onClick={cycleRotation}>
+                <ReloadIcon /> {rotation}°
+              </Button>
+              {rotation !== 0 && (
+                <Button
+                  size="1"
+                  variant="ghost"
+                  color="gray"
+                  onClick={() => setRotation(0)}
+                >
+                  <ResetIcon /> Reset
+                </Button>
+              )}
+            </Flex>
+
+            {/* Crop */}
+            <Flex align="center" gap="3">
+              <Text size="2" weight="medium" style={{ width: 76 }}>
+                Crop
+              </Text>
+              <SegmentedControl.Root
+                value={cropAspect}
+                onValueChange={(v) => setCropAspect(v as CropAspect)}
+              >
+                {CROP_ASPECTS.map((c) => (
+                  <SegmentedControl.Item key={c.value} value={c.value}>
+                    {c.label}
+                  </SegmentedControl.Item>
+                ))}
+              </SegmentedControl.Root>
+            </Flex>
+
+            {/* Zoom */}
+            <Flex align="center" gap="3">
+              <Text size="2" weight="medium" style={{ width: 76 }}>
+                Zoom
+              </Text>
+              <Box style={{ flex: 1 }}>
+                <Slider
+                  value={[Math.round(zoom * 100)]}
+                  min={100}
+                  max={300}
+                  step={5}
+                  onValueChange={(v) => setZoom((v[0] ?? 100) / 100)}
+                  aria-label="Zoom"
+                />
+              </Box>
+              <Text size="1" color="gray" style={{ width: 40 }}>
+                {zoom.toFixed(2)}×
+              </Text>
+            </Flex>
+
+            {/* Export */}
+            <Flex align="center" gap="3" wrap="wrap">
+              <Text size="2" weight="medium" style={{ width: 76 }}>
+                Export
+              </Text>
+              <Button
+                variant="soft"
+                color="gray"
+                onClick={() => runExtract("audio")}
+                disabled={extractBusy !== null}
+              >
+                <DownloadIcon />
+                {extractBusy === "audio" ? "Extracting…" : "Audio (.mp3)"}
+              </Button>
+              <Button
+                variant="soft"
+                color="gray"
+                onClick={() => runExtract("video")}
+                disabled={extractBusy !== null}
+              >
+                <DownloadIcon />
+                {extractBusy === "video" ? "Extracting…" : "Video (no audio)"}
+              </Button>
+            </Flex>
+            {extractError && (
+              <Text size="1" color="red">
+                {extractError}
+              </Text>
+            )}
+          </Flex>
+        ) : (
+          <Text color="gray">No file selected.</Text>
+        )}
+
+        <Flex gap="3" mt="5" justify="end">
+          <Button variant="soft" color="gray" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button onClick={apply} disabled={!file}>
+            Apply &amp; upload
+          </Button>
+        </Flex>
+      </Dialog.Content>
+    </Dialog.Root>
+  );
+}

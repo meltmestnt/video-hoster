@@ -32,12 +32,82 @@ async function getFFmpeg(): Promise<FFmpeg> {
   }
 }
 
+export type Rotation = 0 | 90 | 180 | 270;
+export type CropAspect = "original" | "16:9" | "4:3" | "1:1";
+
+export interface EditOptions {
+  // Inclusive trim range in seconds. Omitted = use full video.
+  trimStart?: number;
+  trimEnd?: number;
+  // Clockwise rotation in 90° steps.
+  rotation?: Rotation;
+  // Center-crop to this aspect ratio.
+  cropAspect?: CropAspect;
+  // Multiplicative center-crop scale (1 = none, 2 = 2× zoom).
+  zoom?: number;
+  // Required when cropAspect != "original" or zoom > 1 — the editor
+  // already loaded these from the <video> element.
+  sourceWidth?: number;
+  sourceHeight?: number;
+}
+
 export interface CompressOptions {
   // Called repeatedly during loading (0..1) and again during the actual
   // transcode (0..1). The phase tells the caller which one.
   onPhase?: (phase: "loading" | "transcoding") => void;
   onProgress?: (ratio: number) => void;
   signal?: AbortSignal;
+  edit?: EditOptions;
+}
+
+function buildVideoFilters(edit: EditOptions | undefined): string {
+  const filters: string[] = [];
+  // Crop first (so rotation operates on the cropped frame).
+  if (
+    edit &&
+    edit.sourceWidth &&
+    edit.sourceHeight &&
+    (edit.cropAspect && edit.cropAspect !== "original" ||
+      (edit.zoom && edit.zoom > 1))
+  ) {
+    const sw = edit.sourceWidth;
+    const sh = edit.sourceHeight;
+    let cw = sw;
+    let ch = sh;
+
+    if (edit.cropAspect && edit.cropAspect !== "original") {
+      const [a, b] = edit.cropAspect.split(":").map(Number);
+      const target = a / b;
+      const source = sw / sh;
+      if (source > target) {
+        ch = sh;
+        cw = Math.round(sh * target);
+      } else {
+        cw = sw;
+        ch = Math.round(sw / target);
+      }
+    }
+    if (edit.zoom && edit.zoom > 1) {
+      cw = Math.round(cw / edit.zoom);
+      ch = Math.round(ch / edit.zoom);
+    }
+    // Round dims to even numbers (libx264 needs that).
+    cw = Math.max(2, cw - (cw % 2));
+    ch = Math.max(2, ch - (ch % 2));
+    const x = Math.round((sw - cw) / 2);
+    const y = Math.round((sh - ch) / 2);
+    filters.push(`crop=${cw}:${ch}:${x}:${y}`);
+  }
+
+  if (edit?.rotation === 90) filters.push("transpose=1");
+  else if (edit?.rotation === 180) filters.push("transpose=2,transpose=2");
+  else if (edit?.rotation === 270) filters.push("transpose=2");
+
+  // Existing 480p downscale + 30fps cap, applied last so any rotation
+  // and crop happens before we resample.
+  filters.push("scale=-2:480");
+  filters.push("fps=30");
+  return filters.join(",");
 }
 
 /**
@@ -75,9 +145,27 @@ export async function compressTo480p(
 
     options.onPhase?.("transcoding");
     options.onProgress?.(0);
-    await ffmpeg.exec([
-      "-i",
-      inputName,
+
+    const args: string[] = [];
+    // Input-level seek for trim start (fast, applied before decode).
+    if (
+      options.edit?.trimStart !== undefined &&
+      options.edit.trimStart > 0
+    ) {
+      args.push("-ss", options.edit.trimStart.toFixed(3));
+    }
+    args.push("-i", inputName);
+    if (
+      options.edit?.trimEnd !== undefined &&
+      options.edit.trimEnd > 0 &&
+      (options.edit.trimStart === undefined ||
+        options.edit.trimEnd > options.edit.trimStart)
+    ) {
+      const startOffset = options.edit?.trimStart ?? 0;
+      // -t expects a duration relative to -ss
+      args.push("-t", (options.edit.trimEnd - startOffset).toFixed(3));
+    }
+    args.push(
       "-c:v",
       "libx264",
       "-preset",
@@ -85,7 +173,7 @@ export async function compressTo480p(
       "-crf",
       "28",
       "-vf",
-      "scale=-2:480,fps=30",
+      buildVideoFilters(options.edit),
       "-c:a",
       "aac",
       "-b:a",
@@ -93,7 +181,9 @@ export async function compressTo480p(
       "-movflags",
       "+faststart",
       outputName,
-    ]);
+    );
+
+    await ffmpeg.exec(args);
     if (options.signal?.aborted) {
       throw new DOMException("Aborted", "AbortError");
     }
@@ -110,6 +200,107 @@ export async function compressTo480p(
   } finally {
     ffmpeg.off("progress", progressHandler);
     // Best-effort cleanup of the virtual FS so memory doesn't pile up.
+    await ffmpeg.deleteFile(inputName).catch(() => {});
+    await ffmpeg.deleteFile(outputName).catch(() => {});
+  }
+}
+
+export type ExtractMode = "audio" | "video";
+
+interface ExtractOptions {
+  onPhase?: (phase: "loading" | "transcoding") => void;
+  onProgress?: (ratio: number) => void;
+  edit?: EditOptions;
+}
+
+/**
+ * Pulls just the audio (mp3) or just the video (silent mp4) out of the
+ * input file, applying the same trim/rotate/crop/zoom edit options as a
+ * regular compress. Returns the result as a Blob — the caller is
+ * responsible for triggering a download.
+ */
+export async function extract(
+  mode: ExtractMode,
+  file: File,
+  options: ExtractOptions = {},
+): Promise<Blob> {
+  options.onPhase?.("loading");
+  const ffmpeg = await getFFmpeg();
+  const inputName = "input";
+  const outputName = mode === "audio" ? "output.mp3" : "output.mp4";
+
+  const progressHandler = ({ progress }: { progress: number }) => {
+    if (Number.isFinite(progress)) {
+      options.onProgress?.(Math.max(0, Math.min(1, progress)));
+    }
+  };
+  ffmpeg.on("progress", progressHandler);
+
+  try {
+    await ffmpeg.writeFile(inputName, await fetchFile(file));
+
+    options.onPhase?.("transcoding");
+    options.onProgress?.(0);
+
+    const args: string[] = [];
+    if (
+      options.edit?.trimStart !== undefined &&
+      options.edit.trimStart > 0
+    ) {
+      args.push("-ss", options.edit.trimStart.toFixed(3));
+    }
+    args.push("-i", inputName);
+    if (
+      options.edit?.trimEnd !== undefined &&
+      options.edit.trimEnd > 0 &&
+      (options.edit.trimStart === undefined ||
+        options.edit.trimEnd > options.edit.trimStart)
+    ) {
+      const startOffset = options.edit?.trimStart ?? 0;
+      args.push("-t", (options.edit.trimEnd - startOffset).toFixed(3));
+    }
+
+    if (mode === "audio") {
+      // Audio only — drop video, encode as MP3 for broad compatibility.
+      args.push(
+        "-vn",
+        "-c:a",
+        "libmp3lame",
+        "-q:a",
+        "4",
+        "-movflags",
+        "+faststart",
+      );
+    } else {
+      // Video only — drop audio, keep our usual H.264 480p preset.
+      args.push(
+        "-an",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "ultrafast",
+        "-crf",
+        "28",
+        "-vf",
+        buildVideoFilters(options.edit),
+        "-movflags",
+        "+faststart",
+      );
+    }
+    args.push(outputName);
+
+    await ffmpeg.exec(args);
+
+    const data = await ffmpeg.readFile(outputName);
+    const view =
+      data instanceof Uint8Array ? data : new TextEncoder().encode(data);
+    const buffer = new ArrayBuffer(view.byteLength);
+    new Uint8Array(buffer).set(view);
+    return new Blob([buffer], {
+      type: mode === "audio" ? "audio/mpeg" : "video/mp4",
+    });
+  } finally {
+    ffmpeg.off("progress", progressHandler);
     await ffmpeg.deleteFile(inputName).catch(() => {});
     await ffmpeg.deleteFile(outputName).catch(() => {});
   }

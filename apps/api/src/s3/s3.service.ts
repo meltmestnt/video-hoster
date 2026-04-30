@@ -31,6 +31,14 @@ export class S3Service {
         accessKeyId: config.getOrThrow<string>("AWS_ACCESS_KEY_ID"),
         secretAccessKey: config.getOrThrow<string>("AWS_SECRET_ACCESS_KEY"),
       },
+      // Since @aws-sdk/client-s3 v3.729 the SDK auto-adds CRC32 checksum
+      // headers to every PutObject, including presigned URLs. Browsers then
+      // send `x-amz-sdk-checksum-algorithm` / `x-amz-checksum-crc32`, which
+      // most existing bucket CORS configs don't allow — preflight fails. We
+      // don't need server-side integrity checks here, so revert to the old
+      // behavior of only sending checksums when AWS requires them.
+      requestChecksumCalculation: "WHEN_REQUIRED",
+      responseChecksumValidation: "WHEN_REQUIRED",
     });
   }
 

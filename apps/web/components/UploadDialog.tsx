@@ -17,6 +17,8 @@ import {
   MAX_VIDEO_GB,
 } from "@repo/shared";
 import { isUploadBusy, useUpload } from "@/lib/upload-context";
+import { VideoEditorDialog } from "./VideoEditorDialog";
+import type { EditOptions } from "@/lib/compress-video";
 
 interface Props {
   open: boolean;
@@ -34,6 +36,7 @@ export function UploadDialog({ open, onOpenChange }: Props) {
   const [visibility, setVisibility] = useState<"public" | "private">("public");
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
 
   useEffect(() => {
     if (!open) {
@@ -43,6 +46,7 @@ export function UploadDialog({ open, onOpenChange }: Props) {
       setVisibility("public");
       setFile(null);
       setError(null);
+      setEditorOpen(false);
     }
   }, [open]);
 
@@ -77,17 +81,29 @@ export function UploadDialog({ open, onOpenChange }: Props) {
     !fileError &&
     title.trim().length >= 1;
 
-  const submit = async () => {
+  // Step 1: clicking Upload opens the editor instead of starting upload.
+  const submit = () => {
     if (!file || !canSubmit) return;
     setError(null);
+    setEditorOpen(true);
+  };
+
+  // Step 2: editor returns edit options (or skipped if cancelled/no edits).
+  const startUploadWithEdits = async (editOptions: EditOptions) => {
+    if (!file) return;
+    setEditorOpen(false);
     try {
-      await upload.start(file, {
-        title: title.trim(),
-        description: description.trim(),
-        tags,
-        mimeType: file.type,
-        visibility,
-      });
+      await upload.start(
+        file,
+        {
+          title: title.trim(),
+          description: description.trim(),
+          tags,
+          mimeType: file.type,
+          visibility,
+        },
+        editOptions,
+      );
       onOpenChange(false);
     } catch (err) {
       setError((err as Error).message);
@@ -201,10 +217,17 @@ export function UploadDialog({ open, onOpenChange }: Props) {
             </Button>
           </Dialog.Close>
           <Button onClick={submit} disabled={!canSubmit}>
-            {busy ? "Uploading..." : "Upload"}
+            {busy ? "Uploading..." : "Continue"}
           </Button>
         </Flex>
       </Dialog.Content>
+
+      <VideoEditorDialog
+        open={editorOpen}
+        file={file}
+        onCancel={() => setEditorOpen(false)}
+        onApply={startUploadWithEdits}
+      />
     </Dialog.Root>
   );
 }
