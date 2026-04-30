@@ -66,6 +66,11 @@ a {
   display: block;
 }
 
+@keyframes previewFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 .player-frame {
   position: relative;
   background: black;

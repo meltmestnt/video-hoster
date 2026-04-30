@@ -25,8 +25,24 @@ export class CommentsService {
     viewerId?: string | null,
     sort: CommentSort = "newest",
   ) {
+    return this.listForSubject({ videoId }, viewerId, sort);
+  }
+
+  async listByGif(
+    gifId: string,
+    viewerId?: string | null,
+    sort: CommentSort = "newest",
+  ) {
+    return this.listForSubject({ gifId }, viewerId, sort);
+  }
+
+  private async listForSubject(
+    where: { videoId: string } | { gifId: string },
+    viewerId: string | null | undefined,
+    sort: CommentSort,
+  ) {
     const items = await this.comments.find({
-      where: { videoId },
+      where,
       order: { createdAt: "ASC" },
     });
 
@@ -59,6 +75,7 @@ export class CommentsService {
       return {
         id: c.id,
         videoId: c.videoId,
+        gifId: c.gifId,
         parentId: c.parentId,
         body: c.body,
         createdAt: c.createdAt,
@@ -96,11 +113,33 @@ export class CommentsService {
     body: string,
     parentId?: string | null,
   ): Promise<Comment> {
+    return this.createForSubject({ videoId }, authorId, body, parentId);
+  }
+
+  async createOnGif(
+    gifId: string,
+    authorId: string,
+    body: string,
+    parentId?: string | null,
+  ): Promise<Comment> {
+    return this.createForSubject({ gifId }, authorId, body, parentId);
+  }
+
+  private async createForSubject(
+    subject: { videoId: string } | { gifId: string },
+    authorId: string,
+    body: string,
+    parentId?: string | null,
+  ): Promise<Comment> {
     if (parentId) {
       const parent = await this.comments.findOne({
         where: { id: parentId },
       });
-      if (!parent || parent.videoId !== videoId) {
+      const sameSubject =
+        "videoId" in subject
+          ? parent?.videoId === subject.videoId
+          : parent?.gifId === subject.gifId;
+      if (!parent || !sameSubject) {
         throw new NotFoundException("Parent comment not found");
       }
       // Flatten — replies always live one level deep, attached to the
@@ -108,7 +147,8 @@ export class CommentsService {
       if (parent.parentId) parentId = parent.parentId;
     }
     const comment = this.comments.create({
-      videoId,
+      videoId: "videoId" in subject ? subject.videoId : null,
+      gifId: "gifId" in subject ? subject.gifId : null,
       authorId,
       body,
       parentId: parentId ?? null,

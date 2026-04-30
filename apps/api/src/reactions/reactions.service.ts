@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { In, Repository } from "typeorm";
 import { ReactionType, VideoReaction } from "./reaction.entity";
 import { CommentReaction } from "./comment-reaction.entity";
+import { GifReaction } from "./gif-reaction.entity";
 
 export interface VideoReactionCounts {
   likes: number;
@@ -16,6 +17,8 @@ export class ReactionsService {
     private readonly reactions: Repository<VideoReaction>,
     @InjectRepository(CommentReaction)
     private readonly commentReactions: Repository<CommentReaction>,
+    @InjectRepository(GifReaction)
+    private readonly gifReactions: Repository<GifReaction>,
   ) {}
 
   async setReaction(videoId: string, userId: string, type: ReactionType) {
@@ -135,5 +138,63 @@ export class ReactionsService {
       where: { userId, commentId: In(commentIds) },
     });
     return new Map(rows.map((r) => [r.commentId, r.type]));
+  }
+
+  async setGifReaction(gifId: string, userId: string, type: ReactionType) {
+    const existing = await this.gifReactions.findOne({
+      where: { gifId, userId },
+    });
+    if (existing) {
+      if (existing.type === type) {
+        await this.gifReactions.delete({ id: existing.id });
+        return { reaction: null as ReactionType | null };
+      }
+      existing.type = type;
+      await this.gifReactions.save(existing);
+      return { reaction: type };
+    }
+    await this.gifReactions.save(
+      this.gifReactions.create({ gifId, userId, type }),
+    );
+    return { reaction: type };
+  }
+
+  async gifCountsFor(
+    gifIds: string[],
+  ): Promise<Map<string, VideoReactionCounts>> {
+    const map = new Map<string, VideoReactionCounts>();
+    if (gifIds.length === 0) return map;
+    for (const id of gifIds) map.set(id, { likes: 0, dislikes: 0 });
+
+    const rows: Array<{ gifId: string; type: string; count: string }> =
+      await this.gifReactions
+        .createQueryBuilder("r")
+        .select("r.gifId", "gifId")
+        .addSelect("r.type", "type")
+        .addSelect("COUNT(*)", "count")
+        .where("r.gifId IN (:...ids)", { ids: gifIds })
+        .groupBy("r.gifId")
+        .addGroupBy("r.type")
+        .getRawMany();
+
+    for (const row of rows) {
+      const entry = map.get(row.gifId);
+      if (!entry) continue;
+      const n = Number(row.count);
+      if (row.type === "like") entry.likes = n;
+      else if (row.type === "dislike") entry.dislikes = n;
+    }
+    return map;
+  }
+
+  async viewerGifReactionsFor(
+    gifIds: string[],
+    userId: string,
+  ): Promise<Map<string, ReactionType>> {
+    if (gifIds.length === 0) return new Map();
+    const rows = await this.gifReactions.find({
+      where: { userId, gifId: In(gifIds) },
+    });
+    return new Map(rows.map((r) => [r.gifId, r.type]));
   }
 }

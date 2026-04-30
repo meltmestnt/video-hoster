@@ -522,7 +522,12 @@ export class VideosService {
     return Promise.all(
       videos.map(async (v) => {
         const key = keyByVideo.get(v.id) ?? null;
-        const thumbnailUrl = key ? await this.s3.presignGet(key) : null;
+        const [thumbnailUrl, videoUrl] = await Promise.all([
+          key ? this.s3.presignGet(key) : Promise.resolve(null),
+          v.status === "ready" && v.s3Key
+            ? this.s3.presignGet(v.s3Key)
+            : Promise.resolve(null),
+        ]);
         const c = counts.get(v.id) ?? { likes: 0, dislikes: 0 };
         return {
           id: v.id,
@@ -540,6 +545,7 @@ export class VideosService {
           },
           tags: v.tags.map((t) => ({ id: t.id, name: t.name })),
           thumbnailUrl,
+          videoUrl,
           likeCount: c.likes,
           dislikeCount: c.dislikes,
           viewerReaction: viewerReactions.get(v.id) ?? null,

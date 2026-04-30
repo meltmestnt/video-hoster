@@ -17,8 +17,10 @@ import {
   MAX_VIDEO_GB,
 } from "@repo/shared";
 import { isUploadBusy, useUpload } from "@/lib/upload-context";
-import { VideoEditorDialog } from "./VideoEditorDialog";
-import type { EditOptions } from "@/lib/compress-video";
+import {
+  VideoEditorDialog,
+  type EditorOutput,
+} from "./VideoEditorDialog";
 
 interface Props {
   open: boolean;
@@ -88,22 +90,36 @@ export function UploadDialog({ open, onOpenChange }: Props) {
     setEditorOpen(true);
   };
 
-  // Step 2: editor returns edit options (or skipped if cancelled/no edits).
-  const startUploadWithEdits = async (editOptions: EditOptions) => {
+  // Step 2: editor returns either an edit options bundle (video) or a
+  // pre-built gif blob.
+  const startUploadFromEditor = async (output: EditorOutput) => {
     if (!file) return;
     setEditorOpen(false);
     try {
-      await upload.start(
-        file,
-        {
-          title: title.trim(),
-          description: description.trim(),
-          tags,
-          mimeType: file.type,
-          visibility,
-        },
-        editOptions,
-      );
+      if (output.kind === "video") {
+        await upload.start(
+          file,
+          {
+            title: title.trim(),
+            description: description.trim(),
+            tags,
+            mimeType: file.type,
+            visibility,
+          },
+          output.edit,
+        );
+      } else {
+        await upload.startGif(
+          output.blob,
+          {
+            title: title.trim(),
+            description: description.trim(),
+            tags,
+            visibility,
+          },
+          output.durationSeconds,
+        );
+      }
       onOpenChange(false);
     } catch (err) {
       setError((err as Error).message);
@@ -226,7 +242,7 @@ export function UploadDialog({ open, onOpenChange }: Props) {
         open={editorOpen}
         file={file}
         onCancel={() => setEditorOpen(false)}
-        onApply={startUploadWithEdits}
+        onApply={startUploadFromEditor}
       />
     </Dialog.Root>
   );

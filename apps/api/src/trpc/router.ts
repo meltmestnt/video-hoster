@@ -13,8 +13,16 @@ import {
   listVideosInputSchema,
   reactToCommentInputSchema,
   reactToVideoInputSchema,
+  reactToGifInputSchema,
   searchVideosInputSchema,
+  searchGifsInputSchema,
   setMiniPlayerPreferenceInputSchema,
+  createGifUploadInputSchema,
+  finalizeGifUploadInputSchema,
+  gifIdInputSchema,
+  listGifsInputSchema,
+  createGifCommentInputSchema,
+  listGifCommentsInputSchema,
   signInInputSchema,
   signUpInputSchema,
   tagSearchInputSchema,
@@ -174,6 +182,83 @@ export const appRouter = router({
       ),
   }),
 
+  gifs: router({
+    list: publicProcedure
+      .input(listGifsInputSchema)
+      .query(({ ctx, input }) =>
+        ctx.services.gifs.list({ ...input, viewerId: ctx.user?.id ?? null }),
+      ),
+
+    search: publicProcedure
+      .input(searchGifsInputSchema)
+      .query(({ ctx, input }) =>
+        ctx.services.gifs.search({ ...input, viewerId: ctx.user?.id ?? null }),
+      ),
+
+    byId: publicProcedure
+      .input(gifIdInputSchema)
+      .query(({ ctx, input }) =>
+        ctx.services.gifs.byId(input.id, ctx.user?.id ?? null),
+      ),
+
+    suggested: publicProcedure
+      .input(
+        gifIdInputSchema.extend({
+          limit: z.number().int().min(1).max(20).default(10),
+        }),
+      )
+      .query(({ ctx, input }) =>
+        ctx.services.gifs.suggested(
+          input.id,
+          input.limit,
+          ctx.user?.id ?? null,
+        ),
+      ),
+
+    createUpload: verifiedProcedure
+      .input(createGifUploadInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.gifs.createUpload({
+          ownerId: ctx.user.id,
+          title: input.title,
+          description: input.description,
+          sizeBytes: input.sizeBytes,
+          durationSeconds: input.durationSeconds,
+          tagNames: input.tags,
+          visibility: input.visibility,
+        }),
+      ),
+
+    finalizeUpload: verifiedProcedure
+      .input(finalizeGifUploadInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.gifs.finalizeUpload({
+          gifId: input.gifId,
+          ownerId: ctx.user.id,
+        }),
+      ),
+
+    delete: protectedProcedure
+      .input(gifIdInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.gifs.deleteGif(input.id, ctx.user.id),
+      ),
+
+    react: protectedProcedure
+      .input(reactToGifInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.reactions.setGifReaction(
+          input.gifId,
+          ctx.user.id,
+          input.type,
+        ),
+      ),
+
+    sitemap: publicProcedure.query(({ ctx }) =>
+      ctx.services.gifs.listPublicForSitemap(),
+    ),
+  }),
+
   comments: router({
     listByVideo: publicProcedure
       .input(listCommentsInputSchema)
@@ -182,6 +267,27 @@ export const appRouter = router({
           input.id,
           ctx.user?.id ?? null,
           input.sort,
+        ),
+      ),
+
+    listByGif: publicProcedure
+      .input(listGifCommentsInputSchema)
+      .query(({ ctx, input }) =>
+        ctx.services.comments.listByGif(
+          input.id,
+          ctx.user?.id ?? null,
+          input.sort,
+        ),
+      ),
+
+    createOnGif: protectedProcedure
+      .input(createGifCommentInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.comments.createOnGif(
+          input.gifId,
+          ctx.user.id,
+          input.body,
+          input.parentId ?? null,
         ),
       ),
 

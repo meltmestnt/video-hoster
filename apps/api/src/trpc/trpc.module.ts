@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { UsersModule } from "../users/users.module";
 import { VideosModule } from "../videos/videos.module";
+import { GifsModule } from "../gifs/gifs.module";
 import { TagsModule } from "../tags/tags.module";
 import { CommentsModule } from "../comments/comments.module";
 import { ReactionsModule } from "../reactions/reactions.module";
@@ -13,6 +14,7 @@ import { TrpcService } from "./trpc.service";
   imports: [
     UsersModule,
     VideosModule,
+    GifsModule,
     TagsModule,
     CommentsModule,
     ReactionsModule,

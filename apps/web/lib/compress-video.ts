@@ -45,10 +45,32 @@ export interface EditOptions {
   cropAspect?: CropAspect;
   // Multiplicative center-crop scale (1 = none, 2 = 2× zoom).
   zoom?: number;
+  // Playback rate multiplier. 1 = normal, 0.5 = half speed, 2 = double.
+  // Applied via setpts (video) and atempo (audio); range clamped to
+  // [0.5, 4] in the editor since atempo only supports 0.5–100.
+  playbackRate?: number;
   // Required when cropAspect != "original" or zoom > 1 — the editor
   // already loaded these from the <video> element.
   sourceWidth?: number;
   sourceHeight?: number;
+}
+
+// Builds an atempo filter chain that supports rates outside atempo's per-stage
+// 0.5–100 limit by chaining multiple filters together.
+function atempoChain(rate: number): string {
+  if (rate <= 0 || rate === 1) return "";
+  const filters: string[] = [];
+  let r = rate;
+  while (r < 0.5) {
+    filters.push("atempo=0.5");
+    r /= 0.5;
+  }
+  while (r > 2) {
+    filters.push("atempo=2.0");
+    r /= 2;
+  }
+  filters.push(`atempo=${r.toFixed(3)}`);
+  return filters.join(",");
 }
 
 export interface CompressOptions {
@@ -102,6 +124,12 @@ function buildVideoFilters(edit: EditOptions | undefined): string {
   if (edit?.rotation === 90) filters.push("transpose=1");
   else if (edit?.rotation === 180) filters.push("transpose=2,transpose=2");
   else if (edit?.rotation === 270) filters.push("transpose=2");
+
+  // Speed change before resampling — we want fps=30 to apply to the new
+  // (sped-up or slowed-down) timeline.
+  if (edit?.playbackRate && edit.playbackRate !== 1 && edit.playbackRate > 0) {
+    filters.push(`setpts=${(1 / edit.playbackRate).toFixed(4)}*PTS`);
+  }
 
   // Existing 480p downscale + 30fps cap, applied last so any rotation
   // and crop happens before we resample.
@@ -178,10 +206,14 @@ export async function compressTo480p(
       "aac",
       "-b:a",
       "128k",
-      "-movflags",
-      "+faststart",
-      outputName,
     );
+    const audioTempo = options.edit?.playbackRate
+      ? atempoChain(options.edit.playbackRate)
+      : "";
+    if (audioTempo) {
+      args.push("-af", audioTempo);
+    }
+    args.push("-movflags", "+faststart", outputName);
 
     await ffmpeg.exec(args);
     if (options.signal?.aborted) {
@@ -271,6 +303,10 @@ export async function extract(
         "-movflags",
         "+faststart",
       );
+      const audioTempo = options.edit?.playbackRate
+        ? atempoChain(options.edit.playbackRate)
+        : "";
+      if (audioTempo) args.push("-af", audioTempo);
     } else {
       // Video only — drop audio, keep our usual H.264 480p preset.
       args.push(
@@ -299,6 +335,136 @@ export async function extract(
     return new Blob([buffer], {
       type: mode === "audio" ? "audio/mpeg" : "video/mp4",
     });
+  } finally {
+    ffmpeg.off("progress", progressHandler);
+    await ffmpeg.deleteFile(inputName).catch(() => {});
+    await ffmpeg.deleteFile(outputName).catch(() => {});
+  }
+}
+
+interface GifOptions {
+  onPhase?: (phase: "loading" | "transcoding") => void;
+  onProgress?: (ratio: number) => void;
+  edit?: EditOptions;
+  // Render width in pixels. Smaller = much smaller file. Default 480 keeps
+  // detail without bloating size.
+  width?: number;
+  // Output framerate. GIFs lock at fixed fps; lower = smaller file. 12 is a
+  // reasonable balance.
+  fps?: number;
+}
+
+/**
+ * Re-encodes the input file into an animated GIF, applying any trim/rotate/
+ * crop/zoom in the same pass. Uses ffmpeg's two-step palettegen/paletteuse
+ * for noticeably better quality than the naive single-filter approach.
+ */
+export async function convertToGif(
+  file: File,
+  options: GifOptions = {},
+): Promise<Blob> {
+  options.onPhase?.("loading");
+  const ffmpeg = await getFFmpeg();
+
+  const inputName = "input";
+  const outputName = "output.gif";
+  const width = options.width ?? 480;
+  const fps = options.fps ?? 12;
+
+  const progressHandler = ({ progress }: { progress: number }) => {
+    if (Number.isFinite(progress)) {
+      options.onProgress?.(Math.max(0, Math.min(1, progress)));
+    }
+  };
+  ffmpeg.on("progress", progressHandler);
+
+  try {
+    await ffmpeg.writeFile(inputName, await fetchFile(file));
+
+    options.onPhase?.("transcoding");
+    options.onProgress?.(0);
+
+    // Compose a filter that applies crop -> rotate -> scale -> fps in one
+    // pass, then runs palette generation in-line via filter_complex split.
+    const editFilters: string[] = [];
+    if (
+      options.edit &&
+      options.edit.sourceWidth &&
+      options.edit.sourceHeight &&
+      ((options.edit.cropAspect && options.edit.cropAspect !== "original") ||
+        (options.edit.zoom && options.edit.zoom > 1))
+    ) {
+      const sw = options.edit.sourceWidth;
+      const sh = options.edit.sourceHeight;
+      let cw = sw;
+      let ch = sh;
+      if (options.edit.cropAspect && options.edit.cropAspect !== "original") {
+        const [a, b] = options.edit.cropAspect.split(":").map(Number);
+        const target = a / b;
+        const source = sw / sh;
+        if (source > target) {
+          ch = sh;
+          cw = Math.round(sh * target);
+        } else {
+          cw = sw;
+          ch = Math.round(sw / target);
+        }
+      }
+      if (options.edit.zoom && options.edit.zoom > 1) {
+        cw = Math.round(cw / options.edit.zoom);
+        ch = Math.round(ch / options.edit.zoom);
+      }
+      cw = Math.max(2, cw - (cw % 2));
+      ch = Math.max(2, ch - (ch % 2));
+      const x = Math.round((sw - cw) / 2);
+      const y = Math.round((sh - ch) / 2);
+      editFilters.push(`crop=${cw}:${ch}:${x}:${y}`);
+    }
+    if (options.edit?.rotation === 90) editFilters.push("transpose=1");
+    else if (options.edit?.rotation === 180)
+      editFilters.push("transpose=2,transpose=2");
+    else if (options.edit?.rotation === 270) editFilters.push("transpose=2");
+
+    if (
+      options.edit?.playbackRate &&
+      options.edit.playbackRate !== 1 &&
+      options.edit.playbackRate > 0
+    ) {
+      editFilters.push(`setpts=${(1 / options.edit.playbackRate).toFixed(4)}*PTS`);
+    }
+
+    editFilters.push(`fps=${fps}`);
+    editFilters.push(`scale=${width}:-1:flags=lanczos`);
+
+    const filterComplex =
+      `[0:v] ${editFilters.join(",")},split [a][b];` +
+      `[a] palettegen=stats_mode=diff [p];` +
+      `[b][p] paletteuse=dither=bayer:bayer_scale=5`;
+
+    const args: string[] = [];
+    if (options.edit?.trimStart && options.edit.trimStart > 0) {
+      args.push("-ss", options.edit.trimStart.toFixed(3));
+    }
+    args.push("-i", inputName);
+    if (
+      options.edit?.trimEnd !== undefined &&
+      options.edit.trimEnd > 0 &&
+      (options.edit.trimStart === undefined ||
+        options.edit.trimEnd > options.edit.trimStart)
+    ) {
+      const startOffset = options.edit?.trimStart ?? 0;
+      args.push("-t", (options.edit.trimEnd - startOffset).toFixed(3));
+    }
+    args.push("-filter_complex", filterComplex, "-loop", "0", outputName);
+
+    await ffmpeg.exec(args);
+
+    const data = await ffmpeg.readFile(outputName);
+    const view =
+      data instanceof Uint8Array ? data : new TextEncoder().encode(data);
+    const buffer = new ArrayBuffer(view.byteLength);
+    new Uint8Array(buffer).set(view);
+    return new Blob([buffer], { type: "image/gif" });
   } finally {
     ffmpeg.off("progress", progressHandler);
     await ffmpeg.deleteFile(inputName).catch(() => {});

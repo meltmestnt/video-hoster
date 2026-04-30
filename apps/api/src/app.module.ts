@@ -5,6 +5,7 @@ import { AuthModule } from "./auth/auth.module";
 import { S3Module } from "./s3/s3.module";
 import { UsersModule } from "./users/users.module";
 import { VideosModule } from "./videos/videos.module";
+import { GifsModule } from "./gifs/gifs.module";
 import { TagsModule } from "./tags/tags.module";
 import { CommentsModule } from "./comments/comments.module";
 import { ReactionsModule } from "./reactions/reactions.module";
@@ -20,6 +21,7 @@ import { TrpcModule } from "./trpc/trpc.module";
     S3Module,
     UsersModule,
     VideosModule,
+    GifsModule,
     TagsModule,
     CommentsModule,
     ReactionsModule,

@@ -5,6 +5,7 @@ dist
 .next
 out
 coverage
+*.tsbuildinfo
 
 # env
 .env

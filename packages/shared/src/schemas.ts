@@ -66,6 +66,53 @@ export const reactToVideoInputSchema = z.object({
 });
 export type ReactToVideoInput = z.infer<typeof reactToVideoInputSchema>;
 
+export const MAX_GIF_BYTES = 20 * 1024 * 1024;
+export const MAX_GIF_DURATION_SECONDS = 20;
+
+export const createGifUploadInputSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  description: z.string().trim().max(5000).default(""),
+  tags: z.array(tagNameSchema).max(20).default([]),
+  sizeBytes: z.number().int().positive().max(MAX_GIF_BYTES, {
+    message: `GIF exceeds ${MAX_GIF_BYTES} byte limit (20 MB)`,
+  }),
+  durationSeconds: z
+    .number()
+    .positive()
+    .max(MAX_GIF_DURATION_SECONDS + 0.5),
+  visibility: videoVisibilitySchema.default("public"),
+});
+export type CreateGifUploadInput = z.infer<typeof createGifUploadInputSchema>;
+
+export const finalizeGifUploadInputSchema = z.object({
+  gifId: z.string().uuid(),
+});
+export type FinalizeGifUploadInput = z.infer<typeof finalizeGifUploadInputSchema>;
+
+export const gifIdInputSchema = z.object({ id: z.string().uuid() });
+
+export const reactToGifInputSchema = z.object({
+  gifId: z.string().uuid(),
+  type: z.enum(["like", "dislike"]),
+});
+export type ReactToGifInput = z.infer<typeof reactToGifInputSchema>;
+
+export const listGifsInputSchema = z.object({
+  cursor: z.string().uuid().optional(),
+  limit: z.number().int().min(1).max(50).default(24),
+  sort: videoSortSchema,
+});
+
+export const searchGifsInputSchema = z.object({
+  q: z.string().trim().max(200).default(""),
+  tag: z.string().trim().max(32).default(""),
+  cursor: z.string().uuid().optional(),
+  limit: z.number().int().min(1).max(50).default(24),
+  sort: videoSortSchema,
+});
+export type SearchGifsInput = z.infer<typeof searchGifsInputSchema>;
+
+
 export const commentSortSchema = z
   .enum(["newest", "mostLiked", "mostDisliked"])
   .default("newest");
@@ -158,3 +205,15 @@ export const finalizeAvatarUploadInputSchema = z.object({
 export type FinalizeAvatarUploadInput = z.infer<
   typeof finalizeAvatarUploadInputSchema
 >;
+
+export const createGifCommentInputSchema = z.object({
+  gifId: z.string().uuid(),
+  body: z.string().trim().min(1).max(2000),
+  parentId: z.string().uuid().optional(),
+});
+export type CreateGifCommentInput = z.infer<typeof createGifCommentInputSchema>;
+
+export const listGifCommentsInputSchema = z.object({
+  id: z.string().uuid(),
+  sort: commentSortSchema,
+});

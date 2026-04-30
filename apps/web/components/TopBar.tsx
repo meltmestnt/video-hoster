@@ -2,7 +2,7 @@
 
 import { Box, Button, Flex, Heading, TextField, Tooltip } from "@radix-ui/themes";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useUpload, isUploadBusy } from "@/lib/upload-context";
 import { useRequireAuth } from "@/lib/auth-required";
@@ -70,6 +70,7 @@ export function TopBar({
             Video Hoster
           </Heading>
         </Link>
+        <TopBarNav />
         <Box asChild style={{ flex: 1, maxWidth: 520 }}>
           <form onSubmit={submitSearch} role="search">
             <TextField.Root
@@ -137,5 +138,48 @@ export function TopBar({
         </>
       )}
     </Box>
+  );
+}
+
+const NAV_ITEMS = [
+  { href: "/", label: "All", match: (p: string) => p === "/" },
+  {
+    href: "/videos",
+    label: "Videos",
+    match: (p: string) => p === "/videos" || p.startsWith("/videos/"),
+  },
+  {
+    href: "/gifs",
+    label: "GIFs",
+    match: (p: string) => p === "/gifs" || p.startsWith("/gifs/"),
+  },
+];
+
+function TopBarNav() {
+  const pathname = usePathname() ?? "/";
+  return (
+    <Flex gap="1" align="center">
+      {NAV_ITEMS.map((item) => {
+        const active = item.match(pathname);
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            aria-current={active ? "page" : undefined}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 8,
+              fontSize: 14,
+              fontWeight: 500,
+              color: active ? "var(--gray-12)" : "var(--gray-11)",
+              background: active ? "var(--gray-4)" : "transparent",
+              transition: "background 120ms ease, color 120ms ease",
+            }}
+          >
+            {item.label}
+          </Link>
+        );
+      })}
+    </Flex>
   );
 }

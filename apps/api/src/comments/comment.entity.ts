@@ -10,19 +10,30 @@ import {
 } from "typeorm";
 import { User } from "../users/user.entity";
 import { Video } from "../videos/video.entity";
+import { Gif } from "../gifs/gif.entity";
 
+// Comments live on either a video OR a gif. Exactly one of the two FKs
+// is set on each row; the application layer enforces that invariant.
 @Entity("comments")
 export class Comment {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
   @Index()
-  @Column({ type: "uuid" })
-  videoId: string;
+  @Column({ type: "uuid", nullable: true })
+  videoId: string | null;
 
-  @ManyToOne(() => Video, { onDelete: "CASCADE" })
+  @ManyToOne(() => Video, { onDelete: "CASCADE", nullable: true })
   @JoinColumn({ name: "videoId" })
-  video: Video;
+  video: Video | null;
+
+  @Index()
+  @Column({ type: "uuid", nullable: true })
+  gifId: string | null;
+
+  @ManyToOne(() => Gif, { onDelete: "CASCADE", nullable: true })
+  @JoinColumn({ name: "gifId" })
+  gif: Gif | null;
 
   @Index()
   @Column({ type: "uuid", nullable: true })

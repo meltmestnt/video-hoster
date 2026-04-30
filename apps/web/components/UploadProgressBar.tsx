@@ -9,8 +9,8 @@ export function UploadProgressBar() {
 
   if (upload.status === "error") {
     return (
-      <Box style={{ padding: "8px 16px", background: "var(--red-3)" }}>
-        <Text size="2" color="red">
+      <Box style={{ padding: "8px 16px", background: "var(--crimson-3)" }}>
+        <Text size="2" style={{ color: "var(--crimson-11)" }}>
           Upload failed: {upload.errorMessage ?? "unknown error"}
         </Text>
       </Box>

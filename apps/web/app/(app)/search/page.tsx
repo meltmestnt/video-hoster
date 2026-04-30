@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Badge, Flex, Heading, Text } from "@radix-ui/themes";
 import { getServerTrpc } from "@/lib/trpc-server";
 import { VideoCard } from "@/components/VideoCard";
+import { GifCard } from "@/components/GifCard";
 import { VideoSortSelect } from "@/components/VideoSortSelect";
 import type { VideoSort } from "@repo/shared";
 import { absoluteUrl } from "@/lib/site";
@@ -57,17 +58,28 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
   const trpc = await getServerTrpc();
 
-  const result =
+  const [videoResult, gifResult] = await Promise.all([
     trimmedQ || trimmedTag
-      ? await trpc.videos.search.query({
+      ? trpc.videos.search.query({
           q: trimmedQ,
           tag: trimmedTag,
           limit: 48,
           sort,
         })
-      : { items: [], nextCursor: null };
+      : Promise.resolve({ items: [], nextCursor: null }),
+    trimmedQ || trimmedTag
+      ? trpc.gifs.search.query({
+          q: trimmedQ,
+          tag: trimmedTag,
+          limit: 48,
+          sort,
+        })
+      : Promise.resolve({ items: [], nextCursor: null }),
+  ]);
 
-  const items = result.items;
+  const videoItems = videoResult.items;
+  const gifItems = gifResult.items;
+  const totalItems = videoItems.length + gifItems.length;
 
   return (
     <>
@@ -100,7 +112,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         </Flex>
       </div>
 
-      {(trimmedQ || trimmedTag) && items.length === 0 && (
+      {(trimmedQ || trimmedTag) && totalItems === 0 && (
         <Flex
           align="center"
           justify="center"
@@ -111,14 +123,21 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             border: "1px dashed var(--gray-5)",
           }}
         >
-          <Text color="gray">No videos match your search.</Text>
+          <Text color="gray">Nothing matches your search.</Text>
         </Flex>
       )}
 
-      {items.length > 0 && (
+      {totalItems > 0 && (
         <div className="dashboard-grid">
-          {items.map((v, i) => (
-            <VideoCard key={v.id} video={v} index={i} />
+          {videoItems.map((v, i) => (
+            <VideoCard key={`v-${v.id}`} video={v} index={i} />
+          ))}
+          {gifItems.map((g, i) => (
+            <GifCard
+              key={`g-${g.id}`}
+              gif={g}
+              index={videoItems.length + i}
+            />
           ))}
         </div>
       )}

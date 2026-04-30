@@ -9,8 +9,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const trpc = await getServerTrpc();
 
   let videos: Array<{ id: string; createdAt: string | Date }> = [];
+  let gifs: Array<{ id: string; createdAt: string | Date }> = [];
   try {
-    videos = await trpc.videos.sitemap.query();
+    [videos, gifs] = await Promise.all([
+      trpc.videos.sitemap.query(),
+      trpc.gifs.sitemap.query(),
+    ]);
   } catch {
     // If the API is briefly unavailable, ship the static entries rather
     // than a 500 — Google will retry the sitemap.
@@ -30,6 +34,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily",
       priority: 0.5,
     },
+    {
+      url: absoluteUrl("/videos"),
+      lastModified: now,
+      changeFrequency: "hourly",
+      priority: 0.9,
+    },
+    {
+      url: absoluteUrl("/gifs"),
+      lastModified: now,
+      changeFrequency: "hourly",
+      priority: 0.9,
+    },
   ];
 
   const videoEntries: MetadataRoute.Sitemap = videos.map((v) => ({
@@ -39,5 +55,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }));
 
-  return [...staticEntries, ...videoEntries];
+  const gifEntries: MetadataRoute.Sitemap = gifs.map((g) => ({
+    url: absoluteUrl(`/gifs/${g.id}`),
+    lastModified: new Date(g.createdAt),
+    changeFrequency: "weekly",
+    priority: 0.7,
+  }));
+
+  return [...staticEntries, ...videoEntries, ...gifEntries];
 }

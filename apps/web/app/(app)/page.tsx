@@ -9,14 +9,14 @@ import { absoluteUrl } from "@/lib/site";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "All videos",
+  title: "All",
   description:
-    "Browse the latest public videos uploaded to Video Hoster. Sort by newest, most liked, or most disliked.",
+    "Browse the latest public videos and GIFs uploaded to Video Hoster. Sort by newest, most liked, or most disliked.",
   alternates: { canonical: absoluteUrl("/") },
   openGraph: {
-    title: "All videos — Video Hoster",
+    title: "All — Video Hoster",
     description:
-      "Browse the latest public videos uploaded to Video Hoster.",
+      "Browse the latest public videos and GIFs uploaded to Video Hoster.",
     url: absoluteUrl("/"),
     type: "website",
   },
@@ -38,7 +38,10 @@ export default async function DashboardPage({
   const sort = normalizeSort(sortRaw);
 
   const trpc = await getServerTrpc();
-  const initial = await trpc.videos.list.query({ limit: 24, sort });
+  const [initial, initialGifs] = await Promise.all([
+    trpc.videos.list.query({ limit: 24, sort }),
+    trpc.gifs.list.query({ limit: 24, sort }),
+  ]);
 
   return (
     <>
@@ -46,16 +49,16 @@ export default async function DashboardPage({
         <Flex align="end" justify="between" gap="3" wrap="wrap" mb="5">
           <div>
             <Heading size="6" mb="1">
-              All videos
+              All
             </Heading>
             <Text as="p" color="gray" size="2">
-              Recent uploads from everyone on Video Hoster.
+              Recent videos and GIFs from everyone on Video Hoster.
             </Text>
           </div>
           <VideoSortSelect value={sort} />
         </Flex>
       </div>
-      <Dashboard initial={initial} sort={sort} />
+      <Dashboard initial={initial} initialGifs={initialGifs} sort={sort} />
     </>
   );
 }

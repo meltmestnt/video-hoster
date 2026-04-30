@@ -62,6 +62,12 @@ interface UploadContextValue extends UploadState {
     meta: UploadMeta,
     edit?: EditOptions,
   ) => Promise<void>;
+  startGif: (
+    blob: Blob,
+    meta: Omit<UploadMeta, "mimeType">,
+    durationSeconds: number,
+    fileNameHint?: string,
+  ) => Promise<void>;
   reset: () => void;
   dismissSuccess: () => void;
   otherTabUploading: boolean;
@@ -85,6 +91,8 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
   const utils = trpc.useUtils();
   const createUpload = trpc.videos.createUpload.useMutation();
   const finalizeUpload = trpc.videos.finalizeUpload.useMutation();
+  const createGifUpload = trpc.gifs.createUpload.useMutation();
+  const finalizeGifUpload = trpc.gifs.finalizeUpload.useMutation();
 
   // Cross-tab coordination state.
   const tabIdRef = useRef<string>("");
@@ -314,9 +322,93 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     ],
   );
 
+  const startGif = useCallback(
+    async (
+      blob: Blob,
+      meta: Omit<UploadMeta, "mimeType">,
+      durationSeconds: number,
+      fileNameHint?: string,
+    ) => {
+      if (otherTabUploading) {
+        throw new Error(
+          "Another tab is already uploading. Wait for that one to finish.",
+        );
+      }
+      setState((s) => ({
+        status: "preparing",
+        fileName: fileNameHint ?? `${meta.title}.gif`,
+        videoId: null,
+        progress: 0,
+        errorMessage: null,
+        lastSuccess: s.lastSuccess,
+      }));
+      startHeartbeat();
+      try {
+        const created = await createGifUpload.mutateAsync({
+          title: meta.title,
+          description: meta.description,
+          tags: meta.tags,
+          sizeBytes: blob.size,
+          durationSeconds,
+          visibility: meta.visibility,
+        });
+
+        setState((s) => ({
+          ...s,
+          status: "uploading",
+          videoId: created.gifId,
+        }));
+
+        await putToS3(created.uploadUrl, blob, "image/gif", (p) =>
+          setState((s) => ({ ...s, progress: p })),
+        );
+
+        setState((s) => ({ ...s, status: "finalizing", progress: 1 }));
+        await finalizeGifUpload.mutateAsync({ gifId: created.gifId });
+
+        await Promise.all([
+          utils.videos.list.invalidate(),
+          utils.gifs.list.invalidate(),
+        ]);
+        router.refresh();
+        setState({
+          ...initialState,
+          lastSuccess: { videoId: created.gifId, title: meta.title },
+        });
+      } catch (err) {
+        setState((s) => ({
+          ...s,
+          status: "error",
+          errorMessage: (err as Error).message,
+        }));
+      } finally {
+        xhrRef.current = null;
+        stopHeartbeat();
+      }
+    },
+    [
+      createGifUpload,
+      finalizeGifUpload,
+      putToS3,
+      router,
+      utils.videos.list,
+      utils.gifs.list,
+      otherTabUploading,
+      startHeartbeat,
+      stopHeartbeat,
+    ],
+  );
+
   const value = useMemo<UploadContextValue>(
-    () => ({ ...state, start, reset, dismissSuccess, otherTabUploading }),
-    [state, start, reset, dismissSuccess, otherTabUploading],
+    () => ({
+      ...state,
+      start,
+      startGif,
+      reset,
+      dismissSuccess,
+      otherTabUploading,
+    }),
+    [state, start, startGif, reset, dismissSuccess, otherTabUploading],
   );
 
   return (

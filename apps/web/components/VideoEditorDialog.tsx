@@ -18,18 +18,28 @@ import {
   ReloadIcon,
 } from "@radix-ui/react-icons";
 import {
+  convertToGif,
   extract,
   type CropAspect,
   type EditOptions,
   type Rotation,
 } from "@/lib/compress-video";
 import { DownloadIcon } from "@radix-ui/react-icons";
+import { Callout } from "@radix-ui/themes";
+import {
+  MAX_GIF_BYTES,
+  MAX_GIF_DURATION_SECONDS,
+} from "@repo/shared";
+
+export type EditorOutput =
+  | { kind: "video"; edit: EditOptions }
+  | { kind: "gif"; blob: Blob; durationSeconds: number };
 
 interface Props {
   open: boolean;
   file: File | null;
   onCancel: () => void;
-  onApply: (options: EditOptions) => void;
+  onApply: (output: EditorOutput) => void;
 }
 
 const ROTATIONS: Rotation[] = [0, 90, 180, 270];
@@ -69,6 +79,13 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
   );
   const [extractError, setExtractError] = useState<string | null>(null);
 
+  const [outputKind, setOutputKind] = useState<"video" | "gif">("video");
+  const [gifBusy, setGifBusy] = useState(false);
+  const [gifProgress, setGifProgress] = useState(0);
+  const [gifError, setGifError] = useState<string | null>(null);
+
+  const [playbackRate, setPlaybackRate] = useState(1);
+
   // Reset on file/open change.
   useEffect(() => {
     if (!open) return;
@@ -79,7 +96,22 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
     setTrimEnd(0);
     setCurrentTime(0);
     setPlaying(false);
+    setOutputKind("video");
+    setGifError(null);
+    setGifProgress(0);
   }, [open, file]);
+
+  // For GIFs the API caps duration at 20s — auto-clamp the trim window when
+  // the user switches to gif mode so they can see the limit immediately.
+  useEffect(() => {
+    if (outputKind !== "gif") return;
+    if (trimEnd - trimStart > MAX_GIF_DURATION_SECONDS) {
+      setTrimEnd(
+        Math.min(duration, trimStart + MAX_GIF_DURATION_SECONDS),
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [outputKind]);
 
   // Cleanup object URL.
   useEffect(() => {
@@ -162,8 +194,40 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
     sourceHeight: sourceH || undefined,
   });
 
-  const apply = () => {
-    onApply(buildEditOptions());
+  const apply = async () => {
+    if (outputKind === "video") {
+      onApply({ kind: "video", edit: buildEditOptions() });
+      return;
+    }
+
+    // GIF path: convert in-browser before handing off to upload.
+    if (!file) return;
+    setGifError(null);
+    setGifBusy(true);
+    setGifProgress(0);
+    try {
+      const trimmedDuration =
+        (trimEnd > 0 ? trimEnd : duration) - trimStart;
+      if (trimmedDuration > MAX_GIF_DURATION_SECONDS + 0.5) {
+        throw new Error(
+          `GIFs can't be longer than ${MAX_GIF_DURATION_SECONDS}s. Trim it down first.`,
+        );
+      }
+      const blob = await convertToGif(file, {
+        edit: buildEditOptions(),
+        onProgress: setGifProgress,
+      });
+      if (blob.size > MAX_GIF_BYTES) {
+        throw new Error(
+          `Generated GIF is ${(blob.size / 1024 ** 2).toFixed(1)} MB — over the ${(MAX_GIF_BYTES / 1024 ** 2).toFixed(0)} MB limit. Trim more or lower the resolution.`,
+        );
+      }
+      onApply({ kind: "gif", blob, durationSeconds: trimmedDuration });
+    } catch (err) {
+      setGifError((err as Error).message);
+    } finally {
+      setGifBusy(false);
+    }
   };
 
   const triggerDownload = (blob: Blob, filename: string) => {
@@ -201,8 +265,23 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
       <Dialog.Content maxWidth="720px">
         <Dialog.Title>Edit video</Dialog.Title>
         <Dialog.Description size="2" color="gray" mb="4">
-          Trim, rotate, crop, and zoom before uploading.
+          Trim, rotate, crop, and zoom before uploading. You can also turn
+          the clip into an animated GIF (max {MAX_GIF_DURATION_SECONDS}s,{" "}
+          {Math.round(MAX_GIF_BYTES / 1024 / 1024)} MB).
         </Dialog.Description>
+
+        <Flex align="center" gap="3" mb="3">
+          <Text size="2" weight="medium" style={{ width: 76 }}>
+            Output
+          </Text>
+          <SegmentedControl.Root
+            value={outputKind}
+            onValueChange={(v) => setOutputKind(v as "video" | "gif")}
+          >
+            <SegmentedControl.Item value="video">Video</SegmentedControl.Item>
+            <SegmentedControl.Item value="gif">GIF</SegmentedControl.Item>
+          </SegmentedControl.Root>
+        </Flex>
 
         {url ? (
           <Flex direction="column" gap="3">
@@ -419,12 +498,34 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
           <Text color="gray">No file selected.</Text>
         )}
 
+        {gifError && (
+          <Callout.Root color="red" mt="3">
+            <Callout.Text>{gifError}</Callout.Text>
+          </Callout.Root>
+        )}
+        {gifBusy && (
+          <Callout.Root color="iris" mt="3">
+            <Callout.Text>
+              Building GIF… {Math.round(gifProgress * 100)}%
+            </Callout.Text>
+          </Callout.Root>
+        )}
+
         <Flex gap="3" mt="5" justify="end">
-          <Button variant="soft" color="gray" onClick={onCancel}>
+          <Button
+            variant="soft"
+            color="gray"
+            onClick={onCancel}
+            disabled={gifBusy}
+          >
             Cancel
           </Button>
-          <Button onClick={apply} disabled={!file}>
-            Apply &amp; upload
+          <Button onClick={apply} disabled={!file || gifBusy}>
+            {outputKind === "gif"
+              ? gifBusy
+                ? "Converting…"
+                : "Convert & upload GIF"
+              : "Apply & upload"}
           </Button>
         </Flex>
       </Dialog.Content>

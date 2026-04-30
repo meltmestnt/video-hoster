@@ -9,10 +9,13 @@ interface VideoCardData {
   id: string;
   title: string;
   thumbnailUrl: string | null;
+  videoUrl: string | null;
   visibility: "public" | "private";
   owner: { name: string; avatarUrl: string | null };
   tags: { id: string; name: string }[];
 }
+
+const PREVIEW_DELAY_MS = 1000;
 
 const MORPH_MS = 300;
 const MORPH_EASING = "cubic-bezier(0.32, 0.72, 0, 1)";
@@ -82,11 +85,42 @@ export function VideoCard({
   const href = `/videos/${video.id}`;
   const thumbRef = useRef<HTMLDivElement | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
+  const previewTimerRef = useRef<number | null>(null);
   const [thumbLoaded, setThumbLoaded] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
 
   useEffect(() => {
     router.prefetch(href);
   }, [router, href]);
+
+  useEffect(
+    () => () => {
+      if (previewTimerRef.current !== null) {
+        window.clearTimeout(previewTimerRef.current);
+      }
+    },
+    [],
+  );
+
+  const cancelPreview = () => {
+    if (previewTimerRef.current !== null) {
+      window.clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = null;
+    }
+    setPreviewing(false);
+  };
+
+  const onMouseEnter = () => {
+    if (!video.videoUrl) return;
+    if (document.body.dataset.morphing) return;
+    if (previewTimerRef.current !== null) {
+      window.clearTimeout(previewTimerRef.current);
+    }
+    previewTimerRef.current = window.setTimeout(() => {
+      previewTimerRef.current = null;
+      setPreviewing(true);
+    }, PREVIEW_DELAY_MS);
+  };
 
   useEffect(() => {
     const img = imgRef.current;
@@ -215,6 +249,8 @@ export function VideoCard({
     <a
       href={href}
       onClick={navigate}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={cancelPreview}
       className="video-card"
       aria-label={video.title}
       style={{ ["--card-index" as string]: index }}
@@ -248,6 +284,22 @@ export function VideoCard({
                 No thumbnail
               </Text>
             </Flex>
+          )}
+          {previewing && video.videoUrl && (
+            <video
+              src={video.videoUrl}
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="auto"
+              style={{
+                position: "absolute",
+                inset: 0,
+                opacity: 1,
+                animation: "previewFadeIn 200ms ease forwards",
+              }}
+            />
           )}
         </div>
         <Box p="3">

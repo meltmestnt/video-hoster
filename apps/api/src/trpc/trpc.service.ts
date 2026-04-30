@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
 import { UsersService } from "../users/users.service";
 import { VideosService } from "../videos/videos.service";
+import { GifsService } from "../gifs/gifs.service";
 import { TagsService } from "../tags/tags.service";
 import { CommentsService } from "../comments/comments.service";
 import { ReactionsService } from "../reactions/reactions.service";
@@ -18,6 +19,7 @@ export class TrpcService {
   constructor(
     private readonly users: UsersService,
     private readonly videos: VideosService,
+    private readonly gifs: GifsService,
     private readonly tags: TagsService,
     private readonly comments: CommentsService,
     private readonly reactions: ReactionsService,
@@ -32,6 +34,7 @@ export class TrpcService {
     const services = {
       users: this.users,
       videos: this.videos,
+      gifs: this.gifs,
       tags: this.tags,
       comments: this.comments,
       reactions: this.reactions,

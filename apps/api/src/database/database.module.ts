@@ -8,7 +8,9 @@ import { Comment } from "../comments/comment.entity";
 import { Thumbnail } from "../thumbnails/thumbnail.entity";
 import { VideoReaction } from "../reactions/reaction.entity";
 import { CommentReaction } from "../reactions/comment-reaction.entity";
+import { GifReaction } from "../reactions/gif-reaction.entity";
 import { VideoFavorite } from "../favorites/favorite.entity";
+import { Gif } from "../gifs/gif.entity";
 
 @Module({
   imports: [
@@ -30,7 +32,9 @@ import { VideoFavorite } from "../favorites/favorite.entity";
           Thumbnail,
           VideoReaction,
           CommentReaction,
+          GifReaction,
           VideoFavorite,
+          Gif,
         ],
         synchronize: true,
         logging: ["error", "warn"],
