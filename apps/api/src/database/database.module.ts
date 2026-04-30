@@ -1,0 +1,41 @@
+import { Module } from "@nestjs/common";
+import { ConfigModule, ConfigService } from "@nestjs/config";
+import { TypeOrmModule } from "@nestjs/typeorm";
+import { User } from "../users/user.entity";
+import { Video } from "../videos/video.entity";
+import { Tag } from "../tags/tag.entity";
+import { Comment } from "../comments/comment.entity";
+import { Thumbnail } from "../thumbnails/thumbnail.entity";
+import { VideoReaction } from "../reactions/reaction.entity";
+import { CommentReaction } from "../reactions/comment-reaction.entity";
+import { VideoFavorite } from "../favorites/favorite.entity";
+
+@Module({
+  imports: [
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        type: "postgres",
+        url: config.get<string>("DATABASE_URL"),
+        ssl:
+          config.get<string>("DATABASE_SSL") === "true"
+            ? { rejectUnauthorized: false }
+            : false,
+        entities: [
+          User,
+          Video,
+          Tag,
+          Comment,
+          Thumbnail,
+          VideoReaction,
+          CommentReaction,
+          VideoFavorite,
+        ],
+        synchronize: true,
+        logging: ["error", "warn"],
+      }),
+    }),
+  ],
+})
+export class DatabaseModule {}
