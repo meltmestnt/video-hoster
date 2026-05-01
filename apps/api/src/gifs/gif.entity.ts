@@ -47,6 +47,14 @@ export class Gif {
   @Column()
   s3Key: string;
 
+  // MP4 transcode of the GIF, generated on upload and used by the
+  // Telegram inline-query handler (InlineQueryResultMpeg4Gif). Telegram
+  // silently drops gif inline results > 1 MB, while mpeg4_gif accepts
+  // the much smaller H.264-encoded version. Nullable because old rows
+  // pre-date the column and lazy-backfill on demand.
+  @Column({ type: "text", nullable: true })
+  mp4S3Key: string | null;
+
   @Column({ type: "bigint", nullable: true, transformer: bigintToNumber })
   sizeBytes: number | null;
 

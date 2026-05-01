@@ -19,6 +19,7 @@ export type MediaKind =
   | "video"
   | "thumbnail"
   | "gif"
+  | "mpeg4"
   | "screenshot"
   | "avatar"
   | "audio";
@@ -27,6 +28,7 @@ const KINDS: ReadonlySet<MediaKind> = new Set([
   "video",
   "thumbnail",
   "gif",
+  "mpeg4",
   "screenshot",
   "avatar",
   "audio",
@@ -60,6 +62,7 @@ export const CACHEABLE_MAX_AGE_SECONDS = 50 * 60;
 
 const CACHEABLE_KINDS: ReadonlySet<MediaKind> = new Set([
   "gif",
+  "mpeg4",
   "screenshot",
   "thumbnail",
   "avatar",
@@ -173,6 +176,13 @@ export class MediaService {
           select: ["id", "s3Key", "status"],
         });
         return g?.status === "ready" && g.s3Key ? g.s3Key : null;
+      }
+      case "mpeg4": {
+        const g = await this.gifs.findOne({
+          where: { id },
+          select: ["id", "mp4S3Key", "status"],
+        });
+        return g?.status === "ready" && g.mp4S3Key ? g.mp4S3Key : null;
       }
       case "screenshot": {
         const s = await this.screenshots.findOne({

@@ -187,7 +187,10 @@ export class MediaController {
     // are gated. Known social-platform scrapers and proxies bypass too,
     // so links keep unfurling on Discord/Slack/Twitter/Telegram/etc.
     const isCostHeavy =
-      kindParam === "video" || kindParam === "gif" || kindParam === "audio";
+      kindParam === "video" ||
+      kindParam === "gif" ||
+      kindParam === "mpeg4" ||
+      kindParam === "audio";
     if (
       isCostHeavy &&
       !this.isKnownScraperUa(ua) &&
