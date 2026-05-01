@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Badge, Box, Card, Flex, Text } from "@radix-ui/themes";
-import { useRequireAuth } from "@/lib/auth-required";
 import { morphToPlayer } from "@/lib/morph-to-player";
 import { useT } from "@/lib/i18n";
 
@@ -24,7 +23,6 @@ export function GifCard({
   index?: number;
 }) {
   const router = useRouter();
-  const requireAuth = useRequireAuth();
   const t = useT();
   const href = `/gifs/${gif.id}`;
   const thumbRef = useRef<HTMLDivElement | null>(null);
@@ -63,10 +61,8 @@ export function GifCard({
 
   const navigate = (e: React.MouseEvent) => {
     if (e.metaKey || e.ctrlKey || e.button === 1) return;
-    if (!requireAuth()) {
-      e.preventDefault();
-      return;
-    }
+    // Anon viewers are welcome on /gifs/[id] — the detail page renders
+    // for them and the API enforces its own daily-views cap.
     const thumb = thumbRef.current;
     if (!thumb) return; // let the <a> navigate normally
     e.preventDefault();

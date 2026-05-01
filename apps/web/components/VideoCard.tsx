@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Badge, Box, Card, Flex, Text } from "@radix-ui/themes";
-import { useRequireAuth } from "@/lib/auth-required";
 import { useT } from "@/lib/i18n";
 
 interface VideoCardData {
@@ -83,7 +82,6 @@ export function VideoCard({
   index?: number;
 }) {
   const router = useRouter();
-  const requireAuth = useRequireAuth();
   const { status: authStatus } = useSession();
   const signedIn = authStatus === "authenticated";
   const t = useT();
@@ -140,10 +138,9 @@ export function VideoCard({
 
   const navigate = (e: React.MouseEvent) => {
     if (e.metaKey || e.ctrlKey || e.button === 1) return;
-    if (!requireAuth()) {
-      e.preventDefault();
-      return;
-    }
+    // Anon viewers are welcome on /videos/[id] — the detail page enforces
+    // its own preview cap and sign-in CTA. Letting the click through here
+    // means they actually reach the page they tried to open.
     const thumb = thumbRef.current;
     const dest = thumb ? computePlayerRect() : null;
     if (!thumb || !dest) return; // let the <a> navigate normally
@@ -360,7 +357,6 @@ export function VideoCard({
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      if (!requireAuth()) return;
                       router.push(
                         `/search?tag=${encodeURIComponent(t.name)}`,
                       );
@@ -369,7 +365,6 @@ export function VideoCard({
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
                         e.stopPropagation();
-                        if (!requireAuth()) return;
                         router.push(
                           `/search?tag=${encodeURIComponent(t.name)}`,
                         );
