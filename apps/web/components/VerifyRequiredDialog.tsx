@@ -51,7 +51,11 @@ export function VerifyRequiredProvider({
   const value = useMemo<ContextValue>(() => ({ show }), [show]);
 
   const titleKey =
-    open?.reason === "unapproved" ? "unapproved.popup.title" : "verify.popup.title";
+    open?.reason === "unapproved"
+      ? "unapproved.popup.title"
+      : open?.kind === "action"
+        ? "verify.popup.title.action"
+        : "verify.popup.title";
   const bodyKey = !open
     ? null
     : open.reason === "unapproved"

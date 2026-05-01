@@ -630,6 +630,7 @@ export const uk: EnDict = {
 
   // ─── Verify-required popup ───
   "verify.popup.title": "Підтвердьте пошту, щоб завантажувати більше",
+  "verify.popup.title.action": "Підтвердьте пошту, щоб брати участь",
   "verify.popup.body.video":
     "Без підтвердженої пошти можна завантажити лише 1 відео. Підтвердьте адресу, щоб завантажувати більше.",
   "verify.popup.body.gif":

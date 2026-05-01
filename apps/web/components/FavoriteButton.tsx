@@ -25,7 +25,7 @@ export function FavoriteButton({ videoId, initial }: Props) {
     },
     onError: (err, _vars, ctx) => {
       if (ctx) setFavorited(ctx.previous);
-      ensureVerified.handleError(err, "video");
+      ensureVerified.handleError(err, "action");
     },
     onSuccess: ({ favorited: server }) => {
       setFavorited(server);
@@ -37,7 +37,7 @@ export function FavoriteButton({ videoId, initial }: Props) {
   });
 
   const onClick = () => {
-    if (!ensureVerified.ensure("video")) return;
+    if (!ensureVerified.ensure("action")) return;
     toggle.mutate({ videoId });
   };
 

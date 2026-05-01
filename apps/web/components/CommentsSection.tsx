@@ -85,14 +85,14 @@ export function CommentsSection({ videoId, initial }: Props) {
   const total = items.length;
 
   const submitTopLevel = async () => {
-    if (!ensureVerified.ensure("video")) return;
+    if (!ensureVerified.ensure("action")) return;
     const trimmed = body.trim();
     if (!trimmed) return;
     try {
       await create.mutateAsync({ videoId, body: trimmed });
       setBody("");
     } catch (err) {
-      ensureVerified.handleError(err, "video");
+      ensureVerified.handleError(err, "action");
     }
   };
 
@@ -167,12 +167,12 @@ export function CommentsSection({ videoId, initial }: Props) {
             myId={myId}
             isReplying={replyTo === c.id}
             onStartReply={() => {
-              if (!ensureVerified.ensure("video")) return;
+              if (!ensureVerified.ensure("action")) return;
               setReplyTo(c.id);
             }}
             onCancelReply={() => setReplyTo(null)}
             onSubmitReply={async (text) => {
-              if (!ensureVerified.ensure("video")) return;
+              if (!ensureVerified.ensure("action")) return;
               try {
                 await create.mutateAsync({
                   videoId,
@@ -181,7 +181,7 @@ export function CommentsSection({ videoId, initial }: Props) {
                 });
                 setReplyTo(null);
               } catch (err) {
-                ensureVerified.handleError(err, "video");
+                ensureVerified.handleError(err, "action");
               }
             }}
             replyPending={create.isPending}
@@ -575,7 +575,7 @@ function CommentReactionButtons({
   const react = trpc.comments.react.useMutation();
 
   const click = async (next: "like" | "dislike") => {
-    if (!ensureVerified.ensure("video")) return;
+    if (!ensureVerified.ensure("action")) return;
     if (react.isPending) return;
 
     const prev = reaction;
@@ -611,7 +611,7 @@ function CommentReactionButtons({
       setLikes(likes);
       setDislikes(dislikes);
       setReaction(prev);
-      ensureVerified.handleError(err, "video");
+      ensureVerified.handleError(err, "action");
     }
   };
 

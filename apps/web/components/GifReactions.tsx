@@ -29,7 +29,7 @@ export function GifReactions({
   const react = trpc.gifs.react.useMutation();
 
   const click = async (next: "like" | "dislike") => {
-    if (!ensureVerified.ensure("gif")) return;
+    if (!ensureVerified.ensure("action")) return;
     if (react.isPending) return;
 
     const prev = reaction;
@@ -63,7 +63,7 @@ export function GifReactions({
       setLikes(likes);
       setDislikes(dislikes);
       setReaction(prev);
-      ensureVerified.handleError(err, "gif");
+      ensureVerified.handleError(err, "action");
     }
   };
 

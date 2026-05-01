@@ -50,14 +50,14 @@ export function GifCommentsSection({ gifId, initial }: Props) {
   const roots = items.filter((c) => !c.parentId);
 
   const submit = async () => {
-    if (!ensureVerified.ensure("gif")) return;
+    if (!ensureVerified.ensure("action")) return;
     const trimmed = body.trim();
     if (!trimmed) return;
     try {
       await create.mutateAsync({ gifId, body: trimmed });
       setBody("");
     } catch (err) {
-      ensureVerified.handleError(err, "gif");
+      ensureVerified.handleError(err, "action");
     }
   };
 
@@ -133,7 +133,7 @@ function CommentRow({
   const react = trpc.comments.react.useMutation();
 
   const click = async (next: "like" | "dislike") => {
-    if (!ensureVerified.ensure("gif")) return;
+    if (!ensureVerified.ensure("action")) return;
     const prev = reaction;
     let oLikes = likes;
     let oDislikes = dislikes;
@@ -167,7 +167,7 @@ function CommentRow({
       setLikes(likes);
       setDislikes(dislikes);
       setReaction(prev);
-      ensureVerified.handleError(err, "gif");
+      ensureVerified.handleError(err, "action");
     }
   };
 

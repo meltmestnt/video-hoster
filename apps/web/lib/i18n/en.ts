@@ -614,6 +614,7 @@ export const en = {
 
   // ─── Verify-required popup ───
   "verify.popup.title": "Verify your email to keep uploading",
+  "verify.popup.title.action": "Verify your email to participate",
   "verify.popup.body.video":
     "Unverified accounts can upload up to 1 video. Confirm your email to upload more.",
   "verify.popup.body.gif":

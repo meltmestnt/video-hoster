@@ -29,7 +29,7 @@ export function VideoReactions({
   const react = trpc.videos.react.useMutation();
 
   const click = async (next: "like" | "dislike") => {
-    if (!ensureVerified.ensure("video")) return;
+    if (!ensureVerified.ensure("action")) return;
     if (react.isPending) return;
 
     const prev = reaction;
@@ -68,7 +68,7 @@ export function VideoReactions({
       setLikes(likes);
       setDislikes(dislikes);
       setReaction(prev);
-      ensureVerified.handleError(err, "video");
+      ensureVerified.handleError(err, "action");
     }
   };
 
