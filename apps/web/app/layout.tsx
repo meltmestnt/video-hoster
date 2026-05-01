@@ -10,6 +10,15 @@ const SITE_NAME = "vids&gifs";
 const SITE_DESCRIPTION =
   "Upload, share, and discover short videos, GIFs, and screenshots.";
 
+// Search engine site-verification tokens. Each platform issues a unique
+// string when you add the property — paste the bare code (no surrounding
+// quotes, no <meta> tag) into the matching env var and the framework will
+// emit the verification meta tag on every page. Leave unset until you have
+// the code from the platform.
+const GOOGLE_SITE_VERIFICATION = process.env.GOOGLE_SITE_VERIFICATION;
+const BING_SITE_VERIFICATION = process.env.BING_SITE_VERIFICATION;
+const YANDEX_SITE_VERIFICATION = process.env.YANDEX_SITE_VERIFICATION;
+
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl()),
   title: {
@@ -41,6 +50,17 @@ export const metadata: Metadata = {
       "max-image-preview": "large",
       "max-snippet": -1,
     },
+  },
+  verification: {
+    ...(GOOGLE_SITE_VERIFICATION
+      ? { google: GOOGLE_SITE_VERIFICATION }
+      : {}),
+    ...(YANDEX_SITE_VERIFICATION
+      ? { yandex: YANDEX_SITE_VERIFICATION }
+      : {}),
+    ...(BING_SITE_VERIFICATION
+      ? { other: { "msvalidate.01": BING_SITE_VERIFICATION } }
+      : {}),
   },
 };
 
