@@ -38,7 +38,7 @@ export const UNAPPROVED_LIMIT_ERROR_PREFIX = "UNAPPROVED_LIMIT:";
 // long video isn't punished. The server emits an error with the prefix
 // below so the SSR page can swap in a "sign up to keep watching" CTA
 // instead of a generic notFound.
-export const ANON_DAILY_VIEW_LIMIT = 15;
+export const ANON_DAILY_VIEW_LIMIT = 50;
 export const ANON_VIEW_LIMIT_ERROR_PREFIX = "ANON_VIEW_LIMIT:";
 
 // Per-IP egress cap on the /media/ streaming endpoint over a rolling 24h
