@@ -15,6 +15,13 @@ import { useLocale, useSetLocale, useT } from "@/lib/i18n";
 import { PushToggleRow } from "./UserMenu";
 import { TelegramConnectRow } from "./TelegramConnectRow";
 
+interface Props {
+  /** SSR-resolved miniPlayerEnabled so the toggle's first render
+   *  doesn't flash to the default before the client-side query lands. */
+  initialMiniPlayerEnabled: boolean;
+  initialNotifySubscribersOnUpload: boolean;
+}
+
 /**
  * Standalone settings surface mirroring the rows inside the user popover.
  * The popover is the quick-access surface; this page is the long-form
@@ -22,7 +29,10 @@ import { TelegramConnectRow } from "./TelegramConnectRow";
  * autocomplete / linked-from emails. Kept identical row-for-row so users
  * don't see contradictory state between the two.
  */
-export function SettingsForm() {
+export function SettingsForm({
+  initialMiniPlayerEnabled,
+  initialNotifySubscribersOnUpload,
+}: Props) {
   const t = useT();
   const utils = trpc.useUtils();
   const me = trpc.auth.me.useQuery();
@@ -42,15 +52,16 @@ export function SettingsForm() {
   const liveMini = me.data?.miniPlayerEnabled;
   const liveNotify = me.data?.notifySubscribersOnUpload;
 
-  // Local mirrors so the toggle gives instant feedback while the mutation
-  // is in flight; we revert on error to keep the UI honest. Initialize
-  // to the server value when known, otherwise true (mini-player default
-  // that ships with new accounts).
-  const [miniLocal, setMiniLocal] = useState<boolean>(liveMini ?? true);
-  const [notifyLocal, setNotifyLocal] = useState<boolean>(liveNotify ?? true);
-  // Only sync from the server value when the server *actually* gave us
-  // one. Skipping the sync on undefined preserves whatever the user just
-  // toggled while a refetch is in flight.
+  // Initialize from the SSR-resolved props so the toggle starts with the
+  // right value on the first render — no flashing to a default while the
+  // client query catches up.
+  const [miniLocal, setMiniLocal] = useState<boolean>(initialMiniPlayerEnabled);
+  const [notifyLocal, setNotifyLocal] = useState<boolean>(
+    initialNotifySubscribersOnUpload,
+  );
+  // Once the live query lands with a known value, sync local state to
+  // it — but never sync from undefined (which would flip a toggle to
+  // its useState default mid-refetch).
   useEffect(() => {
     if (liveMini !== undefined) setMiniLocal(liveMini);
   }, [liveMini]);

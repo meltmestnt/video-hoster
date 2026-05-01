@@ -146,6 +146,11 @@ export class UsersService implements OnModuleInit {
       { miniPlayerEnabled: enabled, miniPlayerPromptSeen: true },
     );
     if (!result.affected) throw new NotFoundException("User not found");
+    // Surface in Railway logs so a "switch reverts on reload" report
+    // can be confirmed against the actual DB write.
+    this.logger.log(
+      `users.setMiniPlayerPreference userId=${userId} enabled=${enabled}`,
+    );
     return { miniPlayerEnabled: enabled, miniPlayerPromptSeen: true };
   }
 
