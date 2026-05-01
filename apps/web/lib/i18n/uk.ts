@@ -175,6 +175,7 @@ export const uk: EnDict = {
   "settings.subtitle":
     "Налаштуйте поведінку vids&gifs для вашого акаунту. Ті самі опції є в меню користувача.",
   "user.profile.viewProfile": "Мій профіль",
+  "user.profile.settings": "Налаштування",
   "user.profile.favorites": "Обране",
   "user.profile.subscriptions": "Підписки",
   "user.profile.signOut": "Вийти",

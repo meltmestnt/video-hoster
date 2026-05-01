@@ -9,7 +9,6 @@ import {
   Callout,
   Flex,
   Popover,
-  SegmentedControl,
   Switch,
   Text,
 } from "@radix-ui/themes";
@@ -17,14 +16,13 @@ import { signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { PersonIcon, StarIcon } from "@radix-ui/react-icons";
+import { GearIcon, PersonIcon, StarIcon } from "@radix-ui/react-icons";
 import { trpc } from "@/lib/trpc";
-import { useLocale, useSetLocale, useT } from "@/lib/i18n";
+import { useT } from "@/lib/i18n";
 import { usePushSubscription } from "@/lib/push";
 import { AvatarUploadPane } from "./AvatarUploadPane";
 import { AvatarEditPane } from "./AvatarEditPane";
 import { Morph } from "./Morph";
-import { TelegramConnectRow } from "./TelegramConnectRow";
 
 type View = "profile" | "upload" | "edit";
 
@@ -221,33 +219,10 @@ function ProfilePane({
   isAdmin,
   onChangeAvatar,
 }: ProfilePaneProps) {
-  const utils = trpc.useUtils();
   const t = useT();
-  const locale = useLocale();
-  const setLocale = useSetLocale();
-  // The prop is from a server-rendered layout that doesn't re-fetch on every
-  // navigation, so it can drift after a mutation. Treat the client-side
-  // `auth.me` query as the source of truth and fall back to the prop only
-  // until the query resolves.
+  // Drives the conditional admin/billing buttons; same source of truth
+  // the rest of the menu used before the toggle rows moved to /settings.
   const me = trpc.auth.me.useQuery();
-  const liveEnabled = me.data?.miniPlayerEnabled ?? miniPlayerEnabled;
-  const [enabled, setEnabled] = useState(liveEnabled);
-  useEffect(() => {
-    setEnabled(liveEnabled);
-  }, [liveEnabled]);
-
-  const setPref = trpc.users.setMiniPlayerPreference.useMutation({
-    onSuccess: () => utils.auth.me.invalidate(),
-  });
-
-  const liveNotifySubs = me.data?.notifySubscribersOnUpload ?? true;
-  const [notifySubs, setNotifySubs] = useState(liveNotifySubs);
-  useEffect(() => {
-    setNotifySubs(liveNotifySubs);
-  }, [liveNotifySubs]);
-  const setNotifyPref = trpc.users.setNotifySubscribersOnUpload.useMutation({
-    onSuccess: () => utils.auth.me.invalidate(),
-  });
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -344,67 +319,6 @@ function ProfilePane({
           {videoCount}
         </Text>
       </Flex>
-      <Flex justify="between" align="center" px="1" gap="3">
-        <Box style={{ minWidth: 0 }}>
-          <Text as="div" size="2" color="gray">
-            {t("user.profile.miniPlayer.label")}
-          </Text>
-          <Text as="div" size="1" color="gray">
-            {t("user.profile.miniPlayer.hint")}
-          </Text>
-        </Box>
-        <Switch
-          checked={enabled}
-          disabled={setPref.isPending}
-          onCheckedChange={(checked) => {
-            const prev = enabled;
-            setEnabled(checked);
-            setPref.mutate(
-              { enabled: checked },
-              { onError: () => setEnabled(prev) },
-            );
-          }}
-          aria-label={t("user.profile.miniPlayer.toggleAria")}
-        />
-      </Flex>
-      <Flex justify="between" align="center" px="1" gap="3">
-        <Box style={{ minWidth: 0 }}>
-          <Text as="div" size="2" color="gray">
-            {t("user.profile.notifySubs.label")}
-          </Text>
-          <Text as="div" size="1" color="gray">
-            {t("user.profile.notifySubs.hint")}
-          </Text>
-        </Box>
-        <Switch
-          checked={notifySubs}
-          disabled={setNotifyPref.isPending}
-          onCheckedChange={(checked) => {
-            const prev = notifySubs;
-            setNotifySubs(checked);
-            setNotifyPref.mutate(
-              { enabled: checked },
-              { onError: () => setNotifySubs(prev) },
-            );
-          }}
-          aria-label={t("user.profile.notifySubs.toggleAria")}
-        />
-      </Flex>
-      <PushToggleRow />
-      <TelegramConnectRow />
-      <Flex justify="between" align="center" px="1" gap="3">
-        <Text size="2" color="gray">
-          {t("user.profile.language")}
-        </Text>
-        <SegmentedControl.Root
-          size="1"
-          value={locale}
-          onValueChange={(v) => setLocale(v === "uk" ? "uk" : "en")}
-        >
-          <SegmentedControl.Item value="en">EN</SegmentedControl.Item>
-          <SegmentedControl.Item value="uk">UK</SegmentedControl.Item>
-        </SegmentedControl.Root>
-      </Flex>
       <Box
         style={{
           height: 1,
@@ -423,6 +337,14 @@ function ProfilePane({
             </Link>
           </Button>
         )}
+        {/* All preferences (mini-player, push, notifications, telegram,
+            language) live on /settings now — surface that as a single
+            entry point rather than duplicating each row inline. */}
+        <Button asChild variant="soft" color="gray">
+          <Link href="/settings">
+            <GearIcon /> {t("user.profile.settings")}
+          </Link>
+        </Button>
         <Button asChild variant="soft" color="amber">
           <Link href="/favorites">
             <StarIcon /> {t("user.profile.favorites")}

@@ -173,6 +173,7 @@ export const en = {
   "settings.subtitle":
     "Tweak how vids&gifs behaves for your account. The same options live in the user menu.",
   "user.profile.viewProfile": "View my profile",
+  "user.profile.settings": "Settings",
   "user.profile.favorites": "Favorites",
   "user.profile.subscriptions": "Subscriptions",
   "user.profile.signOut": "Sign out",
