@@ -58,6 +58,9 @@ export class SubscriptionsService {
     const followerCount = await this.subscriptions.count({
       where: { targetUserId },
     });
+    this.logger.log(
+      `subscriptions.toggle subscriberId=${subscriberId} targetUserId=${targetUserId} subscribed=${!existing}`,
+    );
     return { subscribed: !existing, followerCount };
   }
 

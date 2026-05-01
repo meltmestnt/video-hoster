@@ -1,10 +1,12 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { In, Repository } from "typeorm";
 import { VideoFavorite } from "./favorite.entity";
 
 @Injectable()
 export class FavoritesService {
+  private readonly logger = new Logger(FavoritesService.name);
+
   constructor(
     @InjectRepository(VideoFavorite)
     private readonly favorites: Repository<VideoFavorite>,
@@ -19,10 +21,16 @@ export class FavoritesService {
     });
     if (existing) {
       await this.favorites.delete({ id: existing.id });
+      this.logger.log(
+        `favorites.toggle userId=${userId} videoId=${videoId} favorited=false`,
+      );
       return { favorited: false };
     }
     await this.favorites.save(
       this.favorites.create({ videoId, userId }),
+    );
+    this.logger.log(
+      `favorites.toggle userId=${userId} videoId=${videoId} favorited=true`,
     );
     return { favorited: true };
   }

@@ -85,6 +85,9 @@ export class ScreenshotsService {
         where: { ownerId: args.ownerId },
       });
       if (existing >= UNVERIFIED_SCREENSHOT_LIMIT) {
+        this.logger.warn(
+          `screenshots.createUpload rejected reason=unverified-limit ownerId=${args.ownerId} existing=${existing}`,
+        );
         throw new BadRequestException(
           `${UNVERIFIED_LIMIT_ERROR_PREFIX}screenshot`,
         );
@@ -97,6 +100,9 @@ export class ScreenshotsService {
         where: { ownerId: args.ownerId, createdAt: MoreThanOrEqual(since) },
       });
       if (recent >= UNAPPROVED_DAILY_SCREENSHOT_LIMIT) {
+        this.logger.warn(
+          `screenshots.createUpload rejected reason=unapproved-daily-limit ownerId=${args.ownerId} recent=${recent}`,
+        );
         throw new BadRequestException(
           `${UNAPPROVED_LIMIT_ERROR_PREFIX}screenshot`,
         );
@@ -124,6 +130,9 @@ export class ScreenshotsService {
     saved.s3Key = s3Key;
 
     const uploadUrl = await this.s3.presignPut(s3Key, args.mimeType);
+    this.logger.log(
+      `screenshots.createUpload ownerId=${args.ownerId} size=${args.sizeBytes} mime=${args.mimeType} visibility=${args.visibility} s3Key=${s3Key} screenshotId=${saved.id}`,
+    );
     return { screenshotId: saved.id, s3Key, uploadUrl };
   }
 
@@ -157,6 +166,9 @@ export class ScreenshotsService {
     shot.sizeBytes = head.size;
     shot.status = "ready";
     await this.screenshots.save(shot);
+    this.logger.log(
+      `screenshots.finalizeUpload ok ownerId=${shot.ownerId} screenshotId=${shot.id} size=${shot.sizeBytes}`,
+    );
     return { ok: true };
   }
 
@@ -166,7 +178,9 @@ export class ScreenshotsService {
     if (!isAdmin && shot.ownerId !== ownerId) {
       throw new ForbiddenException("Not the owner");
     }
+    let s3CleanupRan = false;
     if (shot.s3Key) {
+      s3CleanupRan = true;
       await this.s3.deleteObject(shot.s3Key).catch((err) => {
         this.logger.warn(
           `Failed to delete screenshot S3 object ${shot.s3Key}: ${(err as Error).message}`,
@@ -174,6 +188,10 @@ export class ScreenshotsService {
       });
     }
     await this.screenshots.delete({ id });
+    const adminPrefix = isAdmin && shot.ownerId !== ownerId ? "[ADMIN] " : "";
+    this.logger.log(
+      `${adminPrefix}screenshots.deleteScreenshot actorId=${ownerId} screenshotId=${id} ownerId=${shot.ownerId} isAdmin=${isAdmin} s3Cleanup=${s3CleanupRan}`,
+    );
     return { ok: true };
   }
 

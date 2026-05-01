@@ -95,6 +95,9 @@ export class AudioService {
     await this.templates.update({ id: saved.id }, { s3Key });
     saved.s3Key = s3Key;
     const uploadUrl = await this.s3.presignPut(s3Key, args.mimeType);
+    this.logger.log(
+      `audio.createUpload ownerId=${args.ownerId} size=${args.sizeBytes} mime=${args.mimeType} s3Key=${s3Key} audioTemplateId=${saved.id}`,
+    );
     return { audioTemplateId: saved.id, s3Key, uploadUrl };
   }
 
@@ -117,6 +120,9 @@ export class AudioService {
     tpl.sizeBytes = head.size;
     tpl.status = "ready";
     await this.templates.save(tpl);
+    this.logger.log(
+      `audio.finalizeUpload ok ownerId=${tpl.ownerId} audioTemplateId=${tpl.id} size=${tpl.sizeBytes}`,
+    );
     return { ok: true };
   }
 

@@ -1,6 +1,7 @@
 import {
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -14,6 +15,8 @@ import { MediaService } from "../media/media.service";
 
 @Injectable()
 export class CommentsService {
+  private readonly logger = new Logger(CommentsService.name);
+
   constructor(
     @InjectRepository(Comment)
     private readonly comments: Repository<Comment>,
@@ -156,6 +159,13 @@ export class CommentsService {
       parentId: parentId ?? null,
     });
     const saved = await this.comments.save(comment);
+    const subjectField =
+      "videoId" in subject
+        ? `videoId=${subject.videoId}`
+        : `gifId=${subject.gifId}`;
+    this.logger.log(
+      `comments.create actorId=${authorId} commentId=${saved.id} ${subjectField} parentId=${parentId ?? "null"} bodyLen=${body.length}`,
+    );
     return this.comments.findOneOrFail({ where: { id: saved.id } });
   }
 
@@ -167,6 +177,9 @@ export class CommentsService {
     }
     comment.body = body;
     await this.comments.save(comment);
+    this.logger.log(
+      `comments.update actorId=${authorId} commentId=${id} videoId=${comment.videoId ?? "null"} gifId=${comment.gifId ?? "null"} parentId=${comment.parentId ?? "null"}`,
+    );
     return this.comments.findOneOrFail({ where: { id } });
   }
 
@@ -178,6 +191,9 @@ export class CommentsService {
     }
     // Replies cascade-delete via the FK constraint on parentId.
     await this.comments.remove(comment);
+    this.logger.log(
+      `comments.delete actorId=${authorId} commentId=${id} videoId=${comment.videoId ?? "null"} gifId=${comment.gifId ?? "null"} parentId=${comment.parentId ?? "null"}`,
+    );
     return { id };
   }
 

@@ -145,6 +145,9 @@ export class BillingService {
     }
     const url = data?.data?.attributes?.url;
     if (!url) throw new Error("LemonSqueezy checkout returned no URL");
+    this.logger.log(
+      `billing.createCheckoutSession ok userId=${args.userId}`,
+    );
     return { url };
   }
 
@@ -165,15 +168,21 @@ export class BillingService {
     const urls = data?.data?.attributes?.urls ?? {};
     const url = urls.customer_portal ?? urls.update_payment_method;
     if (!url) throw new Error("LemonSqueezy returned no portal URL");
+    this.logger.log(
+      `billing.createPortalSession ok userId=${args.userId}`,
+    );
     return { url };
   }
 
   async handleEvent(payload: LSWebhookPayload): Promise<void> {
     const eventName = payload.meta.event_name;
+    const subId = payload.data?.id;
+    this.logger.log(
+      `billing.webhook event=${eventName} subscriptionId=${subId ?? "null"} status=${payload.data?.attributes?.status ?? "null"}`,
+    );
     if (!TRACKED_EVENTS.has(eventName)) return;
     if (payload.data.type !== "subscriptions") return;
 
-    const subId = payload.data.id;
     const attrs = payload.data.attributes;
     const customerId = String(attrs.customer_id);
     const userId = payload.meta.custom_data?.user_id;

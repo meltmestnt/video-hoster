@@ -77,6 +77,9 @@ export class GifsService {
         where: { ownerId: args.ownerId },
       });
       if (existing >= UNVERIFIED_GIF_LIMIT) {
+        this.logger.warn(
+          `gifs.createUpload rejected reason=unverified-limit ownerId=${args.ownerId} existing=${existing}`,
+        );
         throw new BadRequestException(
           `${UNVERIFIED_LIMIT_ERROR_PREFIX}gif`,
         );
@@ -92,6 +95,9 @@ export class GifsService {
         where: { ownerId: args.ownerId, createdAt: MoreThanOrEqual(since) },
       });
       if (recent >= UNAPPROVED_DAILY_GIF_LIMIT) {
+        this.logger.warn(
+          `gifs.createUpload rejected reason=unapproved-daily-limit ownerId=${args.ownerId} recent=${recent}`,
+        );
         throw new BadRequestException(
           `${UNAPPROVED_LIMIT_ERROR_PREFIX}gif`,
         );
@@ -134,6 +140,9 @@ export class GifsService {
     saved.s3Key = s3Key;
 
     const uploadUrl = await this.s3.presignPut(s3Key, "image/gif");
+    this.logger.log(
+      `gifs.createUpload ownerId=${args.ownerId} size=${args.sizeBytes} mime=image/gif visibility=${args.visibility} s3Key=${s3Key} gifId=${saved.id}`,
+    );
     return { gifId: saved.id, s3Key, uploadUrl };
   }
 
@@ -163,6 +172,9 @@ export class GifsService {
     gif.sizeBytes = head.size;
     gif.status = "ready";
     await this.gifs.save(gif);
+    this.logger.log(
+      `gifs.finalizeUpload ok ownerId=${gif.ownerId} gifId=${gif.id} size=${gif.sizeBytes}`,
+    );
     if (gif.visibility === "public") {
       await this.notificationsService
         .onGifUploaded(gif.id, gif.ownerId)
@@ -181,7 +193,9 @@ export class GifsService {
     if (!isAdmin && gif.ownerId !== ownerId) {
       throw new ForbiddenException("Not the owner");
     }
+    let s3CleanupRan = false;
     if (gif.s3Key) {
+      s3CleanupRan = true;
       await this.s3.deleteObject(gif.s3Key).catch((err) => {
         this.logger.warn(
           `Failed to delete gif S3 object ${gif.s3Key}: ${(err as Error).message}`,
@@ -189,6 +203,10 @@ export class GifsService {
       });
     }
     await this.gifs.delete({ id: gifId });
+    const adminPrefix = isAdmin && gif.ownerId !== ownerId ? "[ADMIN] " : "";
+    this.logger.log(
+      `${adminPrefix}gifs.deleteGif actorId=${ownerId} gifId=${gifId} ownerId=${gif.ownerId} isAdmin=${isAdmin} s3Cleanup=${s3CleanupRan}`,
+    );
     return { ok: true };
   }
 

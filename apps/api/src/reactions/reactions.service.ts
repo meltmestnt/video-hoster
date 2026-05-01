@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { In, Repository } from "typeorm";
 import { ReactionType, VideoReaction } from "./reaction.entity";
@@ -13,6 +13,8 @@ export interface VideoReactionCounts {
 
 @Injectable()
 export class ReactionsService {
+  private readonly logger = new Logger(ReactionsService.name);
+
   constructor(
     @InjectRepository(VideoReaction)
     private readonly reactions: Repository<VideoReaction>,
@@ -27,6 +29,7 @@ export class ReactionsService {
     const existing = await this.reactions.findOne({
       where: { videoId, userId },
     });
+    const prevType = existing?.type ?? null;
     let next: ReactionType | null;
     if (existing) {
       if (existing.type === type) {
@@ -43,6 +46,9 @@ export class ReactionsService {
       );
       next = type;
     }
+    this.logger.log(
+      `reactions.setReaction kind=video userId=${userId} targetId=${videoId} type=${next ?? "null"} prevType=${prevType ?? "null"}`,
+    );
     await this.notifications.onVideoReaction(videoId, userId, next);
     return { reaction: next };
   }
@@ -94,19 +100,27 @@ export class ReactionsService {
     const existing = await this.commentReactions.findOne({
       where: { commentId, userId },
     });
+    const prevType = existing?.type ?? null;
+    let next: ReactionType | null;
     if (existing) {
       if (existing.type === type) {
         await this.commentReactions.delete({ id: existing.id });
-        return { reaction: null as ReactionType | null };
+        next = null;
+      } else {
+        existing.type = type;
+        await this.commentReactions.save(existing);
+        next = type;
       }
-      existing.type = type;
-      await this.commentReactions.save(existing);
-      return { reaction: type };
+    } else {
+      await this.commentReactions.save(
+        this.commentReactions.create({ commentId, userId, type }),
+      );
+      next = type;
     }
-    await this.commentReactions.save(
-      this.commentReactions.create({ commentId, userId, type }),
+    this.logger.log(
+      `reactions.setReaction kind=comment userId=${userId} targetId=${commentId} type=${next ?? "null"} prevType=${prevType ?? "null"}`,
     );
-    return { reaction: type };
+    return { reaction: next };
   }
 
   async commentCountsFor(
@@ -152,6 +166,7 @@ export class ReactionsService {
     const existing = await this.gifReactions.findOne({
       where: { gifId, userId },
     });
+    const prevType = existing?.type ?? null;
     let next: ReactionType | null;
     if (existing) {
       if (existing.type === type) {
@@ -168,6 +183,9 @@ export class ReactionsService {
       );
       next = type;
     }
+    this.logger.log(
+      `reactions.setReaction kind=gif userId=${userId} targetId=${gifId} type=${next ?? "null"} prevType=${prevType ?? "null"}`,
+    );
     await this.notifications.onGifReaction(gifId, userId, next);
     return { reaction: next };
   }

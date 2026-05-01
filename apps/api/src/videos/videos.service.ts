@@ -104,6 +104,9 @@ export class VideosService {
         where: { ownerId: args.ownerId, status: "ready" },
       });
       if (existing >= UNVERIFIED_VIDEO_LIMIT) {
+        this.logger.warn(
+          `videos.createUpload rejected reason=unverified-limit ownerId=${args.ownerId} existing=${existing}`,
+        );
         throw new BadRequestException(
           `${UNVERIFIED_LIMIT_ERROR_PREFIX}video`,
         );
@@ -123,12 +126,18 @@ export class VideosService {
     // admin approves them. Sits between the unverified hard cap (1 total)
     // and the regular daily quota.
     if (!args.ownerApproved && recent.length >= UNAPPROVED_DAILY_VIDEO_LIMIT) {
+      this.logger.warn(
+        `videos.createUpload rejected reason=unapproved-daily-limit ownerId=${args.ownerId} recent=${recent.length}`,
+      );
       throw new BadRequestException(
         `${UNAPPROVED_LIMIT_ERROR_PREFIX}video`,
       );
     }
 
     if (recent.length >= DAILY_VIDEO_UPLOAD_LIMIT) {
+      this.logger.warn(
+        `videos.createUpload rejected reason=daily-count-limit ownerId=${args.ownerId} recent=${recent.length}`,
+      );
       throw new BadRequestException(
         `Daily upload limit reached (${DAILY_VIDEO_UPLOAD_LIMIT} videos in 24h). Try again later.`,
       );
@@ -141,6 +150,9 @@ export class VideosService {
       const remainingMb = Math.max(
         0,
         Math.floor((DAILY_VIDEO_BYTES_LIMIT - usedBytes) / 1024 / 1024),
+      );
+      this.logger.warn(
+        `videos.createUpload rejected reason=daily-bytes-limit ownerId=${args.ownerId} usedBytes=${usedBytes} requestedBytes=${args.sizeBytes}`,
       );
       throw new BadRequestException(
         `Daily upload size limit reached (${DAILY_VIDEO_BYTES_LIMIT_GB} GB in 24h). Only ${remainingMb} MB left in your window.`,
@@ -187,6 +199,10 @@ export class VideosService {
       this.s3.presignPut(s3Key, args.mimeType),
       this.s3.presignPut(thumbnailS3Key, "image/jpeg"),
     ]);
+
+    this.logger.log(
+      `videos.createUpload ownerId=${args.ownerId} size=${args.sizeBytes} mime=${args.mimeType} visibility=${args.visibility} s3Key=${s3Key} videoId=${saved.id}`,
+    );
 
     return {
       videoId: saved.id,
@@ -250,6 +266,10 @@ export class VideosService {
 
     video.status = "ready";
     await this.videos.save(video);
+
+    this.logger.log(
+      `videos.finalizeUpload ok ownerId=${video.ownerId} videoId=${video.id} size=${video.sizeBytes}`,
+    );
 
     // Fire-and-forget admin alert. Looking up the owner here keeps the
     // common path simple; failing the email must never fail the upload.
@@ -370,14 +390,24 @@ export class VideosService {
     // Cascades remove thumbnails and video_tags rows; tags themselves stay.
     await this.videos.delete({ id: videoId });
 
-    await Promise.all(
-      s3Keys.map((key) =>
-        this.s3.deleteObject(key).catch((err) => {
-          this.logger.warn(
-            `Failed to delete S3 object ${key}: ${(err as Error).message}`,
-          );
-        }),
-      ),
+    let s3CleanupRan = false;
+    if (s3Keys.length > 0) {
+      s3CleanupRan = true;
+      await Promise.all(
+        s3Keys.map((key) =>
+          this.s3.deleteObject(key).catch((err) => {
+            this.logger.warn(
+              `Failed to delete S3 object ${key}: ${(err as Error).message}`,
+            );
+          }),
+        ),
+      );
+    }
+
+    const adminPrefix =
+      isAdmin && video.ownerId !== ownerId ? "[ADMIN] " : "";
+    this.logger.log(
+      `${adminPrefix}videos.deleteVideo actorId=${ownerId} videoId=${videoId} ownerId=${video.ownerId} isAdmin=${isAdmin} s3Cleanup=${s3CleanupRan}`,
     );
 
     return { ok: true };

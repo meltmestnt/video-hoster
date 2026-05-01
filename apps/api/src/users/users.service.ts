@@ -318,6 +318,9 @@ export class UsersService {
       throw new ForbiddenException("Cannot unverify another admin");
     }
     await this.users.update({ id: target.id }, { status: "unverified" });
+    this.logger.log(
+      `[ADMIN] users.adminUnverifyUser actor=admin actorId=${args.actingUserId} targetUserId=${target.id}`,
+    );
     return { ok: true };
   }
 
@@ -339,6 +342,9 @@ export class UsersService {
         confirmationTokenExpiresAt: null,
       },
     );
+    this.logger.log(
+      `[ADMIN] users.adminVerifyUser actor=admin actorId=${args.actingUserId} targetUserId=${target.id} email=${target.email}`,
+    );
     return { ok: true };
   }
 
@@ -351,6 +357,9 @@ export class UsersService {
     });
     if (!target) throw new NotFoundException("User not found");
     await this.users.update({ id: target.id }, { approved: true });
+    this.logger.log(
+      `[ADMIN] users.adminApproveUser actor=admin actorId=${args.actingUserId} targetUserId=${target.id}`,
+    );
     return { ok: true };
   }
 
@@ -369,13 +378,19 @@ export class UsersService {
       throw new ForbiddenException("Cannot unapprove another admin");
     }
     await this.users.update({ id: target.id }, { approved: false });
+    this.logger.log(
+      `[ADMIN] users.adminUnapproveUser actor=admin actorId=${args.actingUserId} targetUserId=${target.id}`,
+    );
     return { ok: true };
   }
 
   async deleteSelf(userId: string): Promise<{ ok: true }> {
     const user = await this.users.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException("User not found");
-    await this.purgeUser(user);
+    const counts = await this.purgeUser(user);
+    this.logger.log(
+      `users.deleteSelf ok userId=${userId} s3Keys=${counts.s3Keys}`,
+    );
     return { ok: true };
   }
 
@@ -393,7 +408,10 @@ export class UsersService {
     if (target.role === "admin") {
       throw new ForbiddenException("Cannot delete another admin");
     }
-    await this.purgeUser(target);
+    const counts = await this.purgeUser(target);
+    this.logger.log(
+      `[ADMIN] users.adminDeleteUser ok actor=admin actorId=${args.actingUserId} targetUserId=${target.id} email=${target.email} s3Keys=${counts.s3Keys}`,
+    );
     return { ok: true };
   }
 
@@ -405,7 +423,7 @@ export class UsersService {
    * the user — DB is the source of truth, so leaving an orphaned S3 object
    * (S3 delete failed, DB delete succeeded) is the lesser evil.
    */
-  private async purgeUser(user: User): Promise<void> {
+  private async purgeUser(user: User): Promise<{ s3Keys: number }> {
     const keys = new Set<string>();
     if (user.avatarS3Key) keys.add(user.avatarS3Key);
 
@@ -441,6 +459,7 @@ export class UsersService {
     );
 
     await this.users.delete({ id: user.id });
+    return { s3Keys: keys.size };
   }
 
   async signUp(input: {
@@ -490,6 +509,10 @@ export class UsersService {
     });
     await this.users.save(user);
 
+    this.logger.log(
+      `users.signUp ok email=${email} userId=${user.id} mailSent=${mailSent}`,
+    );
+
     // Fire-and-forget admin notification — never block signup on it.
     this.mail
       .notifyAdminsOfSignup({ name: input.name, email })
@@ -509,6 +532,7 @@ export class UsersService {
    */
   async resendConfirmation(email: string): Promise<{ ok: true; mailSent: boolean }> {
     const lower = email.toLowerCase();
+    this.logger.log(`users.resendConfirmation attempt email=${lower}`);
     const user = await this.users.findOne({ where: { email: lower } });
     // Don't leak whether an account exists — pretend success either way.
     if (!user || user.status === "verified") {
@@ -559,6 +583,9 @@ export class UsersService {
     user.confirmationTokenHash = null;
     user.confirmationTokenExpiresAt = null;
     await this.users.save(user);
+    this.logger.log(
+      `users.confirmSignUp ok userId=${user.id} email=${user.email}`,
+    );
     return { id: user.id, email: user.email, name: user.name };
   }
 
@@ -653,14 +680,29 @@ export class UsersService {
     email: string;
     password: string;
   }): Promise<User | null> {
+    const email = input.email.toLowerCase();
     const user = await this.users
       .createQueryBuilder("u")
       .addSelect("u.passwordHash")
-      .where("u.email = :email", { email: input.email.toLowerCase() })
+      .where("u.email = :email", { email })
       .getOne();
-    if (!user || !user.passwordHash) return null;
+    if (!user || !user.passwordHash) {
+      this.logger.warn(
+        `users.verifyPassword outcome=fail email=${email} reason=no-account-or-no-password`,
+      );
+      return null;
+    }
     const ok = await bcrypt.compare(input.password, user.passwordHash);
-    return ok ? user : null;
+    if (!ok) {
+      this.logger.warn(
+        `users.verifyPassword outcome=fail email=${email} userId=${user.id} reason=bad-password`,
+      );
+      return null;
+    }
+    this.logger.log(
+      `users.verifyPassword outcome=ok userId=${user.id} email=${email}`,
+    );
+    return user;
   }
 }
 
