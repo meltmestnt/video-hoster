@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Box, Heading, Text } from "@radix-ui/themes";
+import { signOut, useSession } from "next-auth/react";
 import { trpc } from "@/lib/trpc";
 import { useT } from "@/lib/i18n";
 
@@ -14,6 +15,7 @@ type State =
 
 export function ConfirmCard({ token }: { token: string }) {
   const t = useT();
+  const { status } = useSession();
   const [state, setState] = useState<State>(
     token ? { kind: "loading" } : { kind: "missing" },
   );
@@ -22,17 +24,33 @@ export function ConfirmCard({ token }: { token: string }) {
 
   useEffect(() => {
     if (!token || startedRef.current) return;
+    // Wait for next-auth's first session check to settle before deciding
+    // whether to sign out — until then we don't know if there's a session
+    // to terminate. status === "loading" is the bootstrapping state.
+    if (status === "loading") return;
     startedRef.current = true;
-    confirm
-      .mutateAsync({ token })
-      .then((res) => setState({ kind: "success", email: res.email }))
-      .catch((err: Error) =>
+    (async () => {
+      try {
+        // The confirmation link arrives in an email tied to a specific
+        // account. If a *different* account is already signed in we'd
+        // happily verify the new email server-side and leave the user
+        // staring at the old session — which is exactly the bug this
+        // path fixes. Sign out unconditionally before running the
+        // mutation so the post-confirm "Sign in" link lands on a clean
+        // state and the user can pick whichever account they meant.
+        if (status === "authenticated") {
+          await signOut({ redirect: false });
+        }
+        const res = await confirm.mutateAsync({ token });
+        setState({ kind: "success", email: res.email });
+      } catch (err) {
         setState({
           kind: "error",
-          message: err.message || t("confirm.error.fallback"),
-        }),
-      );
-  }, [token, confirm, t]);
+          message: (err as Error).message || t("confirm.error.fallback"),
+        });
+      }
+    })();
+  }, [token, confirm, t, status]);
 
   return (
     <Box
