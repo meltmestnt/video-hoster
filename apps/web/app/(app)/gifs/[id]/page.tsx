@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import type { Metadata } from "next";
-import { Badge, Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Badge, Box, Button, Flex, Heading, Text } from "@radix-ui/themes";
 import { authOptions } from "@/lib/auth";
 import { getServerTrpc } from "@/lib/trpc-server";
 import { GifCard } from "@/components/GifCard";
@@ -35,7 +35,7 @@ export async function generateMetadata({
   const isPrivate = gif.visibility === "private";
   const description = gif.description?.trim()
     ? gif.description.slice(0, 200)
-    : `GIF "${gif.title}" by ${gif.owner.name} on Video Hoster.`;
+    : `GIF "${gif.title}" by ${gif.owner.name} on vids&gifs.`;
   const canonical = absoluteUrl(`/gifs/${gif.id}`);
   return {
     title: gif.title,
@@ -50,7 +50,7 @@ export async function generateMetadata({
       title: gif.title,
       description,
       url: canonical,
-      siteName: "Video Hoster",
+      siteName: "vids&gifs",
       images: gif.gifUrl ? [{ url: gif.gifUrl }] : undefined,
     },
     twitter: {
@@ -116,7 +116,27 @@ export default async function GifPage({
           className="player-frame"
           style={{ background: "black", overflow: "hidden" }}
         >
-          {gif.gifUrl ? (
+          {!session?.user ? (
+            <Flex
+              align="center"
+              justify="center"
+              direction="column"
+              gap="3"
+              style={{
+                height: "100%",
+                background: "rgba(0, 0, 0, 0.6)",
+              }}
+            >
+              <Text size="3" weight="medium" style={{ color: "white" }}>
+                <T k="page.gif.signInOverlay" />
+              </Text>
+              <Button asChild size="2" variant="solid">
+                <Link href={`/login?callbackUrl=/gifs/${gif.id}`}>
+                  <T k="page.gif.signInButton" />
+                </Link>
+              </Button>
+            </Flex>
+          ) : gif.gifUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={gif.gifUrl}

@@ -12,12 +12,12 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "All",
   description:
-    "Browse the latest public videos and GIFs uploaded to Video Hoster. Sort by newest, most liked, or most disliked.",
+    "Browse the latest public videos and GIFs uploaded to vids&gifs. Sort by newest, most liked, or most disliked.",
   alternates: { canonical: absoluteUrl("/") },
   openGraph: {
-    title: "All — Video Hoster",
+    title: "All — vids&gifs",
     description:
-      "Browse the latest public videos and GIFs uploaded to Video Hoster.",
+      "Browse the latest public videos and GIFs uploaded to vids&gifs.",
     url: absoluteUrl("/"),
     type: "website",
   },

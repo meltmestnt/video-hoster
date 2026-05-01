@@ -41,7 +41,7 @@ export async function generateMetadata({
   const isPrivate = video.visibility === "private";
   const description = video.description?.trim()
     ? video.description.slice(0, 200)
-    : `Watch "${video.title}" by ${video.owner.name} on Video Hoster.`;
+    : `Watch "${video.title}" by ${video.owner.name} on vids&gifs.`;
   const canonical = absoluteUrl(`/videos/${video.id}`);
   const ogImage = video.thumbnailUrl ?? undefined;
 
@@ -58,7 +58,7 @@ export async function generateMetadata({
       title: video.title,
       description,
       url: canonical,
-      siteName: "Video Hoster",
+      siteName: "vids&gifs",
       images: ogImage ? [{ url: ogImage }] : undefined,
       videos: video.videoUrl
         ? [{ url: video.videoUrl, type: video.mimeType }]

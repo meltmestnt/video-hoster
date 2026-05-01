@@ -1,6 +1,6 @@
 export const en = {
   // ─── Brand / general ───
-  "site.name": "Video Hoster",
+  "site.name": "vids&gifs",
   "common.cancel": "Cancel",
   "common.back": "Back",
   "common.save": "Save",
@@ -71,7 +71,7 @@ export const en = {
   "avatar.saveButton": "Save avatar",
 
   // ─── Auth pages / forms ───
-  "auth.login.title": "Video Hoster",
+  "auth.login.title": "vids&gifs",
   "auth.login.subtitle": "Sign in to upload, watch, and discuss videos.",
   "auth.login.continueGoogle": "Continue with Google",
   "auth.login.email": "Email",
@@ -124,16 +124,16 @@ export const en = {
   // ─── Pages ───
   "page.dashboard.heading": "All",
   "page.dashboard.subtitle":
-    "Recent videos and GIFs from everyone on Video Hoster.",
+    "Recent videos and GIFs from everyone on vids&gifs.",
   "page.dashboard.empty":
     'Nothing here yet. Click "Upload" to add the first video or GIF.',
 
   "page.videos.heading": "All videos",
-  "page.videos.subtitle": "Recent video uploads on Video Hoster.",
+  "page.videos.subtitle": "Recent video uploads on vids&gifs.",
   "page.videos.empty": 'No videos yet. Click "Upload" to add the first one.',
 
   "page.gifs.heading": "All GIFs",
-  "page.gifs.subtitle": "Short loops uploaded to Video Hoster.",
+  "page.gifs.subtitle": "Short loops uploaded to vids&gifs.",
   "page.gifs.empty": 'No GIFs yet. Click "Upload" and choose GIF in the editor.',
 
   "page.favorites.heading": "Favorites",
@@ -153,9 +153,13 @@ export const en = {
   "page.video.signInButton": "Sign in",
   "page.video.processing": "Video is still processing.",
   "page.video.suggested": "Suggested",
+  "page.gif.signInOverlay": "Sign in to view this GIF",
+  "page.gif.signInButton": "Sign in",
   "page.gif.processing": "GIF is still processing.",
   "page.gif.similar": "Similar GIFs",
   "page.gif.noSimilar": "No similar GIFs yet.",
+  "page.screenshot.signInOverlay": "Sign in to view this screenshot",
+  "page.screenshot.signInButton": "Sign in",
 
   // ─── Sort ───
   "sort.newest": "Newest",
@@ -210,6 +214,30 @@ export const en = {
   "audio.lib.empty":
     "No audio templates yet. Upload an MP3 or M4A above to get started.",
   "audio.lib.delete": "Delete audio template",
+
+  // ─── Billing / subscription ───
+  "billing.upgrade": "Upgrade to Pro",
+  "billing.manage": "Manage subscription",
+  "user.profile.billing": "Billing",
+  "billing.heading": "Billing",
+  "billing.subtitle": "Manage your subscription and payment methods.",
+  "billing.tier.label": "Plan",
+  "billing.tier.free": "Free",
+  "billing.tier.pro": "Pro",
+  "billing.status.label": "Status",
+  "billing.status.inactive": "Inactive",
+  "billing.status.trialing": "Trial",
+  "billing.status.active": "Active",
+  "billing.status.past_due": "Past due",
+  "billing.status.canceled": "Canceled",
+  "billing.renews": "Renews",
+  "billing.endsOn": "Access ends",
+  "billing.checkout.starting": "Redirecting to checkout…",
+  "billing.portal.starting": "Opening portal…",
+  "billing.success": "Subscription updated. Welcome aboard!",
+  "billing.canceled": "Checkout canceled.",
+  "billing.upsell.title": "Pro feature",
+  "billing.upsell.body": "Upgrade to Pro to unlock this.",
 
   // ─── Account deletion (self) ───
   "user.profile.deleteAccount": "Delete account",

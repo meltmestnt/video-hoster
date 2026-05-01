@@ -8,12 +8,17 @@ import { T } from "@/lib/i18n";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Screenshots",
+  title: "All screenshots",
   description:
-    "Frames captured from videos and GIFs on Video Hoster.",
+    "Browse the latest public screenshots captured from videos and GIFs on vids&gifs.",
   alternates: { canonical: absoluteUrl("/screenshots") },
-  // Personal artifacts: don't index by default.
-  robots: { index: false, follow: false },
+  openGraph: {
+    title: "All screenshots — vids&gifs",
+    description:
+      "Browse the latest public screenshots captured on vids&gifs.",
+    url: absoluteUrl("/screenshots"),
+    type: "website",
+  },
 };
 
 export default async function ScreenshotsPage() {

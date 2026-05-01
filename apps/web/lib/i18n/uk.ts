@@ -2,7 +2,7 @@ import type { EnDict } from "./en";
 
 export const uk: EnDict = {
   // ─── Brand / general ───
-  "site.name": "Video Hoster",
+  "site.name": "vids&gifs",
   "common.cancel": "Скасувати",
   "common.back": "Назад",
   "common.save": "Зберегти",
@@ -74,7 +74,7 @@ export const uk: EnDict = {
   "avatar.saveButton": "Зберегти аватар",
 
   // ─── Auth pages / forms ───
-  "auth.login.title": "Video Hoster",
+  "auth.login.title": "vids&gifs",
   "auth.login.subtitle":
     "Увійдіть, щоб завантажувати, переглядати та обговорювати відео.",
   "auth.login.continueGoogle": "Продовжити з Google",
@@ -129,17 +129,17 @@ export const uk: EnDict = {
   // ─── Pages ───
   "page.dashboard.heading": "Усе",
   "page.dashboard.subtitle":
-    "Останні відео та GIF від усіх на Video Hoster.",
+    "Останні відео та GIF від усіх на vids&gifs.",
   "page.dashboard.empty":
     'Тут поки що порожньо. Натисніть «Завантажити», щоб додати перше відео або GIF.',
 
   "page.videos.heading": "Усі відео",
-  "page.videos.subtitle": "Останні завантаження відео на Video Hoster.",
+  "page.videos.subtitle": "Останні завантаження відео на vids&gifs.",
   "page.videos.empty":
     'Поки що немає відео. Натисніть «Завантажити», щоб додати перше.',
 
   "page.gifs.heading": "Усі GIF",
-  "page.gifs.subtitle": "Короткі цикли, завантажені на Video Hoster.",
+  "page.gifs.subtitle": "Короткі цикли, завантажені на vids&gifs.",
   "page.gifs.empty":
     'Поки що немає GIF. Натисніть «Завантажити» та оберіть GIF у редакторі.',
 
@@ -161,9 +161,13 @@ export const uk: EnDict = {
   "page.video.signInButton": "Увійти",
   "page.video.processing": "Відео ще обробляється.",
   "page.video.suggested": "Рекомендоване",
+  "page.gif.signInOverlay": "Увійдіть, щоб переглянути цей GIF",
+  "page.gif.signInButton": "Увійти",
   "page.gif.processing": "GIF ще обробляється.",
   "page.gif.similar": "Схожі GIF",
   "page.gif.noSimilar": "Поки немає схожих GIF.",
+  "page.screenshot.signInOverlay": "Увійдіть, щоб переглянути цей скриншот",
+  "page.screenshot.signInButton": "Увійти",
 
   // ─── Sort ───
   "sort.newest": "Найновіше",
@@ -218,6 +222,30 @@ export const uk: EnDict = {
   "audio.lib.empty":
     "Поки немає аудіошаблонів. Завантажте MP3 або M4A вище, щоб почати.",
   "audio.lib.delete": "Видалити аудіошаблон",
+
+  // ─── Billing / subscription ───
+  "billing.upgrade": "Перейти на Pro",
+  "billing.manage": "Керувати підпискою",
+  "user.profile.billing": "Оплата",
+  "billing.heading": "Оплата",
+  "billing.subtitle": "Керуйте підпискою та способами оплати.",
+  "billing.tier.label": "Тариф",
+  "billing.tier.free": "Безкоштовний",
+  "billing.tier.pro": "Pro",
+  "billing.status.label": "Статус",
+  "billing.status.inactive": "Неактивний",
+  "billing.status.trialing": "Пробний період",
+  "billing.status.active": "Активний",
+  "billing.status.past_due": "Прострочено",
+  "billing.status.canceled": "Скасовано",
+  "billing.renews": "Поновлюється",
+  "billing.endsOn": "Доступ закінчується",
+  "billing.checkout.starting": "Переходимо до оплати…",
+  "billing.portal.starting": "Відкриваємо портал…",
+  "billing.success": "Підписку оновлено. Вітаємо!",
+  "billing.canceled": "Оплату скасовано.",
+  "billing.upsell.title": "Функція Pro",
+  "billing.upsell.body": "Підпишіться на Pro, щоб розблокувати.",
 
   // ─── Account deletion (self) ───
   "user.profile.deleteAccount": "Видалити акаунт",

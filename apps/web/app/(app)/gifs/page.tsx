@@ -19,11 +19,11 @@ function normalizeSort(raw: string | undefined): VideoSort {
 export const metadata: Metadata = {
   title: "All GIFs",
   description:
-    "Browse the latest public GIFs uploaded to Video Hoster. Sort by newest, most liked, or most disliked.",
+    "Browse the latest public GIFs uploaded to vids&gifs. Sort by newest, most liked, or most disliked.",
   alternates: { canonical: absoluteUrl("/gifs") },
   openGraph: {
-    title: "All GIFs — Video Hoster",
-    description: "Browse the latest public GIFs uploaded to Video Hoster.",
+    title: "All GIFs — vids&gifs",
+    description: "Browse the latest public GIFs uploaded to vids&gifs.",
     url: absoluteUrl("/gifs"),
     type: "website",
   },

@@ -63,7 +63,7 @@ export class MailService {
   }
 
   async sendConfirmation(toEmail: string, link: string): Promise<void> {
-    const subject = "Confirm your account on Video Hoster";
+    const subject = "Confirm your account on vids&gifs";
     const html = `<p>Confirm your account by clicking the link below:</p>
 <p><a href="${link}">${link}</a></p>`;
     const text = `Confirm your account by visiting:\n${link}\n`;
@@ -81,10 +81,10 @@ export class MailService {
     const subject = `New sign-up: ${user.name}`;
     const safeName = escapeHtml(user.name);
     const safeEmail = escapeHtml(user.email);
-    const html = `<p>A new user just signed up for Video Hoster.</p>
+    const html = `<p>A new user just signed up for vids&gifs.</p>
 <p><strong>Name:</strong> ${safeName}<br/>
 <strong>Email:</strong> ${safeEmail}</p>`;
-    const text = `A new user just signed up for Video Hoster.\n\nName: ${user.name}\nEmail: ${user.email}\n`;
+    const text = `A new user just signed up for vids&gifs.\n\nName: ${user.name}\nEmail: ${user.email}\n`;
     await this.send(this.adminEmails, subject, html, text);
     this.logger.log(
       `Notified ${this.adminEmails.length} admin(s) of signup ${user.email}`,
@@ -105,12 +105,12 @@ export class MailService {
     const safeEmail = escapeHtml(args.user.email);
     const safeVisibility = escapeHtml(args.video.visibility);
     const safeLink = escapeHtml(link);
-    const html = `<p>A new video was uploaded to Video Hoster.</p>
+    const html = `<p>A new video was uploaded to vids&gifs.</p>
 <p><strong>Title:</strong> ${safeTitle}<br/>
 <strong>By:</strong> ${safeName} (${safeEmail})<br/>
 <strong>Visibility:</strong> ${safeVisibility}</p>
 <p><a href="${safeLink}">${safeLink}</a></p>`;
-    const text = `A new video was uploaded to Video Hoster.\n\nTitle: ${args.video.title}\nBy: ${args.user.name} (${args.user.email})\nVisibility: ${args.video.visibility}\n${link}\n`;
+    const text = `A new video was uploaded to vids&gifs.\n\nTitle: ${args.video.title}\nBy: ${args.user.name} (${args.user.email})\nVisibility: ${args.video.visibility}\n${link}\n`;
     await this.send(this.adminEmails, subject, html, text);
     this.logger.log(
       `Notified ${this.adminEmails.length} admin(s) of video upload ${args.video.id}`,
