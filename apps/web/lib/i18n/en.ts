@@ -16,6 +16,12 @@ export const en = {
   "common.public": "Public",
   "common.edited": "(edited)",
 
+  // ─── Cookie consent ───
+  "consent.message":
+    "We use cookies for analytics to understand how the site is used. Click Accept to allow, or Decline to opt out.",
+  "consent.accept": "Accept",
+  "consent.decline": "Decline",
+
   // ─── TopBar ───
   "topbar.search.placeholder.signedIn": "Search videos by title or tag",
   "topbar.search.placeholder.signedOut": "Sign in to search",

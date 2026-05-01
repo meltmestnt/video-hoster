@@ -3,7 +3,7 @@ import "./globals.css";
 
 import type { Metadata, Viewport } from "next";
 import { Theme } from "@radix-ui/themes";
-import { GoogleAnalytics } from "@next/third-parties/google";
+import { CookieConsent } from "@/components/CookieConsent";
 import { Providers } from "./providers";
 import { siteUrl } from "@/lib/site";
 
@@ -95,7 +95,7 @@ export default function RootLayout({
         <Theme appearance="dark" accentColor="iris" radius="large" scaling="100%">
           <Providers>{children}</Providers>
         </Theme>
-        {GA_ID && <GoogleAnalytics gaId={GA_ID} />}
+        {GA_ID && <CookieConsent gaId={GA_ID} />}
       </body>
     </html>
   );

@@ -18,6 +18,12 @@ export const uk: EnDict = {
   "common.public": "Публічне",
   "common.edited": "(відредаговано)",
 
+  // ─── Cookie consent ───
+  "consent.message":
+    "Ми використовуємо файли cookie для аналітики, щоб зрозуміти, як використовується сайт. Натисніть «Прийняти», щоб дозволити, або «Відхилити», щоб відмовитися.",
+  "consent.accept": "Прийняти",
+  "consent.decline": "Відхилити",
+
   // ─── TopBar ───
   "topbar.search.placeholder.signedIn": "Пошук відео за назвою або тегом",
   "topbar.search.placeholder.signedOut": "Увійдіть, щоб шукати",
