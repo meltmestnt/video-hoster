@@ -7,6 +7,12 @@ export const MAX_VIDEO_OUTPUT_BYTES = 300 * 1024 * 1024;
 export const MAX_VIDEO_OUTPUT_MB = 300;
 export const MAX_THUMBNAIL_BYTES = 5 * 1024 * 1024;
 
+// Per-user daily quota for video uploads. Whichever cap is hit first blocks
+// further uploads until the rolling 24-hour window slides forward.
+export const DAILY_VIDEO_UPLOAD_LIMIT = 10;
+export const DAILY_VIDEO_BYTES_LIMIT = 1024 ** 3; // 1 GiB
+export const DAILY_VIDEO_BYTES_LIMIT_GB = 1;
+
 export const ALLOWED_VIDEO_MIME_TYPES = [
   "video/mp4",
   "video/quicktime",

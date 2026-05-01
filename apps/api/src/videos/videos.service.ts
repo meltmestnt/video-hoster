@@ -7,8 +7,14 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { In, Repository, SelectQueryBuilder } from "typeorm";
-import { MAX_VIDEO_BYTES, type VideoSort } from "@repo/shared";
+import { In, MoreThanOrEqual, Repository, SelectQueryBuilder } from "typeorm";
+import {
+  DAILY_VIDEO_BYTES_LIMIT,
+  DAILY_VIDEO_BYTES_LIMIT_GB,
+  DAILY_VIDEO_UPLOAD_LIMIT,
+  MAX_VIDEO_BYTES,
+  type VideoSort,
+} from "@repo/shared";
 import { Video, VideoVisibility } from "./video.entity";
 import { Thumbnail } from "../thumbnails/thumbnail.entity";
 import { TagsService } from "../tags/tags.service";
@@ -17,6 +23,7 @@ import { TranscoderService } from "../transcoder/transcoder.service";
 import { ReactionsService } from "../reactions/reactions.service";
 import type { ReactionType } from "../reactions/reaction.entity";
 import { FavoritesService } from "../favorites/favorites.service";
+import { NotificationsService } from "../notifications/notifications.service";
 
 interface CreateUploadArgs {
   ownerId: string;
@@ -63,11 +70,39 @@ export class VideosService {
     private readonly transcoder: TranscoderService,
     private readonly reactionsService: ReactionsService,
     private readonly favoritesService: FavoritesService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async createUpload(args: CreateUploadArgs) {
     if (args.sizeBytes > MAX_VIDEO_BYTES) {
       throw new BadRequestException("File exceeds 1.5 GiB limit");
+    }
+
+    // Per-user daily quota. Rolling 24-hour window is fairer than a calendar
+    // day and avoids timezone edge cases. Drafts count too, so a user can't
+    // sidestep the limit by spamming createUpload without finalizing.
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recent = await this.videos.find({
+      where: { ownerId: args.ownerId, createdAt: MoreThanOrEqual(since) },
+      select: ["id", "sizeBytes"],
+    });
+    if (recent.length >= DAILY_VIDEO_UPLOAD_LIMIT) {
+      throw new BadRequestException(
+        `Daily upload limit reached (${DAILY_VIDEO_UPLOAD_LIMIT} videos in 24h). Try again later.`,
+      );
+    }
+    const usedBytes = recent.reduce(
+      (sum, v) => sum + Number(v.sizeBytes ?? 0),
+      0,
+    );
+    if (usedBytes + args.sizeBytes > DAILY_VIDEO_BYTES_LIMIT) {
+      const remainingMb = Math.max(
+        0,
+        Math.floor((DAILY_VIDEO_BYTES_LIMIT - usedBytes) / 1024 / 1024),
+      );
+      throw new BadRequestException(
+        `Daily upload size limit reached (${DAILY_VIDEO_BYTES_LIMIT_GB} GB in 24h). Only ${remainingMb} MB left in your window.`,
+      );
     }
 
     // One in-flight upload per user. A draft is considered abandoned once the
@@ -163,6 +198,19 @@ export class VideosService {
 
     video.status = "ready";
     await this.videos.save(video);
+
+    // Fan out "uploaded a new video" notifications to subscribers. Done before
+    // the thumbnail step so the notification lands even if thumbnail
+    // generation throws.
+    if (video.visibility === "public") {
+      await this.notificationsService
+        .onVideoUploaded(video.id, video.ownerId)
+        .catch((err) =>
+          this.logger.warn(
+            `Failed to notify subscribers of upload ${video.id}: ${(err as Error).message}`,
+          ),
+        );
+    }
 
     if (args.thumbnailS3Key) {
       const expectedPrefix = `videos/${video.id}/thumb-`;
