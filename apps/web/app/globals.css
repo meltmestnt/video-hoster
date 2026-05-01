@@ -823,10 +823,15 @@ body:has([role="alertdialog"][data-state="open"]) {
 
 /* Mobile-only: pin body so iOS's momentum scroll and two-finger pan
  * can't grab the page underneath. position:fixed prevents the
- * rubber-band scroll that overflow:hidden alone doesn't stop on iOS. */
+ * rubber-band scroll that overflow:hidden alone doesn't stop on iOS.
+ *
+ * Triggered by the data attribute that <ScrollLock> sets on body —
+ * not by :has() directly — because <ScrollLock> also sets an inline
+ * `top: -<savedScrollY>px` to keep the page visually in place, and
+ * we need the JS attribute and the inline style to flip atomically
+ * to avoid a one-frame "jump to top" when the dialog opens. */
 @media (max-width: 768px) {
-  body:has([role="dialog"][data-state="open"]),
-  body:has([role="alertdialog"][data-state="open"]) {
+  body[data-scroll-locked="1"] {
     position: fixed;
     inset: 0;
     width: 100%;
