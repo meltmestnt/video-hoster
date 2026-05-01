@@ -33,15 +33,30 @@ export function SettingsForm() {
     onSuccess: () => utils.auth.me.invalidate(),
   });
 
-  const liveMini = me.data?.miniPlayerEnabled ?? true;
-  const liveNotify = me.data?.notifySubscribersOnUpload ?? true;
+  // Crucial: read raw values (no `?? true` default), so we can tell
+  // "not yet loaded" (undefined) apart from "loaded as false". The
+  // earlier `?? true` made the toggle's local state flip back to its
+  // default whenever me.data was briefly undefined — exactly what
+  // happens after a long blur, when TanStack lets the cached query
+  // age out and the next render has no data until the refetch lands.
+  const liveMini = me.data?.miniPlayerEnabled;
+  const liveNotify = me.data?.notifySubscribersOnUpload;
 
   // Local mirrors so the toggle gives instant feedback while the mutation
-  // is in flight; we revert on error to keep the UI honest.
-  const [miniLocal, setMiniLocal] = useState(liveMini);
-  const [notifyLocal, setNotifyLocal] = useState(liveNotify);
-  useEffect(() => setMiniLocal(liveMini), [liveMini]);
-  useEffect(() => setNotifyLocal(liveNotify), [liveNotify]);
+  // is in flight; we revert on error to keep the UI honest. Initialize
+  // to the server value when known, otherwise true (mini-player default
+  // that ships with new accounts).
+  const [miniLocal, setMiniLocal] = useState<boolean>(liveMini ?? true);
+  const [notifyLocal, setNotifyLocal] = useState<boolean>(liveNotify ?? true);
+  // Only sync from the server value when the server *actually* gave us
+  // one. Skipping the sync on undefined preserves whatever the user just
+  // toggled while a refetch is in flight.
+  useEffect(() => {
+    if (liveMini !== undefined) setMiniLocal(liveMini);
+  }, [liveMini]);
+  useEffect(() => {
+    if (liveNotify !== undefined) setNotifyLocal(liveNotify);
+  }, [liveNotify]);
 
   const locale = useLocale();
   const setLocale = useSetLocale();
