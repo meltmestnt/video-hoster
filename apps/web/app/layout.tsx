@@ -7,10 +7,12 @@ import { GoogleAnalytics } from "@next/third-parties/google";
 import { Providers } from "./providers";
 import { siteUrl } from "@/lib/site";
 
-// GA4 Measurement ID, format `G-XXXXXXXXXX`. When unset (dev, preview,
-// or before the user has created a GA property) we skip rendering the
-// script entirely so dev sessions don't pollute production analytics.
-const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
+// GA4 Measurement ID. Pinned to the vidsandgifs.xyz property so a fresh
+// deploy starts tracking without any Railway config — same approach as the
+// Google site-verification token below. Override via NEXT_PUBLIC_GA_ID if
+// you ever rotate properties or need a different one per environment;
+// explicitly setting it to an empty string disables analytics.
+const GA_ID = process.env.NEXT_PUBLIC_GA_ID ?? "G-ST8WSD8TJE";
 
 const SITE_NAME = "vids&gifs";
 const SITE_DESCRIPTION =
