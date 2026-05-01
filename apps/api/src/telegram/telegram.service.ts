@@ -198,16 +198,22 @@ export class TelegramService
   }
 
   /**
-   * Push the localized long + short descriptions, plus the display name,
-   * to Telegram. Idempotent — Telegram only updates when the value
-   * actually differs, so this is safe to run on every boot. The display
-   * name doubles as Telegram's search index for the bot — setting it to
-   * "vids&gifs" makes the bot turn up when users type that brand name in
-   * Telegram's search bar (the username `@vidsandgifsbot` is searched
-   * separately).
+   * Push the localized long + short descriptions, plus the display name
+   * and command menu, to Telegram — but only when the value actually
+   * differs from what's already set. Telegram rate-limits each setter
+   * (`setMyName` is the meanest, banning the bot for ~24 h after a few
+   * rapid calls), and the rate limit applies *to the API call itself*,
+   * not just to changes. Spamming `setMyName("vids&gifs")` on every
+   * deploy when the name is already "vids&gifs" still burns the
+   * budget and eventually 429s — the symptom is that the bot stops
+   * appearing in Telegram fuzzy search until the limit clears.
    *
-   * Bot avatar (`/setuserpic` in BotFather) is *not* exposed via the Bot
-   * API and must be set manually once.
+   * Each diff check is wrapped in try/catch so a single failed setter
+   * (e.g. an outstanding 429) doesn't block the other updates from
+   * landing.
+   *
+   * Bot avatar (`/setuserpic` in BotFather) is *not* exposed via the
+   * Bot API and must be set manually once.
    */
   private async applyMetadata(bot: Bot): Promise<void> {
     const name = "vids&gifs";
@@ -232,22 +238,90 @@ export class TelegramService
       { command: "lang", description: "Change language" },
       { command: "unlink", description: "Detach account" },
     ];
+
     await Promise.all([
-      // Display name is the same in both locales — it's a brand. The two
-      // calls register the same value as both the language-agnostic
-      // default and the explicit `en` override. grammY's signature is
-      // (positional, { language_code? }) — the rest of the named
-      // params live in the second arg.
-      bot.api.setMyName(name),
-      bot.api.setMyName(name, { language_code: "en" }),
-      bot.api.setMyDescription(long),
-      bot.api.setMyDescription(longEn, { language_code: "en" }),
-      bot.api.setMyShortDescription(short),
-      bot.api.setMyShortDescription(shortEn, { language_code: "en" }),
-      bot.api.setMyCommands(commandsUk),
-      bot.api.setMyCommands(commandsEn, { language_code: "en" }),
+      this.syncIfChanged(
+        "name",
+        async () => (await bot.api.getMyName()).name,
+        name,
+        () => bot.api.setMyName(name),
+      ),
+      this.syncIfChanged(
+        "name(en)",
+        async () => (await bot.api.getMyName({ language_code: "en" })).name,
+        name,
+        () => bot.api.setMyName(name, { language_code: "en" }),
+      ),
+      this.syncIfChanged(
+        "description",
+        async () => (await bot.api.getMyDescription()).description,
+        long,
+        () => bot.api.setMyDescription(long),
+      ),
+      this.syncIfChanged(
+        "description(en)",
+        async () =>
+          (await bot.api.getMyDescription({ language_code: "en" }))
+            .description,
+        longEn,
+        () => bot.api.setMyDescription(longEn, { language_code: "en" }),
+      ),
+      this.syncIfChanged(
+        "shortDescription",
+        async () =>
+          (await bot.api.getMyShortDescription()).short_description,
+        short,
+        () => bot.api.setMyShortDescription(short),
+      ),
+      this.syncIfChanged(
+        "shortDescription(en)",
+        async () =>
+          (await bot.api.getMyShortDescription({ language_code: "en" }))
+            .short_description,
+        shortEn,
+        () => bot.api.setMyShortDescription(shortEn, { language_code: "en" }),
+      ),
+      this.syncIfChanged(
+        "commands",
+        async () => JSON.stringify(await bot.api.getMyCommands()),
+        JSON.stringify(commandsUk),
+        () => bot.api.setMyCommands(commandsUk),
+      ),
+      this.syncIfChanged(
+        "commands(en)",
+        async () =>
+          JSON.stringify(
+            await bot.api.getMyCommands({ language_code: "en" }),
+          ),
+        JSON.stringify(commandsEn),
+        () => bot.api.setMyCommands(commandsEn, { language_code: "en" }),
+      ),
     ]);
-    this.logger.log(`telegram.applyMetadata ok name="${name}"`);
+  }
+
+  /**
+   * Read the current value of a Telegram bot metadata field, compare
+   * to the desired one, and only invoke the setter when they differ.
+   * Each step is independently try/caught so one transient 429 (or a
+   * still-active 24 h ban from earlier ramp-up) doesn't block the
+   * others from converging.
+   */
+  private async syncIfChanged(
+    label: string,
+    readCurrent: () => Promise<string>,
+    desired: string,
+    write: () => Promise<unknown>,
+  ): Promise<void> {
+    try {
+      const current = await readCurrent();
+      if (current === desired) return;
+      await write();
+      this.logger.log(`telegram.applyMetadata updated ${label}`);
+    } catch (err) {
+      this.logger.warn(
+        `telegram.applyMetadata ${label} failed: ${(err as Error).message}`,
+      );
+    }
   }
 
   private async resolveLocale(
