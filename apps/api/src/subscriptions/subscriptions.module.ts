@@ -4,9 +4,14 @@ import { Subscription } from "./subscription.entity";
 import { User } from "../users/user.entity";
 import { SubscriptionsService } from "./subscriptions.service";
 import { S3Module } from "../s3/s3.module";
+import { MediaModule } from "../media/media.module";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Subscription, User]), S3Module],
+  imports: [
+    TypeOrmModule.forFeature([Subscription, User]),
+    S3Module,
+    MediaModule,
+  ],
   providers: [SubscriptionsService],
   exports: [SubscriptionsService],
 })

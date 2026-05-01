@@ -108,4 +108,50 @@ export class S3Service {
       new DeleteObjectCommand({ Bucket: this.bucket, Key: key }),
     );
   }
+
+  /**
+   * Stream an object back to the caller, optionally with a byte range. Used
+   * by the media proxy so the browser only ever sees our own URL — never
+   * the S3 bucket directly. The returned shape mirrors the S3 SDK response
+   * minus the body so the controller can copy headers without leaking SDK
+   * types into HTTP land.
+   */
+  async getObjectStream(
+    key: string,
+    range?: string,
+  ): Promise<{
+    body: Readable;
+    contentType: string | undefined;
+    contentLength: number | undefined;
+    contentRange: string | undefined;
+    acceptRanges: string | undefined;
+    etag: string | undefined;
+    lastModified: Date | undefined;
+    cacheControl: string | undefined;
+    statusCode: number;
+  }> {
+    const res = await this.client.send(
+      new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Range: range,
+      }),
+    );
+    if (!res.Body) {
+      throw new Error(`S3 object ${key} returned an empty body`);
+    }
+    return {
+      body: res.Body as Readable,
+      contentType: res.ContentType,
+      contentLength:
+        res.ContentLength != null ? Number(res.ContentLength) : undefined,
+      contentRange: res.ContentRange,
+      acceptRanges: res.AcceptRanges,
+      etag: res.ETag,
+      lastModified: res.LastModified,
+      cacheControl: res.CacheControl,
+      // 206 when S3 honored the Range header, 200 otherwise.
+      statusCode: range && res.ContentRange ? 206 : 200,
+    };
+  }
 }

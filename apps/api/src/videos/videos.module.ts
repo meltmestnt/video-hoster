@@ -12,6 +12,7 @@ import { FavoritesModule } from "../favorites/favorites.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { AudioModule } from "../audio/audio.module";
 import { MailModule } from "../mail/mail.module";
+import { MediaModule } from "../media/media.module";
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { MailModule } from "../mail/mail.module";
     NotificationsModule,
     AudioModule,
     MailModule,
+    MediaModule,
   ],
   providers: [VideosService],
   exports: [VideosService],

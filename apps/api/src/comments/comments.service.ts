@@ -10,6 +10,7 @@ import { Comment } from "./comment.entity";
 import { ReactionsService } from "../reactions/reactions.service";
 import type { ReactionType } from "../reactions/reaction.entity";
 import { S3Service } from "../s3/s3.service";
+import { MediaService } from "../media/media.service";
 
 @Injectable()
 export class CommentsService {
@@ -18,6 +19,7 @@ export class CommentsService {
     private readonly comments: Repository<Comment>,
     private readonly reactionsService: ReactionsService,
     private readonly s3: S3Service,
+    private readonly media: MediaService,
   ) {}
 
   async listByVideo(
@@ -64,7 +66,7 @@ export class CommentsService {
     await Promise.all(
       [...authorById.values()].map(async (a) => {
         const url = a.avatarS3Key
-          ? await this.s3.presignGet(a.avatarS3Key)
+          ? await this.media.signUrl({ kind: "avatar", id: a.id })
           : (a.avatarUrl ?? null);
         avatarByAuthor.set(a.id, url);
       }),

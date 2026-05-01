@@ -8,12 +8,14 @@ import { User } from "../users/user.entity";
 import { NotificationsService } from "./notifications.service";
 import { S3Module } from "../s3/s3.module";
 import { SubscriptionsModule } from "../subscriptions/subscriptions.module";
+import { MediaModule } from "../media/media.module";
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Notification, Video, Gif, Thumbnail, User]),
     S3Module,
     SubscriptionsModule,
+    MediaModule,
   ],
   providers: [NotificationsService],
   exports: [NotificationsService],

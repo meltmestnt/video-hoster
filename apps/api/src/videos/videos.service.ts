@@ -13,6 +13,8 @@ import {
   DAILY_VIDEO_BYTES_LIMIT_GB,
   DAILY_VIDEO_UPLOAD_LIMIT,
   MAX_VIDEO_BYTES,
+  UNVERIFIED_LIMIT_ERROR_PREFIX,
+  UNVERIFIED_VIDEO_LIMIT,
   type VideoSort,
 } from "@repo/shared";
 import { Video, VideoDownloadPolicy, VideoVisibility } from "./video.entity";
@@ -27,9 +29,11 @@ import { FavoritesService } from "../favorites/favorites.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { AudioService } from "../audio/audio.service";
 import { MailService } from "../mail/mail.service";
+import { MediaService } from "../media/media.service";
 
 interface CreateUploadArgs {
   ownerId: string;
+  ownerStatus: User["status"];
   title: string;
   description: string;
   mimeType: string;
@@ -78,11 +82,26 @@ export class VideosService {
     private readonly notificationsService: NotificationsService,
     private readonly audioService: AudioService,
     private readonly mailService: MailService,
+    private readonly media: MediaService,
   ) {}
 
   async createUpload(args: CreateUploadArgs) {
     if (args.sizeBytes > MAX_VIDEO_BYTES) {
       throw new BadRequestException("File exceeds 1.5 GiB limit");
+    }
+
+    // Unverified accounts get a tiny preview quota — one of each kind.
+    // The error message carries a stable prefix so the client can detect
+    // it and pop a "verify your email" dialog instead of a generic toast.
+    if (args.ownerStatus !== "verified") {
+      const existing = await this.videos.count({
+        where: { ownerId: args.ownerId },
+      });
+      if (existing >= UNVERIFIED_VIDEO_LIMIT) {
+        throw new BadRequestException(
+          `${UNVERIFIED_LIMIT_ERROR_PREFIX}video`,
+        );
+      }
     }
 
     // Per-user daily quota. Rolling 24-hour window is fairer than a calendar
@@ -568,7 +587,9 @@ export class VideosService {
 
     const [enriched] = await this.attachExtras([v], viewerId);
     const videoUrl =
-      v.status === "ready" ? await this.s3.presignGet(v.s3Key) : null;
+      v.status === "ready"
+        ? await this.media.signUrl({ kind: "video", id: v.id })
+        : null;
 
     return { ...enriched, videoUrl };
   }
@@ -626,9 +647,9 @@ export class VideosService {
     const [thumbRows, counts, viewerReactions, favoritedSet, audioByVideo] =
       await Promise.all([
         this.thumbnails.manager.query<
-          Array<{ videoId: string; s3Key: string }>
+          Array<{ id: string; videoId: string }>
         >(
-          `SELECT DISTINCT ON ("videoId") "videoId", "s3Key"
+          `SELECT DISTINCT ON ("videoId") id, "videoId"
          FROM thumbnails
          WHERE "videoId" = ANY($1)
          ORDER BY "videoId", "createdAt" DESC`,
@@ -643,15 +664,17 @@ export class VideosService {
           : Promise.resolve(new Set<string>()),
         this.audioService.tracksForVideos(ids),
       ]);
-    const keyByVideo = new Map(thumbRows.map((r) => [r.videoId, r.s3Key]));
+    const thumbIdByVideo = new Map(thumbRows.map((r) => [r.videoId, r.id]));
 
     return Promise.all(
       videos.map(async (v) => {
-        const key = keyByVideo.get(v.id) ?? null;
+        const thumbId = thumbIdByVideo.get(v.id) ?? null;
         const [thumbnailUrl, videoUrl] = await Promise.all([
-          key ? this.s3.presignGet(key) : Promise.resolve(null),
+          thumbId
+            ? this.media.signUrl({ kind: "thumbnail", id: thumbId })
+            : Promise.resolve(null),
           v.status === "ready" && v.s3Key
-            ? this.s3.presignGet(v.s3Key)
+            ? this.media.signUrl({ kind: "video", id: v.id })
             : Promise.resolve(null),
         ]);
         const c = counts.get(v.id) ?? { likes: 0, dislikes: 0 };

@@ -5,6 +5,7 @@ import { Notification } from "./notification.entity";
 import { Video } from "../videos/video.entity";
 import { Gif } from "../gifs/gif.entity";
 import { S3Service } from "../s3/s3.service";
+import { MediaService } from "../media/media.service";
 import type { ReactionType } from "../reactions/reaction.entity";
 import { Thumbnail } from "../thumbnails/thumbnail.entity";
 import { SubscriptionsService } from "../subscriptions/subscriptions.service";
@@ -36,6 +37,7 @@ export class NotificationsService {
     @InjectRepository(User) private readonly users: Repository<User>,
     private readonly s3: S3Service,
     private readonly subscriptions: SubscriptionsService,
+    private readonly media: MediaService,
   ) {}
 
   // Owner can disable upload-fanout from their profile. Treated as a hard
@@ -253,9 +255,9 @@ export class NotificationsService {
         : Promise.resolve([]),
       videoIds.length
         ? this.thumbnails.manager.query<
-            Array<{ videoId: string; s3Key: string }>
+            Array<{ id: string; videoId: string }>
           >(
-            `SELECT DISTINCT ON ("videoId") "videoId", "s3Key"
+            `SELECT DISTINCT ON ("videoId") id, "videoId"
              FROM thumbnails
              WHERE "videoId" = ANY($1)
              ORDER BY "videoId", "createdAt" DESC`,
@@ -266,15 +268,17 @@ export class NotificationsService {
 
     const videoById = new Map(videos.map((v) => [v.id, v]));
     const gifById = new Map(gifs.map((g) => [g.id, g]));
-    const videoThumbKey = new Map(videoThumbs.map((t) => [t.videoId, t.s3Key]));
+    const videoThumbId = new Map(videoThumbs.map((t) => [t.videoId, t.id]));
 
     return Promise.all(
       rows.map(async (n) => {
         let subject: NotificationListItem["subject"];
         if (n.videoId && videoById.has(n.videoId)) {
           const v = videoById.get(n.videoId)!;
-          const key = videoThumbKey.get(v.id) ?? null;
-          const thumbnailUrl = key ? await this.s3.presignGet(key) : null;
+          const thumbId = videoThumbId.get(v.id) ?? null;
+          const thumbnailUrl = thumbId
+            ? await this.media.signUrl({ kind: "thumbnail", id: thumbId })
+            : null;
           subject = {
             kind: "video",
             id: v.id,
@@ -285,7 +289,7 @@ export class NotificationsService {
           const g = gifById.get(n.gifId)!;
           // The GIF object itself is also its thumbnail.
           const thumbnailUrl = g.s3Key
-            ? await this.s3.presignGet(g.s3Key)
+            ? await this.media.signUrl({ kind: "gif", id: g.id })
             : null;
           subject = {
             kind: "gif",
@@ -306,7 +310,9 @@ export class NotificationsService {
           actor: {
             id: n.actor.id,
             name: n.actor.name,
-            avatarUrl: n.actor.avatarUrl,
+            avatarUrl: n.actor.avatarS3Key
+              ? await this.media.signUrl({ kind: "avatar", id: n.actor.id })
+              : (n.actor.avatarUrl ?? null),
           },
           subject,
         } as NotificationListItem;

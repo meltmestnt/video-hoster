@@ -3,8 +3,14 @@ import "./globals.css";
 
 import type { Metadata, Viewport } from "next";
 import { Theme } from "@radix-ui/themes";
+import { GoogleAnalytics } from "@next/third-parties/google";
 import { Providers } from "./providers";
 import { siteUrl } from "@/lib/site";
+
+// GA4 Measurement ID, format `G-XXXXXXXXXX`. When unset (dev, preview,
+// or before the user has created a GA property) we skip rendering the
+// script entirely so dev sessions don't pollute production analytics.
+const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
 
 const SITE_NAME = "vids&gifs";
 const SITE_DESCRIPTION =
@@ -87,6 +93,7 @@ export default function RootLayout({
         <Theme appearance="dark" accentColor="iris" radius="large" scaling="100%">
           <Providers>{children}</Providers>
         </Theme>
+        {GA_ID && <GoogleAnalytics gaId={GA_ID} />}
       </body>
     </html>
   );

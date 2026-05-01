@@ -18,6 +18,7 @@ import {
 import { User } from "./user.entity";
 import { MailService } from "../mail/mail.service";
 import { S3Service } from "../s3/s3.service";
+import { MediaService } from "../media/media.service";
 
 const AVATAR_EXT_BY_MIME: Record<AllowedAvatarMimeType, string> = {
   "image/jpeg": "jpg",
@@ -53,11 +54,12 @@ export class UsersService {
     private readonly mail: MailService,
     private readonly config: ConfigService,
     private readonly s3: S3Service,
+    private readonly media: MediaService,
   ) {}
 
   async resolveAvatarUrl(user: User): Promise<string | null> {
     if (user.avatarS3Key) {
-      return this.s3.presignGet(user.avatarS3Key);
+      return this.media.signUrl({ kind: "avatar", id: user.id });
     }
     return user.avatarUrl ?? null;
   }
@@ -129,7 +131,8 @@ export class UsersService {
       });
     }
 
-    const avatarUrl = await this.s3.presignGet(s3Key);
+    const avatarUrl =
+      (await this.media.signUrl({ kind: "avatar", id: userId })) ?? "";
     return { avatarUrl };
   }
 

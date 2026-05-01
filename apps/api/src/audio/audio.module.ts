@@ -5,11 +5,13 @@ import { VideoAudioTrack } from "./video-audio-track.entity";
 import { Video } from "../videos/video.entity";
 import { AudioService } from "./audio.service";
 import { S3Module } from "../s3/s3.module";
+import { MediaModule } from "../media/media.module";
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([AudioTemplate, VideoAudioTrack, Video]),
     S3Module,
+    MediaModule,
   ],
   providers: [AudioService],
   exports: [AudioService],

@@ -11,16 +11,21 @@ import {
   ALLOWED_SCREENSHOT_MIME_TYPES,
   type AllowedScreenshotMimeType,
   MAX_SCREENSHOT_BYTES,
+  UNVERIFIED_LIMIT_ERROR_PREFIX,
+  UNVERIFIED_SCREENSHOT_LIMIT,
 } from "@repo/shared";
+import type { User } from "../users/user.entity";
 import {
   Screenshot,
   ScreenshotSource,
   ScreenshotVisibility,
 } from "./screenshot.entity";
 import { S3Service } from "../s3/s3.service";
+import { MediaService } from "../media/media.service";
 
 interface CreateUploadArgs {
   ownerId: string;
+  ownerStatus: User["status"];
   title: string;
   mimeType: AllowedScreenshotMimeType;
   sizeBytes: number;
@@ -57,6 +62,7 @@ export class ScreenshotsService {
     @InjectRepository(Screenshot)
     private readonly screenshots: Repository<Screenshot>,
     private readonly s3: S3Service,
+    private readonly media: MediaService,
   ) {}
 
   async createUpload(args: CreateUploadArgs) {
@@ -69,6 +75,17 @@ export class ScreenshotsService {
       )
     ) {
       throw new BadRequestException("Unsupported screenshot mime type");
+    }
+
+    if (args.ownerStatus !== "verified") {
+      const existing = await this.screenshots.count({
+        where: { ownerId: args.ownerId },
+      });
+      if (existing >= UNVERIFIED_SCREENSHOT_LIMIT) {
+        throw new BadRequestException(
+          `${UNVERIFIED_LIMIT_ERROR_PREFIX}screenshot`,
+        );
+      }
     }
 
     const draft = this.screenshots.create({
@@ -208,7 +225,9 @@ export class ScreenshotsService {
 
   private async toDto(s: Screenshot) {
     const url =
-      s.status === "ready" ? await this.s3.presignGet(s.s3Key) : null;
+      s.status === "ready"
+        ? await this.media.signUrl({ kind: "screenshot", id: s.id })
+        : null;
     return {
       id: s.id,
       title: s.title,

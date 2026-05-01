@@ -18,6 +18,7 @@ import { AudioTemplate } from "./audio-template.entity";
 import { VideoAudioTrack } from "./video-audio-track.entity";
 import { Video } from "../videos/video.entity";
 import { S3Service } from "../s3/s3.service";
+import { MediaService } from "../media/media.service";
 
 interface CreateUploadArgs {
   ownerId: string;
@@ -65,6 +66,7 @@ export class AudioService {
     private readonly tracks: Repository<VideoAudioTrack>,
     @InjectRepository(Video) private readonly videos: Repository<Video>,
     private readonly s3: S3Service,
+    private readonly media: MediaService,
   ) {}
 
   async createUpload(args: CreateUploadArgs) {
@@ -132,7 +134,7 @@ export class AudioService {
         sizeBytes: r.sizeBytes,
         durationSeconds: r.durationSeconds,
         createdAt: r.createdAt,
-        url: await this.s3.presignGet(r.s3Key),
+        url: await this.media.signUrl({ kind: "audio", id: r.id }),
       })),
     );
   }
@@ -243,21 +245,24 @@ export class AudioService {
       order: { createdAt: "ASC" },
     });
 
-    // Presign every distinct s3Key once so a video with three copies of the
-    // same template doesn't cost three round-trips.
-    const keyToUrl = new Map<string, Promise<string>>();
+    // Sign each distinct template URL once so a video with three copies of
+    // the same template doesn't cost three signing round-trips.
+    const idToUrl = new Map<string, Promise<string | null>>();
     for (const r of rows) {
-      const key = r.audioTemplate.s3Key;
-      if (key && !keyToUrl.has(key)) {
-        keyToUrl.set(key, this.s3.presignGet(key));
+      const tplId = r.audioTemplate.id;
+      if (tplId && !idToUrl.has(tplId)) {
+        idToUrl.set(
+          tplId,
+          this.media.signUrl({ kind: "audio", id: tplId }),
+        );
       }
     }
 
     const result = new Map<string, AttachedTrack[]>();
     for (const r of rows) {
       const list = result.get(r.videoId) ?? [];
-      const url = r.audioTemplate.s3Key
-        ? await keyToUrl.get(r.audioTemplate.s3Key)!
+      const url = r.audioTemplate.id
+        ? (await idToUrl.get(r.audioTemplate.id)!) ?? null
         : null;
       list.push({
         id: r.id,

@@ -9,6 +9,7 @@ import { Repository } from "typeorm";
 import { Subscription } from "./subscription.entity";
 import { User } from "../users/user.entity";
 import { S3Service } from "../s3/s3.service";
+import { MediaService } from "../media/media.service";
 
 export interface SubscriptionUserSummary {
   id: string;
@@ -31,6 +32,7 @@ export class SubscriptionsService {
     private readonly subscriptions: Repository<Subscription>,
     @InjectRepository(User) private readonly users: Repository<User>,
     private readonly s3: S3Service,
+    private readonly media: MediaService,
   ) {}
 
   async toggle(
@@ -151,9 +153,10 @@ export class SubscriptionsService {
     const items: SubscriptionUserSummary[] = await Promise.all(
       sliced.map(async (row) => {
         const u = userById.get(row[userIdColumn]);
-        const avatarUrl = u?.avatarS3Key
-          ? await this.s3.presignGet(u.avatarS3Key)
-          : (u?.avatarUrl ?? null);
+        const avatarUrl =
+          u && u.avatarS3Key
+            ? await this.media.signUrl({ kind: "avatar", id: u.id })
+            : (u?.avatarUrl ?? null);
         return {
           id: row[userIdColumn],
           name: u?.name ?? "Unknown",

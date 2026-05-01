@@ -8,18 +8,25 @@ import {
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { In, Repository, SelectQueryBuilder } from "typeorm";
-import type { VideoSort } from "@repo/shared";
+import {
+  UNVERIFIED_GIF_LIMIT,
+  UNVERIFIED_LIMIT_ERROR_PREFIX,
+  type VideoSort,
+} from "@repo/shared";
+import type { User } from "../users/user.entity";
 import { Gif, GifVisibility } from "./gif.entity";
 import { TagsService } from "../tags/tags.service";
 import { S3Service } from "../s3/s3.service";
 import { ReactionsService } from "../reactions/reactions.service";
 import type { ReactionType } from "../reactions/reaction.entity";
 import { NotificationsService } from "../notifications/notifications.service";
+import { MediaService } from "../media/media.service";
 
 const MAX_GIF_BYTES = 20 * 1024 * 1024;
 
 interface CreateUploadArgs {
   ownerId: string;
+  ownerStatus: User["status"];
   title: string;
   description: string;
   sizeBytes: number;
@@ -50,6 +57,7 @@ export class GifsService {
     private readonly s3: S3Service,
     private readonly reactionsService: ReactionsService,
     private readonly notificationsService: NotificationsService,
+    private readonly media: MediaService,
   ) {}
 
   async createUpload(args: CreateUploadArgs) {
@@ -58,6 +66,17 @@ export class GifsService {
     }
     if (args.durationSeconds > 20.5) {
       throw new BadRequestException("GIF exceeds 20s duration limit");
+    }
+
+    if (args.ownerStatus !== "verified") {
+      const existing = await this.gifs.count({
+        where: { ownerId: args.ownerId },
+      });
+      if (existing >= UNVERIFIED_GIF_LIMIT) {
+        throw new BadRequestException(
+          `${UNVERIFIED_LIMIT_ERROR_PREFIX}gif`,
+        );
+      }
     }
 
     // One in-flight upload per user. A draft is considered abandoned once
@@ -255,7 +274,10 @@ export class GifsService {
       throw new NotFoundException("Gif not found");
     }
     const [enriched] = await this.attachExtras([g], viewerId);
-    const gifUrl = g.status === "ready" ? await this.s3.presignGet(g.s3Key) : null;
+    const gifUrl =
+      g.status === "ready"
+        ? await this.media.signUrl({ kind: "gif", id: g.id })
+        : null;
     return { ...enriched, gifUrl };
   }
 
@@ -414,10 +436,10 @@ export class GifsService {
 
     return Promise.all(
       gifs.map(async (g) => {
-        // The S3 object IS the gif itself — its presigned GET URL doubles
-        // as a "thumbnail" for grid display.
+        // The S3 object IS the gif itself — its proxy URL doubles as a
+        // "thumbnail" for grid display.
         const url = g.status === "ready"
-          ? await this.s3.presignGet(g.s3Key)
+          ? await this.media.signUrl({ kind: "gif", id: g.id })
           : null;
         const c = counts.get(g.id) ?? { likes: 0, dislikes: 0 };
         return {
