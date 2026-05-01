@@ -16,6 +16,32 @@ export const en = {
   "common.public": "Public",
   "common.edited": "(edited)",
 
+  // ─── Anonymous landing intro ───
+  "intro.heading": "Your home for short videos, GIFs, and screenshots",
+  "intro.subtitle":
+    "Upload, edit, share, and discover. Free to join — no ads, no tracking beyond what the cookie banner says.",
+  "intro.f.video.title": "Upload videos",
+  "intro.f.video.desc":
+    "MP4 or WebM up to 300 MB, with optional in-browser compression.",
+  "intro.f.gif.title": "Make GIFs",
+  "intro.f.gif.desc":
+    "Upload GIFs up to 8 MB or generate them from your videos.",
+  "intro.f.convert.title": "Convert in-browser",
+  "intro.f.convert.desc":
+    "Turn any video into a GIF (or back) without leaving the page.",
+  "intro.f.screenshot.title": "Capture screenshots",
+  "intro.f.screenshot.desc":
+    "Freeze any frame of a video as a sharable image you own.",
+  "intro.f.audio.title": "Layer audio",
+  "intro.f.audio.desc":
+    "Add audio templates from a shared library on top of your clips.",
+  "intro.f.community.title": "Engage",
+  "intro.f.community.desc":
+    "Comment, react, favorite, and subscribe to creators you like.",
+  "intro.cta.signUp": "Create a free account",
+  "intro.cta.signIn": "Sign in",
+  "intro.cta.browse": "Browse all videos →",
+
   // ─── Cookie consent ───
   "consent.message":
     "We use cookies for analytics to understand how the site is used. Click Accept to allow, or Decline to opt out.",

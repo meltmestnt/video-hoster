@@ -351,6 +351,122 @@ button:disabled,
   }
 }
 
+/* ───── anonymous landing hero ─────
+ * The crimson "running highlight" border is a conic-gradient on a
+ * pseudo-element with a mask that punches out the inside, so only a
+ * thin ring remains. Animating the gradient's start angle makes the
+ * highlight travel around the perimeter. */
+
+@property --intro-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.intro-card {
+  position: relative;
+  isolation: isolate;
+}
+
+.intro-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--intro-angle),
+    transparent 0deg,
+    transparent 220deg,
+    var(--crimson-9) 280deg,
+    var(--crimson-11) 310deg,
+    var(--crimson-9) 340deg,
+    transparent 360deg
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .intro-card::before {
+    animation: introBorderSpin 4.5s linear infinite;
+  }
+
+  .intro-heading-block,
+  .intro-features > *,
+  .intro-cta-row {
+    animation: introFadeUp 540ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  }
+
+  .intro-heading-block {
+    animation-delay: 0ms;
+  }
+  .intro-features > *:nth-child(1) {
+    animation-delay: 140ms;
+  }
+  .intro-features > *:nth-child(2) {
+    animation-delay: 220ms;
+  }
+  .intro-features > *:nth-child(3) {
+    animation-delay: 300ms;
+  }
+  .intro-features > *:nth-child(4) {
+    animation-delay: 380ms;
+  }
+  .intro-features > *:nth-child(5) {
+    animation-delay: 460ms;
+  }
+  .intro-features > *:nth-child(6) {
+    animation-delay: 540ms;
+  }
+  .intro-cta-row {
+    animation-delay: 640ms;
+  }
+}
+
+@keyframes introBorderSpin {
+  to {
+    --intro-angle: 360deg;
+  }
+}
+
+@keyframes introFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.intro-features {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  position: relative;
+  z-index: 2;
+}
+
+@media (max-width: 900px) {
+  .intro-features {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .intro-features {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
 /* ───── responsive topbar utilities ─────
  * CSS-only show/hide so SSR doesn't have to know the viewport. The
  * mobile breakpoint matches Radix's "small" threshold roughly. */

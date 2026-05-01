@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import { Flex, Heading, Text } from "@radix-ui/themes";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { getServerTrpc } from "@/lib/trpc-server";
 import { Dashboard } from "@/components/Dashboard";
 import { VideoSortSelect } from "@/components/VideoSortSelect";
+import { AnonymousIntro } from "@/components/AnonymousIntro";
 import type { VideoSort } from "@repo/shared";
 import { absoluteUrl } from "@/lib/site";
 import { T } from "@/lib/i18n";
@@ -35,6 +38,14 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<{ sort?: string }>;
 }) {
+  const session = await getServerSession(authOptions);
+  // Signed-out visitors see the marketing landing instead of the feed —
+  // they can still browse content via the "Browse all videos" link or by
+  // navigating to /videos / /gifs / /screenshots directly.
+  if (!session?.user) {
+    return <AnonymousIntro />;
+  }
+
   const { sort: sortRaw } = await searchParams;
   const sort = normalizeSort(sortRaw);
 
