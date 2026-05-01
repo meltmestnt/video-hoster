@@ -168,6 +168,7 @@ export const uk: EnDict = {
   "auth.required.title": "Увійдіть, щоб продовжити",
   "auth.required.body":
     "Потрібен обліковий запис, щоб переглядати відео, шукати, коментувати або зберігати в обране.",
+  "auth.close": "Закрити й повернутися на головну",
 
   // ─── Pages ───
   "page.dashboard.heading": "Усе",

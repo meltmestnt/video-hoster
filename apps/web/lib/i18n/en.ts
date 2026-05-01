@@ -163,6 +163,7 @@ export const en = {
   "auth.required.title": "Sign in to continue",
   "auth.required.body":
     "You need an account to watch videos, search, comment, or save favorites.",
+  "auth.close": "Close and go to homepage",
 
   // ─── Pages ───
   "page.dashboard.heading": "All",
