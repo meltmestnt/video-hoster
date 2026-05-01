@@ -21,6 +21,55 @@ import {
   MediaThrottleException,
 } from "./media-throttle";
 
+// Scrapers and link-unfurling bots from the platforms we want to keep
+// shareable on. Match these UA patterns and we skip the hotlink Referer
+// check — they often send their own host as Referer (e.g. Slack pulling
+// an oEmbed photo URL) which would otherwise look like third-party
+// hotlinking. UA can be spoofed but that's fine; the cost-saving target
+// is human-driven hotlinks, not bot-grade evasion.
+const KNOWN_SCRAPER_UA = [
+  /Discordbot/i,
+  /Twitterbot/i,
+  /Slackbot/i,
+  /TelegramBot/i,
+  /facebookexternalhit/i,
+  /WhatsApp/i,
+  /LinkedInBot/i,
+  /SkypeUriPreview/i,
+  /redditbot/i,
+  /Mastodon/i,
+  /Pleroma/i,
+  /Akkoma/i,
+  /SignalBot/i,
+  /vkShare/i,
+  /Bluesky/i,
+];
+
+// Platform-side Referer hosts to allow when a sharer's user-agent isn't
+// the bot itself but the request is coming from the platform's media
+// proxy (Discord's CDN, Twitter's video proxy, etc.). These are domains
+// that legitimately re-fetch our media URLs to display them inline.
+const KNOWN_PLATFORM_REFERER_HOSTS = new Set([
+  "discord.com",
+  "discordapp.com",
+  "discordapp.net",
+  "twitter.com",
+  "x.com",
+  "t.co",
+  "twimg.com",
+  "telegram.org",
+  "t.me",
+  "slack.com",
+  "slack-edge.com",
+  "facebook.com",
+  "fbcdn.net",
+  "linkedin.com",
+  "reddit.com",
+  "redditmedia.com",
+  "redditstatic.com",
+  "whatsapp.net",
+]);
+
 /**
  * Streams S3 objects through the API so the client never sees the bucket.
  * Auth is by signed query params (`exp` + `sig`) — same security model as
@@ -73,12 +122,28 @@ export class MediaController {
     if (this.allowedRefererHosts.size === 0) return true;
     try {
       const host = new URL(referer).host;
-      return this.allowedRefererHosts.has(host);
+      if (this.allowedRefererHosts.has(host)) return true;
+      // Allow root + subdomains of known social platforms so e.g. a
+      // Slack image-proxy on `slack-edge.com` or Discord's
+      // `images-ext-1.discordapp.net` flows through. Without this,
+      // pasting a vidsandgifs link in any social app silently breaks
+      // the inline preview.
+      for (const platform of KNOWN_PLATFORM_REFERER_HOSTS) {
+        if (host === platform || host.endsWith(`.${platform}`)) {
+          return true;
+        }
+      }
+      return false;
     } catch {
       // Malformed Referer — treat as suspicious. Real browsers always
       // send a parseable URL when they send one at all.
       return false;
     }
+  }
+
+  private isKnownScraperUa(ua: string | undefined): boolean {
+    if (!ua) return false;
+    return KNOWN_SCRAPER_UA.some((re) => re.test(ua));
   }
 
   @Get(":kind/:id")
@@ -114,10 +179,15 @@ export class MediaController {
     // page burns our bandwidth without ever loading our site. Avatars,
     // thumbnails, and screenshots are static images we want shareable, so
     // they bypass the check; only video/gif/audio (the cost-heavy kinds)
-    // are gated.
+    // are gated. Known social-platform scrapers and proxies bypass too,
+    // so links keep unfurling on Discord/Slack/Twitter/Telegram/etc.
     const isCostHeavy =
       kindParam === "video" || kindParam === "gif" || kindParam === "audio";
-    if (isCostHeavy && !this.isAllowedReferer(referer || undefined)) {
+    if (
+      isCostHeavy &&
+      !this.isKnownScraperUa(ua) &&
+      !this.isAllowedReferer(referer || undefined)
+    ) {
       this.logger.warn(
         `media.stream blocked=hotlink ip=${ip} kind=${kindParam} id=${id} referer="${referer}" ua="${ua}"`,
       );
