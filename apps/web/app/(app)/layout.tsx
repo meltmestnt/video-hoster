@@ -65,7 +65,9 @@ export default async function AppLayout({
           </Box>
           <Footer />
         </Flex>
-        {signedIn && <MiniPlayer />}
+        {signedIn && (
+          <MiniPlayer initialEnabled={me?.miniPlayerEnabled ?? true} />
+        )}
         <DropZoneOverlay signedIn={signedIn} />
         {signedIn && <PendingUploadResumer />}
       </UploadDialogProvider>

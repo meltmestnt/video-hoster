@@ -19,7 +19,18 @@ import { useT } from "@/lib/i18n";
 
 const ReactPlayer = dynamic(() => import("react-player"), { ssr: false });
 
-export function MiniPlayer() {
+interface Props {
+  /**
+   * SSR-resolved value of the user's miniPlayerEnabled preference,
+   * forwarded from the (app) layout's auth.me query. Without this the
+   * gate only ran after the client-side trpc query resolved, so users
+   * who had disabled the mini player would still see it flash for the
+   * first few hundred ms after navigating away from a video page.
+   */
+  initialEnabled?: boolean;
+}
+
+export function MiniPlayer({ initialEnabled = true }: Props = {}) {
   const mini = useMiniPlayer();
   const pathname = usePathname();
   const playerRef = useRef<ReactPlayerType | null>(null);
@@ -40,8 +51,12 @@ export function MiniPlayer() {
 
   if (!mini.video) return null;
   if (pathname === `/videos/${mini.video.id}`) return null;
-  // Respect a user's persisted "always hide" preference.
-  if (me.data && me.data.miniPlayerEnabled === false) return null;
+  // Respect a user's persisted "always hide" preference. Prefer the
+  // live query result when it's resolved; otherwise fall back to the
+  // SSR-provided value so the mini player never flashes on against
+  // someone who has explicitly disabled it.
+  const enabled = me.data?.miniPlayerEnabled ?? initialEnabled;
+  if (!enabled) return null;
 
   const handleClose = () => {
     if (me.data && !me.data.miniPlayerPromptSeen) {
