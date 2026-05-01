@@ -13,6 +13,7 @@ import type { AudioService } from "../audio/audio.service";
 import type { S3Service } from "../s3/s3.service";
 import type { AuthService } from "../auth/auth.service";
 import type { BillingService } from "../billing/billing.service";
+import type { PushService } from "../push/push.service";
 
 export interface Services {
   users: UsersService;
@@ -29,6 +30,7 @@ export interface Services {
   s3: S3Service;
   auth: AuthService;
   billing: BillingService;
+  push: PushService;
 }
 
 export interface Context {

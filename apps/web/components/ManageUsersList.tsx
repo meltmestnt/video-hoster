@@ -9,10 +9,19 @@ import {
   Button,
   Callout,
   Flex,
+  IconButton,
   Table,
   Text,
   TextField,
+  Tooltip,
 } from "@radix-ui/themes";
+import {
+  CheckCircledIcon,
+  CrossCircledIcon,
+  EnvelopeClosedIcon,
+  EnvelopeOpenIcon,
+  TrashIcon,
+} from "@radix-ui/react-icons";
 import { trpc } from "@/lib/trpc";
 import { useT } from "@/lib/i18n";
 import type { inferRouterOutputs } from "@trpc/server";
@@ -259,7 +268,10 @@ function UserRowView({
         </Badge>
       </Table.Cell>
       <Table.Cell>
-        <Flex gap="1" wrap="wrap">
+        {/* Stack the two badges vertically with consistent width — wrapping
+            them inline produced uneven row heights when the localized
+            "Не підтверджено" / "Не схвалено" labels overflowed. */}
+        <Flex direction="column" gap="1" align="start">
           <Badge
             color={row.status === "verified" ? "green" : "amber"}
             variant="soft"
@@ -291,7 +303,12 @@ function UserRowView({
             —
           </Text>
         ) : (
-          <Flex gap="2">
+          <Flex gap="2" wrap="nowrap">
+            {/* Icon buttons keep the column's width fixed regardless of
+                language. Long Ukrainian labels ("Скасувати підтвердження")
+                were dominating the row and pushing other columns out. The
+                tooltip carries the same label for sighted users; the icon
+                conveys intent at a glance. */}
             {isVerified ? (
               // Verified → can be revoked. Confirmation dialog because this
               // strips access to write actions.
@@ -302,16 +319,19 @@ function UserRowView({
                   if (!o) setError(null);
                 }}
               >
-                <AlertDialog.Trigger>
-                  <Button
-                    size="1"
-                    variant="soft"
-                    color="amber"
-                    disabled={actionPending}
-                  >
-                    {t("manage.action.unverify")}
-                  </Button>
-                </AlertDialog.Trigger>
+                <Tooltip content={t("manage.action.unverify")}>
+                  <AlertDialog.Trigger>
+                    <IconButton
+                      size="2"
+                      variant="soft"
+                      color="amber"
+                      disabled={actionPending}
+                      aria-label={t("manage.action.unverify")}
+                    >
+                      <EnvelopeClosedIcon />
+                    </IconButton>
+                  </AlertDialog.Trigger>
+                </Tooltip>
                 <AlertDialog.Content maxWidth="440px">
                   <AlertDialog.Title>
                     {t("manage.unverify.title", { name: row.name })}
@@ -349,42 +369,49 @@ function UserRowView({
             ) : (
               // Unverified → one-click approve. No dialog because granting
               // access isn't destructive — admin can always Unverify after.
-              <Button
-                size="1"
-                variant="soft"
-                color="green"
-                onClick={runVerify}
-                disabled={actionPending}
-              >
-                {actionPending
-                  ? t("manage.verifying")
-                  : t("manage.action.verify")}
-              </Button>
+              <Tooltip content={t("manage.action.verify")}>
+                <IconButton
+                  size="2"
+                  variant="soft"
+                  color="green"
+                  onClick={runVerify}
+                  disabled={actionPending}
+                  aria-label={t("manage.action.verify")}
+                >
+                  <EnvelopeOpenIcon />
+                </IconButton>
+              </Tooltip>
             )}
 
             {/* Approve / Unapprove — separate axis from email verification.
                 Both directions are one-click since they only adjust the
                 daily upload caps; reverse is always available. */}
             {isApproved ? (
-              <Button
-                size="1"
-                variant="soft"
-                color="amber"
-                onClick={runUnapprove}
-                disabled={actionPending}
-              >
-                {t("manage.action.unapprove")}
-              </Button>
+              <Tooltip content={t("manage.action.unapprove")}>
+                <IconButton
+                  size="2"
+                  variant="soft"
+                  color="amber"
+                  onClick={runUnapprove}
+                  disabled={actionPending}
+                  aria-label={t("manage.action.unapprove")}
+                >
+                  <CrossCircledIcon />
+                </IconButton>
+              </Tooltip>
             ) : (
-              <Button
-                size="1"
-                variant="soft"
-                color="iris"
-                onClick={runApprove}
-                disabled={actionPending}
-              >
-                {t("manage.action.approve")}
-              </Button>
+              <Tooltip content={t("manage.action.approve")}>
+                <IconButton
+                  size="2"
+                  variant="soft"
+                  color="iris"
+                  onClick={runApprove}
+                  disabled={actionPending}
+                  aria-label={t("manage.action.approve")}
+                >
+                  <CheckCircledIcon />
+                </IconButton>
+              </Tooltip>
             )}
 
             <AlertDialog.Root
@@ -394,16 +421,19 @@ function UserRowView({
                 if (!o) setError(null);
               }}
             >
-              <AlertDialog.Trigger>
-                <Button
-                  size="1"
-                  variant="soft"
-                  color="red"
-                  disabled={actionPending}
-                >
-                  {t("manage.action.delete")}
-                </Button>
-              </AlertDialog.Trigger>
+              <Tooltip content={t("manage.action.delete")}>
+                <AlertDialog.Trigger>
+                  <IconButton
+                    size="2"
+                    variant="soft"
+                    color="red"
+                    disabled={actionPending}
+                    aria-label={t("manage.action.delete")}
+                  >
+                    <TrashIcon />
+                  </IconButton>
+                </AlertDialog.Trigger>
+              </Tooltip>
               <AlertDialog.Content maxWidth="440px">
                 <AlertDialog.Title>
                   {t("manage.delete.title", { name: row.name })}

@@ -110,6 +110,48 @@ export class S3Service {
   }
 
   /**
+   * Fetch the first `length` bytes of an object as a Buffer. Used by the
+   * upload-finalize path to sniff magic bytes before marking the row
+   * "ready" — by then the file is already in S3, but we have one more
+   * chance to refuse it.
+   *
+   * Returns null when the object is missing or the read fails so callers
+   * can fall back to size/content-type checks (they'll still reject).
+   */
+  async readObjectHead(key: string, length: number): Promise<Buffer | null> {
+    if (length <= 0) return null;
+    try {
+      const res = await this.client.send(
+        new GetObjectCommand({
+          Bucket: this.bucket,
+          Key: key,
+          // S3 Range is inclusive on both ends, hence the -1.
+          Range: `bytes=0-${length - 1}`,
+        }),
+      );
+      if (!res.Body) return null;
+      const stream = res.Body as Readable;
+      const chunks: Buffer[] = [];
+      let total = 0;
+      for await (const chunk of stream) {
+        const buf =
+          typeof chunk === "string" ? Buffer.from(chunk) : (chunk as Buffer);
+        chunks.push(buf);
+        total += buf.length;
+        // Defensive — if S3 ever returned more than we asked for we'd
+        // happily accumulate it; cap allocation to `length`.
+        if (total >= length) break;
+      }
+      return Buffer.concat(chunks).subarray(0, length);
+    } catch (err) {
+      this.logger.warn(
+        `readObjectHead failed for ${key}: ${(err as Error).message}`,
+      );
+      return null;
+    }
+  }
+
+  /**
    * Stream an object back to the caller, optionally with a byte range. Used
    * by the media proxy so the browser only ever sees our own URL — never
    * the S3 bucket directly. The returned shape mirrors the S3 SDK response

@@ -17,6 +17,21 @@ const nextConfig = {
       { source: "/trpc/:path*", destination: "http://localhost:4000/trpc/:path*" },
     ];
   },
+  async headers() {
+    return [
+      {
+        // The push service worker has to cover the whole site, not just
+        // /. Service-Worker-Allowed: / lets it claim that scope even
+        // though it's served from /sw.js. no-cache stops browsers from
+        // pinning an old worker after a deploy.
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Service-Worker-Allowed", value: "/" },
+        ],
+      },
+    ];
+  },
   async redirects() {
     return [
       // Old browsers + Safari probe /favicon.ico unconditionally; we ship

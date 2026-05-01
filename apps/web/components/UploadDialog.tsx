@@ -19,7 +19,10 @@ import {
   MAX_VIDEO_GB,
 } from "@repo/shared";
 import { isUploadBusy, useUpload } from "@/lib/upload-context";
+import { trpc } from "@/lib/trpc";
+import { ExclamationTriangleIcon } from "@radix-ui/react-icons";
 import { extractFrame } from "@/lib/extract-frame";
+import { sniffIsVideoFile } from "@/lib/file-signatures";
 import { useT } from "@/lib/i18n";
 import {
   VideoEditorDialog,
@@ -57,6 +60,12 @@ export function UploadDialog({ open, onOpenChange, initialFile }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
+  // sigCheck: "checking" while we read the header, "ok" / "bad" once
+  // we know. The submit button waits on "ok" so a user can't sneak past
+  // by clicking faster than we can read 32 bytes off disk.
+  const [sigCheck, setSigCheck] = useState<"idle" | "checking" | "ok" | "bad">(
+    "idle",
+  );
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -82,6 +91,7 @@ export function UploadDialog({ open, onOpenChange, initialFile }: Props) {
       setThumbError(null);
       setVideoDuration(0);
       setScrubTime(1);
+      setSigCheck("idle");
     } else if (initialFile) {
       // Seed from the dropped file when opened via the overlay. We only do
       // this on the open transition so the user can still clear/swap it
@@ -113,6 +123,25 @@ export function UploadDialog({ open, onOpenChange, initialFile }: Props) {
     setThumbUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [thumbBlob]);
+
+  // Verify the file actually starts with a known video container header.
+  // The browser-reported MIME and the .ext are both spoofable; the bytes
+  // are not. Runs whenever the file changes.
+  useEffect(() => {
+    if (!file) {
+      setSigCheck("idle");
+      return;
+    }
+    let cancelled = false;
+    setSigCheck("checking");
+    sniffIsVideoFile(file).then((ok) => {
+      if (cancelled) return;
+      setSigCheck(ok ? "ok" : "bad");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [file]);
 
   // Auto-capture a default thumbnail at ~1s when a new video file is picked.
   useEffect(() => {
@@ -203,6 +232,12 @@ export function UploadDialog({ open, onOpenChange, initialFile }: Props) {
     ) {
       return t("upload.file.errorType", { type: file.type || "unknown" });
     }
+    // The MIME check passed but the file's actual bytes don't match a
+    // known video container — block the upload outright. Don't surface
+    // the error while we're still reading the header (sigCheck === "checking").
+    if (sigCheck === "bad") {
+      return t("upload.file.errorSignatureVideo");
+    }
     return null;
   })();
 
@@ -211,6 +246,7 @@ export function UploadDialog({ open, onOpenChange, initialFile }: Props) {
     !otherTabBusy &&
     !!file &&
     !fileError &&
+    sigCheck === "ok" &&
     title.trim().length >= 1;
 
   // Step 1: clicking Upload opens the editor instead of starting upload.

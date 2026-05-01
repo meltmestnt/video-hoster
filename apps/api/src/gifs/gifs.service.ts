@@ -25,6 +25,7 @@ import { ReactionsService } from "../reactions/reactions.service";
 import type { ReactionType } from "../reactions/reaction.entity";
 import { NotificationsService } from "../notifications/notifications.service";
 import { MediaService } from "../media/media.service";
+import { looksLikeGif } from "../s3/file-signatures";
 
 
 interface CreateUploadArgs {
@@ -167,6 +168,16 @@ export class GifsService {
       await this.s3.deleteObject(gif.s3Key).catch(() => {});
       throw new BadRequestException(
         `Uploaded object has type "${head.contentType}", not a GIF`,
+      );
+    }
+    // Magic-byte check is the source of truth — the Content-Type metadata
+    // was set client-side and can be lied about. Refuse anything whose
+    // actual bytes don't begin with the GIF87a/89a header.
+    const head6 = await this.s3.readObjectHead(gif.s3Key, 16);
+    if (!head6 || !looksLikeGif(head6)) {
+      await this.s3.deleteObject(gif.s3Key).catch(() => {});
+      throw new BadRequestException(
+        "Uploaded file does not look like a real GIF",
       );
     }
     gif.sizeBytes = head.size;

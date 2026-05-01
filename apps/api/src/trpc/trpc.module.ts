@@ -13,6 +13,7 @@ import { AudioModule } from "../audio/audio.module";
 import { S3Module } from "../s3/s3.module";
 import { AuthModule } from "../auth/auth.module";
 import { BillingModule } from "../billing/billing.module";
+import { PushModule } from "../push/push.module";
 import { TrpcService } from "./trpc.service";
 
 @Module({
@@ -31,6 +32,7 @@ import { TrpcService } from "./trpc.service";
     S3Module,
     AuthModule,
     BillingModule,
+    PushModule,
   ],
   providers: [TrpcService],
   exports: [TrpcService],

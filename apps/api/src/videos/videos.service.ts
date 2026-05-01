@@ -9,6 +9,7 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import { In, MoreThanOrEqual, Repository, SelectQueryBuilder } from "typeorm";
 import {
+  ALLOWED_VIDEO_MIME_TYPES,
   DAILY_VIDEO_BYTES_LIMIT,
   DAILY_VIDEO_BYTES_LIMIT_GB,
   DAILY_VIDEO_UPLOAD_LIMIT,
@@ -32,6 +33,7 @@ import { NotificationsService } from "../notifications/notifications.service";
 import { AudioService } from "../audio/audio.service";
 import { MailService } from "../mail/mail.service";
 import { MediaService } from "../media/media.service";
+import { looksLikeVideo } from "../s3/file-signatures";
 
 interface CreateUploadArgs {
   ownerId: string;
@@ -230,11 +232,27 @@ export class VideosService {
     }
     // Server-side type check: the client signed a PUT with a video/* MIME,
     // but a client could pre-sign for video/mp4 and then PUT a 1 MB image.
-    // Reject obvious mismatches before we mark the row ready and broadcast.
-    if (head.contentType && !head.contentType.startsWith("video/")) {
+    // Restrict to the exact set we accept rather than any video/* prefix —
+    // tighter is fine because the same set is enforced on createUpload.
+    if (
+      head.contentType &&
+      !ALLOWED_VIDEO_MIME_TYPES.includes(
+        head.contentType as (typeof ALLOWED_VIDEO_MIME_TYPES)[number],
+      )
+    ) {
       await this.s3.deleteObject(video.s3Key).catch(() => {});
       throw new BadRequestException(
-        `Uploaded object has type "${head.contentType}", not a video`,
+        `Uploaded object has type "${head.contentType}", not a supported video`,
+      );
+    }
+    // Magic-byte check — bytes win over the client-supplied Content-Type.
+    // ISO BMFF (MP4/MOV) puts "ftyp" at byte 4, EBML (WebM/MKV) starts
+    // with 1A 45 DF A3. Anything else is out.
+    const headBytes = await this.s3.readObjectHead(video.s3Key, 32);
+    if (!headBytes || !looksLikeVideo(headBytes)) {
+      await this.s3.deleteObject(video.s3Key).catch(() => {});
+      throw new BadRequestException(
+        "Uploaded file does not look like a real video",
       );
     }
 

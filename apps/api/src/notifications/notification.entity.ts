@@ -15,7 +15,8 @@ export type NotificationType =
   | "video_like"
   | "gif_like"
   | "video_upload"
-  | "gif_upload";
+  | "gif_upload"
+  | "subscribe";
 
 // One row per (recipient, actor, subject) — toggling a like off and on again
 // reuses the existing row instead of stacking duplicates. The compound index
@@ -29,6 +30,13 @@ export type NotificationType =
 @Index("notifications_dedupe_gif_idx", ["recipientId", "actorId", "gifId", "type"], {
   unique: true,
   where: '"gifId" IS NOT NULL',
+})
+// Subscribe notifications have no subject (no video/gif), just (recipient,
+// actor) — partial index ensures at most one "X subscribed to you" row per
+// pair, so a quick unsub+resub doesn't double up.
+@Index("notifications_dedupe_subscribe_idx", ["recipientId", "actorId", "type"], {
+  unique: true,
+  where: "type = 'subscribe'",
 })
 export class Notification {
   @PrimaryGeneratedColumn("uuid")

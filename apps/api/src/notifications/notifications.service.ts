@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
 import { In, IsNull, Repository } from "typeorm";
 import { Notification } from "./notification.entity";
@@ -11,6 +12,7 @@ import { Thumbnail } from "../thumbnails/thumbnail.entity";
 import { SubscriptionsService } from "../subscriptions/subscriptions.service";
 import type { NotificationType } from "./notification.entity";
 import { User } from "../users/user.entity";
+import { PushService } from "../push/push.service";
 
 export interface NotificationListItem {
   id: string;
@@ -20,7 +22,8 @@ export interface NotificationListItem {
   actor: { id: string; name: string; avatarUrl: string | null };
   subject:
     | { kind: "video"; id: string; title: string; thumbnailUrl: string | null }
-    | { kind: "gif"; id: string; title: string; thumbnailUrl: string | null };
+    | { kind: "gif"; id: string; title: string; thumbnailUrl: string | null }
+    | { kind: "user"; id: string; title: string; thumbnailUrl: string | null };
 }
 
 @Injectable()
@@ -38,7 +41,51 @@ export class NotificationsService {
     private readonly s3: S3Service,
     private readonly subscriptions: SubscriptionsService,
     private readonly media: MediaService,
+    private readonly push: PushService,
+    private readonly config: ConfigService,
   ) {}
+
+  private webOrigin(): string {
+    return this.config.get<string>("WEB_ORIGIN") ?? "";
+  }
+
+  /**
+   * Build an absolute URL for a push notification. The service worker
+   * navigates to this on click, so it has to be an origin the SW can
+   * resolve — relative is fine in production behind the same origin, but
+   * the SW prefers absolute when WEB_ORIGIN is configured.
+   */
+  private link(path: string): string {
+    const origin = this.webOrigin();
+    if (!origin) return path;
+    return path.startsWith("http") ? path : `${origin}${path}`;
+  }
+
+  private async actorName(actorId: string): Promise<string> {
+    const u = await this.users.findOne({
+      where: { id: actorId },
+      select: { id: true, name: true },
+    });
+    return u?.name ?? "Someone";
+  }
+
+  /** Best-effort: log and swallow failures so a broken push doesn't break
+   *  the underlying user action (like, subscribe, upload). */
+  private firePush(
+    userId: string,
+    title: string,
+    body: string,
+    url: string,
+    tag?: string,
+  ): void {
+    this.push
+      .sendToUser(userId, { title, body, url, tag })
+      .catch((err) =>
+        this.logger.warn(
+          `Push fan-out for ${userId} failed: ${(err as Error).message}`,
+        ),
+      );
+  }
 
   // Owner can disable upload-fanout from their profile. Treated as a hard
   // gate — both video and gif fanouts skip when this is false.
@@ -77,6 +124,19 @@ export class NotificationsService {
         `Failed to fan out video_upload notifications: ${(err as Error).message}`,
       );
     }
+    const [actorName, video] = await Promise.all([
+      this.actorName(ownerId),
+      this.videos.findOne({
+        where: { id: videoId },
+        select: { id: true, title: true },
+      }),
+    ]);
+    const url = this.link(`/videos/${videoId}`);
+    const title = `${actorName} posted a new video`;
+    const body = video?.title ?? "Tap to watch.";
+    for (const recipientId of subscriberIds) {
+      this.firePush(recipientId, title, body, url, `video_upload:${videoId}`);
+    }
   }
 
   async onGifUploaded(gifId: string, ownerId: string) {
@@ -101,6 +161,65 @@ export class NotificationsService {
         `Failed to fan out gif_upload notifications: ${(err as Error).message}`,
       );
     }
+    const [actorName, gif] = await Promise.all([
+      this.actorName(ownerId),
+      this.gifs.findOne({
+        where: { id: gifId },
+        select: { id: true, title: true },
+      }),
+    ]);
+    const url = this.link(`/gifs/${gifId}`);
+    const title = `${actorName} posted a new GIF`;
+    const body = gif?.title ?? "Tap to view.";
+    for (const recipientId of subscriberIds) {
+      this.firePush(recipientId, title, body, url, `gif_upload:${gifId}`);
+    }
+  }
+
+  /**
+   * Called by SubscriptionsService.toggle whenever a NEW subscription is
+   * created (not on unsubscribe). Records a notification for the target
+   * and pushes a "X subscribed to you" alert. Self-subscriptions are
+   * blocked upstream so we don't need to filter here.
+   */
+  async onSubscribed(subscriberId: string, targetUserId: string) {
+    try {
+      await this.notifications
+        .createQueryBuilder()
+        .insert()
+        .values({
+          recipientId: targetUserId,
+          actorId: subscriberId,
+          type: "subscribe",
+        })
+        .orIgnore()
+        .execute();
+    } catch (err) {
+      this.logger.warn(
+        `Failed to record subscribe notification: ${(err as Error).message}`,
+      );
+    }
+    const actorName = await this.actorName(subscriberId);
+    this.firePush(
+      targetUserId,
+      `${actorName} subscribed to you`,
+      "You have a new subscriber on vids&gifs.",
+      this.link("/notifications"),
+      `subscribe:${subscriberId}`,
+    );
+  }
+
+  /** Mirror of onSubscribed — called when the user unsubscribes so the
+   *  matching notification disappears. Push isn't reversed (the recipient
+   *  may have already seen it). */
+  async onUnsubscribed(subscriberId: string, targetUserId: string) {
+    await this.notifications
+      .delete({
+        actorId: subscriberId,
+        recipientId: targetUserId,
+        type: "subscribe",
+      })
+      .catch(() => {});
   }
 
   /**
@@ -116,7 +235,7 @@ export class NotificationsService {
     if (next === "like") {
       const video = await this.videos.findOne({
         where: { id: videoId },
-        select: { id: true, ownerId: true },
+        select: { id: true, ownerId: true, title: true },
       });
       if (!video || video.ownerId === actorId) return;
       try {
@@ -136,6 +255,14 @@ export class NotificationsService {
           `Failed to record video_like notification: ${(err as Error).message}`,
         );
       }
+      const actorName = await this.actorName(actorId);
+      this.firePush(
+        video.ownerId,
+        `${actorName} liked your video`,
+        video.title,
+        this.link(`/videos/${videoId}`),
+        `video_like:${videoId}:${actorId}`,
+      );
       return;
     }
     await this.notifications
@@ -151,7 +278,7 @@ export class NotificationsService {
     if (next === "like") {
       const gif = await this.gifs.findOne({
         where: { id: gifId },
-        select: { id: true, ownerId: true },
+        select: { id: true, ownerId: true, title: true },
       });
       if (!gif || gif.ownerId === actorId) return;
       try {
@@ -171,6 +298,14 @@ export class NotificationsService {
           `Failed to record gif_like notification: ${(err as Error).message}`,
         );
       }
+      const actorName = await this.actorName(actorId);
+      this.firePush(
+        gif.ownerId,
+        `${actorName} liked your GIF`,
+        gif.title,
+        this.link(`/gifs/${gifId}`),
+        `gif_like:${gifId}:${actorId}`,
+      );
       return;
     }
     await this.notifications
@@ -273,7 +408,16 @@ export class NotificationsService {
     return Promise.all(
       rows.map(async (n) => {
         let subject: NotificationListItem["subject"];
-        if (n.videoId && videoById.has(n.videoId)) {
+        if (n.type === "subscribe") {
+          // No subject row in the DB — we synthesize one pointing at the
+          // actor so the bell UI can still render a homogeneous list.
+          subject = {
+            kind: "user",
+            id: n.actor.id,
+            title: n.actor.name,
+            thumbnailUrl: null,
+          };
+        } else if (n.videoId && videoById.has(n.videoId)) {
           const v = videoById.get(n.videoId)!;
           const thumbId = videoThumbId.get(v.id) ?? null;
           const thumbnailUrl = thumbId

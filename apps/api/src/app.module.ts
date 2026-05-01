@@ -19,6 +19,7 @@ import { AudioModule } from "./audio/audio.module";
 import { BillingModule } from "./billing/billing.module";
 import { MediaModule } from "./media/media.module";
 import { RemindersModule } from "./reminders/reminders.module";
+import { PushModule } from "./push/push.module";
 import { TrpcModule } from "./trpc/trpc.module";
 
 @Module({
@@ -45,6 +46,7 @@ import { TrpcModule } from "./trpc/trpc.module";
     BillingModule,
     MediaModule,
     RemindersModule,
+    PushModule,
     TrpcModule,
   ],
 })

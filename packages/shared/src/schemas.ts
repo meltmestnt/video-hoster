@@ -339,6 +339,22 @@ export const notificationIdInputSchema = z.object({
 });
 export type NotificationIdInput = z.infer<typeof notificationIdInputSchema>;
 
+// ─── Push notifications ───
+// Mirrors the W3C PushSubscription.toJSON() output. Endpoint length is
+// generous because Apple's Web Push endpoints can run >300 chars.
+export const pushSubscribeInputSchema = z.object({
+  endpoint: z.string().url().max(2048),
+  p256dh: z.string().min(1).max(512),
+  auth: z.string().min(1).max(256),
+  userAgent: z.string().max(512).nullable().optional(),
+});
+export type PushSubscribeInput = z.infer<typeof pushSubscribeInputSchema>;
+
+export const pushUnsubscribeInputSchema = z.object({
+  endpoint: z.string().url().max(2048),
+});
+export type PushUnsubscribeInput = z.infer<typeof pushUnsubscribeInputSchema>;
+
 // ─── Audio templates ───
 export const createAudioUploadInputSchema = z.object({
   title: z.string().trim().min(1).max(120),

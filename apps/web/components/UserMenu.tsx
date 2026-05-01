@@ -20,6 +20,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { StarIcon } from "@radix-ui/react-icons";
 import { trpc } from "@/lib/trpc";
 import { useLocale, useSetLocale, useT } from "@/lib/i18n";
+import { usePushSubscription } from "@/lib/push";
 import { AvatarUploadPane } from "./AvatarUploadPane";
 import { AvatarEditPane } from "./AvatarEditPane";
 import { Morph } from "./Morph";
@@ -388,6 +389,7 @@ function ProfilePane({
           aria-label={t("user.profile.notifySubs.toggleAria")}
         />
       </Flex>
+      <PushToggleRow />
       <Flex justify="between" align="center" px="1" gap="3">
         <Text size="2" color="gray">
           {t("user.profile.language")}
@@ -488,6 +490,48 @@ function ProfilePane({
           </AlertDialog.Content>
         </AlertDialog.Root>
       </Flex>
+    </Flex>
+  );
+}
+
+function PushToggleRow() {
+  const t = useT();
+  const { status, enable, disable, error, isBusy } = usePushSubscription();
+
+  // Hide the toggle entirely on platforms without Push support — there's
+  // nothing to show or do.
+  if (status === "unsupported") return null;
+
+  const checked = status === "subscribed";
+  const blocked = status === "blocked";
+  const hint = blocked
+    ? t("push.menu.blocked")
+    : checked
+      ? t("push.menu.hintOn")
+      : t("push.menu.hintOff");
+
+  return (
+    <Flex justify="between" align="center" px="1" gap="3">
+      <Box style={{ minWidth: 0 }}>
+        <Text as="div" size="2" color="gray">
+          {t("push.menu.label")}
+        </Text>
+        <Text as="div" size="1" color={error ? "red" : "gray"}>
+          {error ? t("push.menu.failed") : hint}
+        </Text>
+      </Box>
+      <Switch
+        checked={checked}
+        disabled={isBusy || blocked}
+        onCheckedChange={(next) => {
+          if (next) {
+            void enable();
+          } else {
+            void disable();
+          }
+        }}
+        aria-label={t("push.menu.toggleAria")}
+      />
     </Flex>
   );
 }

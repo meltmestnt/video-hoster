@@ -9,6 +9,7 @@ import { NotificationsService } from "./notifications.service";
 import { S3Module } from "../s3/s3.module";
 import { SubscriptionsModule } from "../subscriptions/subscriptions.module";
 import { MediaModule } from "../media/media.module";
+import { PushModule } from "../push/push.module";
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { MediaModule } from "../media/media.module";
     S3Module,
     SubscriptionsModule,
     MediaModule,
+    PushModule,
   ],
   providers: [NotificationsService],
   exports: [NotificationsService],

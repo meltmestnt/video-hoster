@@ -14,6 +14,7 @@ import { AudioService } from "../audio/audio.service";
 import { S3Service } from "../s3/s3.service";
 import { AuthService } from "../auth/auth.service";
 import { BillingService } from "../billing/billing.service";
+import { PushService } from "../push/push.service";
 import { appRouter, type AppRouter } from "./router";
 import type { Context } from "./context";
 
@@ -36,6 +37,7 @@ export class TrpcService {
     private readonly s3: S3Service,
     private readonly auth: AuthService,
     private readonly billing: BillingService,
+    private readonly push: PushService,
   ) {}
 
   createContext = async ({
@@ -56,6 +58,7 @@ export class TrpcService {
       s3: this.s3,
       auth: this.auth,
       billing: this.billing,
+      push: this.push,
     };
 
     // Cloudflare's CF-Connecting-IP is a spoofing-resistant source for the

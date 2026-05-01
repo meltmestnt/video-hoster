@@ -45,6 +45,13 @@ export function Footer() {
           {t("footer.privacy")}
         </Link>
         <Separator orientation="vertical" />
+        <Link
+          href="/faq"
+          style={{ color: "inherit", fontSize: "var(--font-size-1)" }}
+        >
+          {t("footer.faq")}
+        </Link>
+        <Separator orientation="vertical" />
         <button
           onClick={reopenConsent}
           type="button"

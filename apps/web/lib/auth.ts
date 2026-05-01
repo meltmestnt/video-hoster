@@ -2,6 +2,7 @@ import type { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { SignJWT, decodeJwt } from "jose";
+import { verifyGoogleIdToken } from "./google-one-tap";
 
 // Re-mint the API token once it's within this many seconds of expiring so
 // in-flight requests don't race the deadline.
@@ -117,6 +118,30 @@ export const authOptions: NextAuthOptions = {
         };
       },
     }),
+    // Google One Tap: the GSI client returns a Google-signed ID token
+    // ("credential"). We verify the JWT against Google's JWKS and surface
+    // the result as if the user had completed a regular Google OAuth flow,
+    // so all downstream code (jwt callback, API upsert) treats it the same.
+    CredentialsProvider({
+      id: "google-one-tap",
+      name: "Google One Tap",
+      credentials: {
+        credential: { label: "Credential", type: "text" },
+      },
+      async authorize(input) {
+        const credential = input?.credential;
+        const clientId = process.env.GOOGLE_CLIENT_ID ?? "";
+        if (!credential || !clientId) return null;
+        const payload = await verifyGoogleIdToken(credential, clientId);
+        if (!payload) return null;
+        return {
+          id: payload.sub,
+          email: payload.email,
+          name: payload.name,
+          image: payload.picture,
+        };
+      },
+    }),
   ],
   session: { strategy: "jwt" },
   secret: process.env.NEXTAUTH_SECRET,
@@ -142,6 +167,17 @@ export const authOptions: NextAuthOptions = {
         token.name = user.name ?? "";
         token.picture = user.image ?? null;
         token.provider = "credentials";
+      }
+      // One Tap arrives via a credentials provider with id="google-one-tap".
+      // The `user.id` field carries Google's `sub`, mirroring the regular
+      // Google OAuth branch — flag it as "google" so the API treats them
+      // the same way and the user lands in the same DB row.
+      if (account?.provider === "google-one-tap" && user) {
+        token.sub = user.id;
+        token.email = user.email ?? "";
+        token.name = user.name ?? "";
+        token.picture = user.image ?? null;
+        token.provider = "google";
       }
 
       if (

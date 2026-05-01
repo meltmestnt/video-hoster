@@ -9,6 +9,7 @@ import {
   classifyDroppedFile,
   setPendingUpload,
 } from "@/lib/pending-upload";
+import { sniffFileKind } from "@/lib/file-signatures";
 
 interface Props {
   signedIn: boolean;
@@ -58,14 +59,19 @@ export function DropZoneOverlay({ signedIn }: Props) {
       if (dragDepth.current === 0) setActive(false);
     };
 
-    const onDrop = (e: DragEvent) => {
+    const onDrop = async (e: DragEvent) => {
       if (!hasFiles(e)) return;
       e.preventDefault();
       dragDepth.current = 0;
       setActive(false);
       const file = e.dataTransfer?.files?.[0];
       if (!file) return;
-      const kind = classifyDroppedFile(file);
+      // Trust the bytes over the filename. classifyDroppedFile is the
+      // fallback for environments where the header read fails (very large
+      // files in some Safari builds, etc.) — both must agree on a kind
+      // before we route the file into a dialog.
+      const sniffed = await sniffFileKind(file);
+      const kind = sniffed ?? classifyDroppedFile(file);
       if (!kind) {
         setError(t("dropzone.unsupported"));
         return;

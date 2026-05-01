@@ -159,7 +159,9 @@ export function NotificationsBell() {
                 const href =
                   n.subject.kind === "video"
                     ? `/videos/${n.subject.id}`
-                    : `/gifs/${n.subject.id}`;
+                    : n.subject.kind === "gif"
+                      ? `/gifs/${n.subject.id}`
+                      : "/notifications";
                 return (
                   <Link
                     key={n.id}
@@ -196,21 +198,25 @@ export function NotificationsBell() {
                                 ? t("notifications.likedVideo")
                                 : n.type === "gif_upload"
                                   ? t("notifications.uploadedGif")
-                                  : t("notifications.uploadedVideo")}
+                                  : n.type === "subscribe"
+                                    ? t("notifications.subscribed")
+                                    : t("notifications.uploadedVideo")}
                           </Text>{" "}
-                          <Text
-                            weight="medium"
-                            style={{
-                              display: "inline-block",
-                              maxWidth: "100%",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                              verticalAlign: "bottom",
-                            }}
-                          >
-                            {n.subject.title}
-                          </Text>
+                          {n.type !== "subscribe" && (
+                            <Text
+                              weight="medium"
+                              style={{
+                                display: "inline-block",
+                                maxWidth: "100%",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                                verticalAlign: "bottom",
+                              }}
+                            >
+                              {n.subject.title}
+                            </Text>
+                          )}
                         </Text>
                         <Text size="1" color="gray">
                           {timeAgo(n.createdAt)}

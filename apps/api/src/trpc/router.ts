@@ -48,6 +48,8 @@ import {
   videoIdInputSchema,
   adminListUsersInputSchema,
   billingCheckoutInputSchema,
+  pushSubscribeInputSchema,
+  pushUnsubscribeInputSchema,
 } from "@repo/shared";
 import {
   router,
@@ -108,11 +110,15 @@ export const appRouter = router({
 
     resendConfirmation: publicProcedure
       .use(
+        // 2 per 24 hours per IP. A user who's stuck can hit this once
+        // and again later, but a script can't spam any address. Counts
+        // both the in-dialog "resend" button on the upload form and the
+        // signup-screen "still waiting" button — same upstream send.
         rateLimit({
           name: "resendConfirmation",
           keyBy: "ip",
-          max: 5,
-          windowMs: HOUR,
+          max: 2,
+          windowMs: 24 * HOUR,
         }),
       )
       .input(resendConfirmationInputSchema)
@@ -649,9 +655,27 @@ export const appRouter = router({
   subscriptions: router({
     toggle: verifiedProcedure
       .input(userIdInputSchema)
-      .mutation(({ ctx, input }) =>
-        ctx.services.subscriptions.toggle(ctx.user.id, input.userId),
-      ),
+      .mutation(async ({ ctx, input }) => {
+        const result = await ctx.services.subscriptions.toggle(
+          ctx.user.id,
+          input.userId,
+        );
+        // Fire side-effects after the toggle resolves so the user gets a
+        // fast response; pushes/notifications are best-effort and don't
+        // affect the toggle outcome.
+        if (result.subscribed) {
+          await ctx.services.notifications.onSubscribed(
+            ctx.user.id,
+            input.userId,
+          );
+        } else {
+          await ctx.services.notifications.onUnsubscribed(
+            ctx.user.id,
+            input.userId,
+          );
+        }
+        return result;
+      }),
 
     isSubscribed: publicProcedure
       .input(userIdInputSchema)
@@ -762,6 +786,39 @@ export const appRouter = router({
           ctx.user.id,
           input.muted,
         ),
+      ),
+  }),
+
+  // ─── Web Push subscriptions ───
+  // Public key is fetched anonymously (the SW asks for it before showing
+  // the permission prompt); subscribe/unsubscribe require auth so we tie
+  // the endpoint to the right user.
+  push: router({
+    publicKey: publicProcedure.query(({ ctx }) => ({
+      key: ctx.services.push.getPublicKey(),
+      enabled: ctx.services.push.isEnabled(),
+    })),
+
+    subscribe: protectedProcedure
+      .input(pushSubscribeInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.push
+          .upsert({
+            userId: ctx.user.id,
+            endpoint: input.endpoint,
+            p256dh: input.p256dh,
+            auth: input.auth,
+            userAgent: input.userAgent ?? null,
+          })
+          .then(() => ({ ok: true as const })),
+      ),
+
+    unsubscribe: protectedProcedure
+      .input(pushUnsubscribeInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.push
+          .removeByEndpoint(input.endpoint)
+          .then(() => ({ ok: true as const })),
       ),
   }),
 });

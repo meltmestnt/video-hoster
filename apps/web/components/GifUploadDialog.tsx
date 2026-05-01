@@ -15,6 +15,7 @@ import {
 import { MAX_GIF_BYTES, MAX_GIF_DURATION_SECONDS } from "@repo/shared";
 import { isUploadBusy, useUpload } from "@/lib/upload-context";
 import { compressTo480p } from "@/lib/compress-video";
+import { sniffIsGifFile } from "@/lib/file-signatures";
 import { useT } from "@/lib/i18n";
 import { Morph } from "./Morph";
 
@@ -63,6 +64,11 @@ export function GifUploadDialog({ open, onOpenChange, initialFile }: Props) {
   const [convertProgress, setConvertProgress] = useState(0);
   const [converting, setConverting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Same magic-byte gate as UploadDialog: hold submit until we've
+  // confirmed the file actually starts with a GIF header.
+  const [sigCheck, setSigCheck] = useState<"idle" | "checking" | "ok" | "bad">(
+    "idle",
+  );
   const inputRef = useRef<HTMLInputElement | null>(null);
   const previewImgRef = useRef<HTMLImageElement | null>(null);
   const [screenshotBusy, setScreenshotBusy] = useState(false);
@@ -98,6 +104,7 @@ export function GifUploadDialog({ open, onOpenChange, initialFile }: Props) {
       setError(null);
       setScreenshotBusy(false);
       setScreenshotMsg(null);
+      setSigCheck("idle");
     } else if (initialFile) {
       // Validate via acceptFile so a wrong-type drop falls back to the
       // dropzone with an error message instead of silently failing later.
@@ -119,6 +126,24 @@ export function GifUploadDialog({ open, onOpenChange, initialFile }: Props) {
       .catch(() => {
         if (!cancelled) setDuration(0);
       });
+    return () => {
+      cancelled = true;
+    };
+  }, [file]);
+
+  // Magic-byte check — bytes win over MIME and extension when they
+  // disagree. Submit waits on "ok".
+  useEffect(() => {
+    if (!file) {
+      setSigCheck("idle");
+      return;
+    }
+    let cancelled = false;
+    setSigCheck("checking");
+    sniffIsGifFile(file).then((ok) => {
+      if (cancelled) return;
+      setSigCheck(ok ? "ok" : "bad");
+    });
     return () => {
       cancelled = true;
     };
@@ -164,6 +189,9 @@ export function GifUploadDialog({ open, onOpenChange, initialFile }: Props) {
         max: MAX_GIF_DURATION_SECONDS,
       });
     }
+    if (sigCheck === "bad") {
+      return t("upload.file.errorSignatureGif");
+    }
     return null;
   })();
 
@@ -171,6 +199,7 @@ export function GifUploadDialog({ open, onOpenChange, initialFile }: Props) {
   const canSubmit =
     !working &&
     !otherTabBusy &&
+    sigCheck === "ok" &&
     !!file &&
     !fileError &&
     title.trim().length >= 1;
