@@ -6,11 +6,13 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { MoreThanOrEqual, Repository } from "typeorm";
 import {
   ALLOWED_SCREENSHOT_MIME_TYPES,
   type AllowedScreenshotMimeType,
   MAX_SCREENSHOT_BYTES,
+  UNAPPROVED_DAILY_SCREENSHOT_LIMIT,
+  UNAPPROVED_LIMIT_ERROR_PREFIX,
   UNVERIFIED_LIMIT_ERROR_PREFIX,
   UNVERIFIED_SCREENSHOT_LIMIT,
 } from "@repo/shared";
@@ -26,6 +28,7 @@ import { MediaService } from "../media/media.service";
 interface CreateUploadArgs {
   ownerId: string;
   ownerStatus: User["status"];
+  ownerApproved: boolean;
   title: string;
   mimeType: AllowedScreenshotMimeType;
   sizeBytes: number;
@@ -84,6 +87,18 @@ export class ScreenshotsService {
       if (existing >= UNVERIFIED_SCREENSHOT_LIMIT) {
         throw new BadRequestException(
           `${UNVERIFIED_LIMIT_ERROR_PREFIX}screenshot`,
+        );
+      }
+    }
+
+    if (!args.ownerApproved) {
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const recent = await this.screenshots.count({
+        where: { ownerId: args.ownerId, createdAt: MoreThanOrEqual(since) },
+      });
+      if (recent >= UNAPPROVED_DAILY_SCREENSHOT_LIMIT) {
+        throw new BadRequestException(
+          `${UNAPPROVED_LIMIT_ERROR_PREFIX}screenshot`,
         );
       }
     }

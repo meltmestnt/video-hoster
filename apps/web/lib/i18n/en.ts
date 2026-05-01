@@ -316,6 +316,19 @@ export const en = {
   "unverified.banner.body":
     "You can browse, but uploads, reactions, comments, favorites, downloads, and conversions stay locked until you click the link in the confirmation email we sent you.",
 
+  // ─── Unapproved-account banner ───
+  "unapproved.banner.title": "Waiting on admin approval.",
+  "unapproved.banner.body":
+    "Your account is verified but not yet approved. Until an admin approves you, daily uploads are limited to 1 video, 1 GIF, and 10 screenshots.",
+  "unapproved.popup.title": "You've hit today's upload cap",
+  "unapproved.popup.body.video":
+    "Unapproved accounts can upload 1 video every 24 hours. An admin needs to approve your account before you can upload more today.",
+  "unapproved.popup.body.gif":
+    "Unapproved accounts can upload 1 GIF every 24 hours. An admin needs to approve your account before you can upload more today.",
+  "unapproved.popup.body.screenshot":
+    "Unapproved accounts can save 10 screenshots every 24 hours. An admin needs to approve your account before you can save more today.",
+  "unapproved.popup.gotIt": "Got it",
+
   // ─── Account deletion (self) ───
   "user.profile.deleteAccount": "Delete account",
   "deleteAccount.title": "Delete your account?",
@@ -340,6 +353,10 @@ export const en = {
   "manage.action.verify": "Verify",
   "manage.verifying": "Verifying...",
   "manage.action.unverify": "Unverify",
+  "manage.action.approve": "Approve",
+  "manage.action.unapprove": "Unapprove",
+  "manage.status.approved": "Approved",
+  "manage.status.unapproved": "Unapproved",
   "manage.action.delete": "Delete",
   "manage.unverifying": "Unverifying...",
   "manage.deleting": "Deleting...",
@@ -440,6 +457,15 @@ export const en = {
   "upload.gif.uploading": "Uploading…",
   "upload.gif.upload": "Upload GIF",
   "upload.gif.convertAndUpload": "Convert & upload",
+
+  // ─── Drag-and-drop overlay ───
+  "dropzone.title": "Drop to upload",
+  "dropzone.hint": "Release a video or GIF here to start uploading.",
+  "dropzone.signedOut":
+    "We'll save your file and resume the upload after you sign in.",
+  "dropzone.unsupported":
+    "Unsupported file type. Drop a video or GIF instead.",
+  "dropzone.resumed": "Resumed your upload from before sign-in.",
 
   // ─── Video editor ───
   "editor.title": "Edit video",

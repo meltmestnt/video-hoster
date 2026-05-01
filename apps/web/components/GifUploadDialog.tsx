@@ -21,6 +21,8 @@ import { Morph } from "./Morph";
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Seed the dropzone with a file dragged in from outside the dialog. */
+  initialFile?: File | null;
 }
 
 // GIFs encode per-frame delay in 1/100 of a second inside Graphic Control
@@ -44,7 +46,7 @@ async function gifDurationSeconds(blob: Blob): Promise<number> {
   return total / 100;
 }
 
-export function GifUploadDialog({ open, onOpenChange }: Props) {
+export function GifUploadDialog({ open, onOpenChange, initialFile }: Props) {
   const upload = useUpload();
   const busy = isUploadBusy(upload.status);
   const otherTabBusy = upload.otherTabUploading;
@@ -96,7 +98,12 @@ export function GifUploadDialog({ open, onOpenChange }: Props) {
       setError(null);
       setScreenshotBusy(false);
       setScreenshotMsg(null);
+    } else if (initialFile) {
+      // Validate via acceptFile so a wrong-type drop falls back to the
+      // dropzone with an error message instead of silently failing later.
+      acceptFile(initialFile);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   useEffect(() => {

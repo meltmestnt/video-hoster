@@ -22,6 +22,16 @@ export const UNVERIFIED_GIF_LIMIT = 1;
 export const UNVERIFIED_SCREENSHOT_LIMIT = 1;
 export const UNVERIFIED_LIMIT_ERROR_PREFIX = "UNVERIFIED_LIMIT:";
 
+// Once an account is verified but not yet *approved* by an admin, these
+// looser caps apply per rolling 24h. They sit between the unverified
+// hard cap (1 of each, total) and the verified+approved cap
+// (DAILY_VIDEO_UPLOAD_LIMIT). The server emits an error with the prefix
+// below so the client can show a "waiting on admin approval" message.
+export const UNAPPROVED_DAILY_VIDEO_LIMIT = 1;
+export const UNAPPROVED_DAILY_GIF_LIMIT = 1;
+export const UNAPPROVED_DAILY_SCREENSHOT_LIMIT = 10;
+export const UNAPPROVED_LIMIT_ERROR_PREFIX = "UNAPPROVED_LIMIT:";
+
 export const ALLOWED_VIDEO_MIME_TYPES = [
   "video/mp4",
   "video/quicktime",

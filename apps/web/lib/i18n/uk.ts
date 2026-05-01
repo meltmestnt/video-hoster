@@ -324,6 +324,19 @@ export const uk: EnDict = {
   "unverified.banner.body":
     "Ви можете переглядати, але завантаження, лайки, коментарі, обране, скачування й конвертація залишаться недоступними, доки ви не натиснете посилання з листа підтвердження.",
 
+  // ─── Unapproved-account banner ───
+  "unapproved.banner.title": "Очікується схвалення адміністратором.",
+  "unapproved.banner.body":
+    "Вашу пошту підтверджено, але адмін ще не схвалив акаунт. До схвалення денний ліміт — 1 відео, 1 GIF та 10 скріншотів.",
+  "unapproved.popup.title": "Сьогоднішній ліміт вичерпано",
+  "unapproved.popup.body.video":
+    "Несхвалені акаунти можуть завантажувати 1 відео на добу. Щоб завантажити ще, дочекайтеся схвалення адміна.",
+  "unapproved.popup.body.gif":
+    "Несхвалені акаунти можуть завантажувати 1 GIF на добу. Щоб завантажити ще, дочекайтеся схвалення адміна.",
+  "unapproved.popup.body.screenshot":
+    "Несхвалені акаунти можуть зберігати 10 скріншотів на добу. Щоб зберегти ще, дочекайтеся схвалення адміна.",
+  "unapproved.popup.gotIt": "Зрозуміло",
+
   // ─── Account deletion (self) ───
   "user.profile.deleteAccount": "Видалити акаунт",
   "deleteAccount.title": "Видалити ваш акаунт?",
@@ -348,6 +361,10 @@ export const uk: EnDict = {
   "manage.action.verify": "Підтвердити",
   "manage.verifying": "Підтвердження...",
   "manage.action.unverify": "Скасувати підтвердження",
+  "manage.action.approve": "Схвалити",
+  "manage.action.unapprove": "Зняти схвалення",
+  "manage.status.approved": "Схвалено",
+  "manage.status.unapproved": "Не схвалено",
   "manage.action.delete": "Видалити",
   "manage.unverifying": "Скасування...",
   "manage.deleting": "Видалення...",
@@ -452,6 +469,17 @@ export const uk: EnDict = {
   "upload.gif.uploading": "Завантаження…",
   "upload.gif.upload": "Завантажити GIF",
   "upload.gif.convertAndUpload": "Конвертувати та завантажити",
+
+  // ─── Накладка перетягування ───
+  "dropzone.title": "Відпустіть, щоб завантажити",
+  "dropzone.hint":
+    "Відпустіть тут відео або GIF, щоб розпочати завантаження.",
+  "dropzone.signedOut":
+    "Ми збережемо файл і продовжимо завантаження після входу.",
+  "dropzone.unsupported":
+    "Непідтримуваний тип файлу. Перетягніть відео або GIF.",
+  "dropzone.resumed":
+    "Продовжуємо завантаження файлу, який ви додали до входу.",
 
   // ─── Video editor ───
   "editor.title": "Редагувати відео",

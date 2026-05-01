@@ -233,9 +233,14 @@ export class UsersService {
     if (admins.size === 0) return;
     const shouldBeAdmin = admins.has(user.email.toLowerCase());
     const target: User["role"] = shouldBeAdmin ? "admin" : "user";
-    if (user.role !== target) {
-      user.role = target;
-      await this.users.update({ id: user.id }, { role: target });
+    const updates: Partial<User> = {};
+    if (user.role !== target) updates.role = target;
+    // Admins are implicitly approved — they shouldn't have to approve
+    // themselves on first sign-in just because the column defaults to false.
+    if (shouldBeAdmin && !user.approved) updates.approved = true;
+    if (Object.keys(updates).length > 0) {
+      Object.assign(user, updates);
+      await this.users.update({ id: user.id }, updates);
     }
   }
 
@@ -252,6 +257,7 @@ export class UsersService {
         | "name"
         | "status"
         | "role"
+        | "approved"
         | "avatarUrl"
         | "createdAt"
       >
@@ -289,6 +295,7 @@ export class UsersService {
         name: u.name,
         status: u.status,
         role: u.role,
+        approved: u.approved,
         avatarUrl: u.avatarUrl,
         createdAt: u.createdAt,
       })),
@@ -332,6 +339,36 @@ export class UsersService {
         confirmationTokenExpiresAt: null,
       },
     );
+    return { ok: true };
+  }
+
+  async adminApproveUser(args: {
+    actingUserId: string;
+    targetUserId: string;
+  }): Promise<{ ok: true }> {
+    const target = await this.users.findOne({
+      where: { id: args.targetUserId },
+    });
+    if (!target) throw new NotFoundException("User not found");
+    await this.users.update({ id: target.id }, { approved: true });
+    return { ok: true };
+  }
+
+  async adminUnapproveUser(args: {
+    actingUserId: string;
+    targetUserId: string;
+  }): Promise<{ ok: true }> {
+    if (args.actingUserId === args.targetUserId) {
+      throw new BadRequestException("You cannot unapprove your own account");
+    }
+    const target = await this.users.findOne({
+      where: { id: args.targetUserId },
+    });
+    if (!target) throw new NotFoundException("User not found");
+    if (target.role === "admin") {
+      throw new ForbiddenException("Cannot unapprove another admin");
+    }
+    await this.users.update({ id: target.id }, { approved: false });
     return { ok: true };
   }
 

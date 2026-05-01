@@ -4,9 +4,13 @@ import { getServerTrpc } from "@/lib/trpc-server";
 import { TopBar } from "@/components/TopBar";
 import { MiniPlayer } from "@/components/MiniPlayer";
 import { UnverifiedBanner } from "@/components/UnverifiedBanner";
+import { UnapprovedBanner } from "@/components/UnapprovedBanner";
+import { DropZoneOverlay } from "@/components/DropZoneOverlay";
+import { PendingUploadResumer } from "@/components/PendingUploadResumer";
 import { Footer } from "@/components/Footer";
 import { Box, Container, Flex } from "@radix-ui/themes";
 import { AuthRequiredProvider } from "@/lib/auth-required";
+import { UploadDialogProvider } from "@/lib/upload-dialog-context";
 
 export default async function AppLayout({
   children,
@@ -26,32 +30,37 @@ export default async function AppLayout({
 
   return (
     <AuthRequiredProvider signedIn={signedIn}>
-      <Flex
-        direction="column"
-        // Make the page a flex column at least as tall as the viewport so the
-        // footer drops to the bottom even on near-empty pages, while the
-        // <Box style={{ flex: 1 }}> below grows to fill the remaining space.
-        style={{ minHeight: "100vh" }}
-      >
-        <TopBar
-          signedIn={signedIn}
-          userName={session?.user.name ?? null}
-          userEmail={session?.user.email ?? null}
-          avatarUrl={me?.avatarUrl ?? session?.user.image ?? null}
-          videoCount={me?.videoCount ?? 0}
-          verified={me?.status === "verified"}
-          miniPlayerEnabled={me?.miniPlayerEnabled ?? true}
-          isAdmin={me?.role === "admin"}
-        />
-        {signedIn && <UnverifiedBanner />}
-        <Box style={{ flex: 1 }}>
-          <Container size="4" px="4" py="6">
-            {children}
-          </Container>
-        </Box>
-        <Footer />
-      </Flex>
-      {signedIn && <MiniPlayer />}
+      <UploadDialogProvider signedIn={signedIn}>
+        <Flex
+          direction="column"
+          // Make the page a flex column at least as tall as the viewport so the
+          // footer drops to the bottom even on near-empty pages, while the
+          // <Box style={{ flex: 1 }}> below grows to fill the remaining space.
+          style={{ minHeight: "100vh" }}
+        >
+          <TopBar
+            signedIn={signedIn}
+            userName={session?.user.name ?? null}
+            userEmail={session?.user.email ?? null}
+            avatarUrl={me?.avatarUrl ?? session?.user.image ?? null}
+            videoCount={me?.videoCount ?? 0}
+            verified={me?.status === "verified"}
+            miniPlayerEnabled={me?.miniPlayerEnabled ?? true}
+            isAdmin={me?.role === "admin"}
+          />
+          {signedIn && <UnverifiedBanner />}
+          {signedIn && <UnapprovedBanner />}
+          <Box style={{ flex: 1 }}>
+            <Container size="4" px="4" py="6">
+              {children}
+            </Container>
+          </Box>
+          <Footer />
+        </Flex>
+        {signedIn && <MiniPlayer />}
+        <DropZoneOverlay signedIn={signedIn} />
+        {signedIn && <PendingUploadResumer />}
+      </UploadDialogProvider>
     </AuthRequiredProvider>
   );
 }

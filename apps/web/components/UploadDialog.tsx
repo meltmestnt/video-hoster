@@ -33,9 +33,15 @@ const ALLOWED_THUMB_MIME = ["image/jpeg", "image/png", "image/webp"];
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /**
+   * Optional file to seed the form with — used when the dialog is opened
+   * from a drag-and-drop drop or resumed after sign-in. Captured into local
+   * state on each open so subsequent re-renders don't clobber the picker.
+   */
+  initialFile?: File | null;
 }
 
-export function UploadDialog({ open, onOpenChange }: Props) {
+export function UploadDialog({ open, onOpenChange, initialFile }: Props) {
   const upload = useUpload();
   const busy = isUploadBusy(upload.status);
   const otherTabBusy = upload.otherTabUploading;
@@ -76,7 +82,13 @@ export function UploadDialog({ open, onOpenChange }: Props) {
       setThumbError(null);
       setVideoDuration(0);
       setScrubTime(1);
+    } else if (initialFile) {
+      // Seed from the dropped file when opened via the overlay. We only do
+      // this on the open transition so the user can still clear/swap it
+      // afterwards without it springing back.
+      setFile(initialFile);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   // Manage the object URL for the file's <video> source. Revoked when the

@@ -10,10 +10,13 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { In, Repository, SelectQueryBuilder } from "typeorm";
 import {
   MAX_GIF_BYTES,
+  UNAPPROVED_DAILY_GIF_LIMIT,
+  UNAPPROVED_LIMIT_ERROR_PREFIX,
   UNVERIFIED_GIF_LIMIT,
   UNVERIFIED_LIMIT_ERROR_PREFIX,
   type VideoSort,
 } from "@repo/shared";
+import { MoreThanOrEqual } from "typeorm";
 import type { User } from "../users/user.entity";
 import { Gif, GifVisibility } from "./gif.entity";
 import { TagsService } from "../tags/tags.service";
@@ -27,6 +30,7 @@ import { MediaService } from "../media/media.service";
 interface CreateUploadArgs {
   ownerId: string;
   ownerStatus: User["status"];
+  ownerApproved: boolean;
   title: string;
   description: string;
   sizeBytes: number;
@@ -75,6 +79,21 @@ export class GifsService {
       if (existing >= UNVERIFIED_GIF_LIMIT) {
         throw new BadRequestException(
           `${UNVERIFIED_LIMIT_ERROR_PREFIX}gif`,
+        );
+      }
+    }
+
+    // Verified-but-unapproved daily cap. Drafts count too so a stuck
+    // "uploading" row from a failed earlier attempt doesn't permanently
+    // bypass the limit.
+    if (!args.ownerApproved) {
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const recent = await this.gifs.count({
+        where: { ownerId: args.ownerId, createdAt: MoreThanOrEqual(since) },
+      });
+      if (recent >= UNAPPROVED_DAILY_GIF_LIMIT) {
+        throw new BadRequestException(
+          `${UNAPPROVED_LIMIT_ERROR_PREFIX}gif`,
         );
       }
     }

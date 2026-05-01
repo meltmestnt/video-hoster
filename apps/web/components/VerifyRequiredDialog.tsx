@@ -11,60 +11,87 @@ import { Button, Callout, Dialog, Flex, Text } from "@radix-ui/themes";
 import { useT } from "@/lib/i18n";
 import type { UnverifiedLimitKind } from "@/lib/unverified-limit";
 
+type GateReason = "unverified" | "unapproved";
+
+interface OpenState {
+  kind: UnverifiedLimitKind;
+  reason: GateReason;
+}
+
 interface ContextValue {
-  show: (kind: UnverifiedLimitKind) => void;
+  /** Opens the dialog. `reason` defaults to "unverified" for back-compat. */
+  show: (kind: UnverifiedLimitKind, reason?: GateReason) => void;
 }
 
 const Ctx = createContext<ContextValue | null>(null);
 
 /**
- * Wraps the app and exposes `useVerifyRequired().show("video"|"gif"|"screenshot")`
- * to any nested component. Call it whenever the API rejects an upload with
- * the UNVERIFIED_LIMIT prefix and a "verify your email" dialog will appear.
+ * Wraps the app and exposes `useVerifyRequired().show("video"|"gif"|"screenshot",
+ * "unverified" | "unapproved")` to any nested component. Call it whenever the
+ * API rejects an upload with one of the gate-specific error prefixes and the
+ * dialog will appear with the right copy for the gate that fired.
  */
 export function VerifyRequiredProvider({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [openKind, setOpenKind] = useState<UnverifiedLimitKind | null>(null);
+  const [open, setOpen] = useState<OpenState | null>(null);
   const t = useT();
 
-  const show = useCallback((kind: UnverifiedLimitKind) => {
-    setOpenKind(kind);
-  }, []);
+  const show = useCallback(
+    (kind: UnverifiedLimitKind, reason: GateReason = "unverified") => {
+      setOpen({ kind, reason });
+    },
+    [],
+  );
 
   const value = useMemo<ContextValue>(() => ({ show }), [show]);
 
-  const bodyKey =
-    openKind === "video"
-      ? "verify.popup.body.video"
-      : openKind === "gif"
-        ? "verify.popup.body.gif"
-        : "verify.popup.body.screenshot";
+  const titleKey =
+    open?.reason === "unapproved" ? "unapproved.popup.title" : "verify.popup.title";
+  const bodyKey = !open
+    ? null
+    : open.reason === "unapproved"
+      ? open.kind === "video"
+        ? "unapproved.popup.body.video"
+        : open.kind === "gif"
+          ? "unapproved.popup.body.gif"
+          : "unapproved.popup.body.screenshot"
+      : open.kind === "video"
+        ? "verify.popup.body.video"
+        : open.kind === "gif"
+          ? "verify.popup.body.gif"
+          : "verify.popup.body.screenshot";
+  const dismissKey =
+    open?.reason === "unapproved" ? "unapproved.popup.gotIt" : "verify.popup.gotIt";
 
   return (
     <Ctx.Provider value={value}>
       {children}
       <Dialog.Root
-        open={openKind !== null}
-        onOpenChange={(o) => !o && setOpenKind(null)}
+        open={open !== null}
+        onOpenChange={(o) => !o && setOpen(null)}
       >
         <Dialog.Content maxWidth="440px">
-          <Dialog.Title>{t("verify.popup.title")}</Dialog.Title>
+          <Dialog.Title>{t(titleKey)}</Dialog.Title>
           <Dialog.Description size="2" color="gray" mb="3">
-            {openKind ? t(bodyKey) : null}
+            {bodyKey ? t(bodyKey) : null}
           </Dialog.Description>
-          <Callout.Root color="amber" mb="3">
-            <Callout.Text>{t("verify.popup.checkInbox")}</Callout.Text>
-          </Callout.Root>
-          <Text as="p" size="2" color="gray" mb="4">
-            {t("verify.popup.contact")}
-          </Text>
+          {open?.reason === "unverified" && (
+            <>
+              <Callout.Root color="amber" mb="3">
+                <Callout.Text>{t("verify.popup.checkInbox")}</Callout.Text>
+              </Callout.Root>
+              <Text as="p" size="2" color="gray" mb="4">
+                {t("verify.popup.contact")}
+              </Text>
+            </>
+          )}
           <Flex gap="3" justify="end">
             <Dialog.Close>
               <Button variant="solid" color="iris">
-                {t("verify.popup.gotIt")}
+                {t(dismissKey)}
               </Button>
             </Dialog.Close>
           </Flex>

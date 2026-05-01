@@ -51,6 +51,14 @@ export class User {
   @Column({ type: "varchar", length: 16, default: "user" })
   role: UserRole;
 
+  // Admin-controlled moderation flag. New accounts default to false;
+  // an admin promotes them to true via the manage page. Independent from
+  // `status` (email verification) — a user can be verified-but-not-approved
+  // and still faces a stricter daily quota until an admin approves them.
+  @Index()
+  @Column({ type: "boolean", default: false })
+  approved: boolean;
+
   @Index()
   @Column({ type: "varchar", length: 64, nullable: true })
   confirmationTokenHash: string | null;

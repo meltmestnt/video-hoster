@@ -52,6 +52,10 @@ export function ManageUsersList({ initial, myId }: Props) {
 
   const verify = trpc.admin.verifyUser.useMutation({ onSuccess: refresh });
   const unverify = trpc.admin.unverifyUser.useMutation({ onSuccess: refresh });
+  const approve = trpc.admin.approveUser.useMutation({ onSuccess: refresh });
+  const unapprove = trpc.admin.unapproveUser.useMutation({
+    onSuccess: refresh,
+  });
   const remove = trpc.admin.deleteUser.useMutation({ onSuccess: refresh });
 
   return (
@@ -111,9 +115,17 @@ export function ManageUsersList({ initial, myId }: Props) {
                 onUnverify={() =>
                   unverify.mutateAsync({ userId: u.id })
                 }
+                onApprove={() => approve.mutateAsync({ userId: u.id })}
+                onUnapprove={() =>
+                  unapprove.mutateAsync({ userId: u.id })
+                }
                 onDelete={() => remove.mutateAsync({ userId: u.id })}
                 actionPending={
-                  verify.isPending || unverify.isPending || remove.isPending
+                  verify.isPending ||
+                  unverify.isPending ||
+                  approve.isPending ||
+                  unapprove.isPending ||
+                  remove.isPending
                 }
               />
             ))}
@@ -144,6 +156,8 @@ function UserRowView({
   isSelf,
   onVerify,
   onUnverify,
+  onApprove,
+  onUnapprove,
   onDelete,
   actionPending,
 }: {
@@ -151,6 +165,8 @@ function UserRowView({
   isSelf: boolean;
   onVerify: () => Promise<unknown>;
   onUnverify: () => Promise<unknown>;
+  onApprove: () => Promise<unknown>;
+  onUnapprove: () => Promise<unknown>;
   onDelete: () => Promise<unknown>;
   actionPending: boolean;
 }) {
@@ -164,6 +180,7 @@ function UserRowView({
   // admins don't bother clicking and discovering a 403.
   const actionsLocked = isSelf || isAdmin;
   const isVerified = row.status === "verified";
+  const isApproved = row.approved;
 
   const runVerify = async () => {
     setError(null);
@@ -179,6 +196,24 @@ function UserRowView({
     try {
       await onUnverify();
       setUnverifyOpen(false);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
+  const runApprove = async () => {
+    setError(null);
+    try {
+      await onApprove();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
+  const runUnapprove = async () => {
+    setError(null);
+    try {
+      await onUnapprove();
     } catch (err) {
       setError((err as Error).message);
     }
@@ -224,15 +259,26 @@ function UserRowView({
         </Badge>
       </Table.Cell>
       <Table.Cell>
-        <Badge
-          color={row.status === "verified" ? "green" : "amber"}
-          variant="soft"
-          radius="full"
-        >
-          {row.status === "verified"
-            ? t("user.profile.verified")
-            : t("user.profile.unverified")}
-        </Badge>
+        <Flex gap="1" wrap="wrap">
+          <Badge
+            color={row.status === "verified" ? "green" : "amber"}
+            variant="soft"
+            radius="full"
+          >
+            {row.status === "verified"
+              ? t("user.profile.verified")
+              : t("user.profile.unverified")}
+          </Badge>
+          <Badge
+            color={row.approved ? "green" : "amber"}
+            variant="soft"
+            radius="full"
+          >
+            {row.approved
+              ? t("manage.status.approved")
+              : t("manage.status.unapproved")}
+          </Badge>
+        </Flex>
       </Table.Cell>
       <Table.Cell>
         <Text size="2" color="gray">
@@ -313,6 +359,31 @@ function UserRowView({
                 {actionPending
                   ? t("manage.verifying")
                   : t("manage.action.verify")}
+              </Button>
+            )}
+
+            {/* Approve / Unapprove — separate axis from email verification.
+                Both directions are one-click since they only adjust the
+                daily upload caps; reverse is always available. */}
+            {isApproved ? (
+              <Button
+                size="1"
+                variant="soft"
+                color="amber"
+                onClick={runUnapprove}
+                disabled={actionPending}
+              >
+                {t("manage.action.unapprove")}
+              </Button>
+            ) : (
+              <Button
+                size="1"
+                variant="soft"
+                color="iris"
+                onClick={runApprove}
+                disabled={actionPending}
+              >
+                {t("manage.action.approve")}
               </Button>
             )}
 

@@ -74,6 +74,7 @@ export const appRouter = router({
         avatarUrl,
         status: ctx.user.status,
         role: ctx.user.role,
+        approved: ctx.user.approved,
         videoCount,
         miniPlayerEnabled: ctx.user.miniPlayerEnabled,
         miniPlayerPromptSeen: ctx.user.miniPlayerPromptSeen,
@@ -198,6 +199,7 @@ export const appRouter = router({
         ctx.services.videos.createUpload({
           ownerId: ctx.user.id,
           ownerStatus: ctx.user.status,
+          ownerApproved: ctx.user.approved,
           title: input.title,
           description: input.description,
           mimeType: input.mimeType,
@@ -312,6 +314,7 @@ export const appRouter = router({
         ctx.services.gifs.createUpload({
           ownerId: ctx.user.id,
           ownerStatus: ctx.user.status,
+          ownerApproved: ctx.user.approved,
           title: input.title,
           description: input.description,
           sizeBytes: input.sizeBytes,
@@ -387,6 +390,7 @@ export const appRouter = router({
         ctx.services.screenshots.createUpload({
           ownerId: ctx.user.id,
           ownerStatus: ctx.user.status,
+          ownerApproved: ctx.user.approved,
           title: input.title,
           mimeType: input.mimeType,
           sizeBytes: input.sizeBytes,
@@ -587,6 +591,24 @@ export const appRouter = router({
       .input(userIdInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.users.adminVerifyUser({
+          actingUserId: ctx.user.id,
+          targetUserId: input.userId,
+        }),
+      ),
+
+    approveUser: adminProcedure
+      .input(userIdInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.users.adminApproveUser({
+          actingUserId: ctx.user.id,
+          targetUserId: input.userId,
+        }),
+      ),
+
+    unapproveUser: adminProcedure
+      .input(userIdInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.users.adminUnapproveUser({
           actingUserId: ctx.user.id,
           targetUserId: input.userId,
         }),

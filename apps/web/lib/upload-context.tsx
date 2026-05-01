@@ -16,7 +16,10 @@ import {
   MAX_VIDEO_OUTPUT_BYTES,
   MAX_VIDEO_OUTPUT_MB,
 } from "@repo/shared";
-import { parseUnverifiedLimitError } from "@/lib/unverified-limit";
+import {
+  parseUnapprovedLimitError,
+  parseUnverifiedLimitError,
+} from "@/lib/unverified-limit";
 import { useVerifyRequired } from "@/components/VerifyRequiredDialog";
 
 // Cross-tab coordination: while one tab is uploading, every ~HEARTBEAT_MS it
@@ -412,9 +415,13 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
           lastSuccess: { videoId: created.videoId, title: meta.title },
         });
       } catch (err) {
-        const limitKind = parseUnverifiedLimitError(err);
-        if (limitKind) {
-          verifyRequired.show(limitKind);
+        const unverified = parseUnverifiedLimitError(err);
+        const unapproved = parseUnapprovedLimitError(err);
+        if (unverified) {
+          verifyRequired.show(unverified, "unverified");
+          setState((s) => ({ ...initialState, lastSuccess: s.lastSuccess }));
+        } else if (unapproved) {
+          verifyRequired.show(unapproved, "unapproved");
           setState((s) => ({ ...initialState, lastSuccess: s.lastSuccess }));
         } else {
           setState((s) => ({
@@ -495,9 +502,13 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
           lastSuccess: { videoId: created.gifId, title: meta.title },
         });
       } catch (err) {
-        const limitKind = parseUnverifiedLimitError(err);
-        if (limitKind) {
-          verifyRequired.show(limitKind);
+        const unverified = parseUnverifiedLimitError(err);
+        const unapproved = parseUnapprovedLimitError(err);
+        if (unverified) {
+          verifyRequired.show(unverified, "unverified");
+          setState((s) => ({ ...initialState, lastSuccess: s.lastSuccess }));
+        } else if (unapproved) {
+          verifyRequired.show(unapproved, "unapproved");
           setState((s) => ({ ...initialState, lastSuccess: s.lastSuccess }));
         } else {
           setState((s) => ({
@@ -554,10 +565,10 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         await utils.screenshots.list.invalidate().catch(() => {});
         return { screenshotId: created.screenshotId, title: meta.title };
       } catch (err) {
-        const limitKind = parseUnverifiedLimitError(err);
-        if (limitKind) {
-          verifyRequired.show(limitKind);
-        }
+        const unverified = parseUnverifiedLimitError(err);
+        const unapproved = parseUnapprovedLimitError(err);
+        if (unverified) verifyRequired.show(unverified, "unverified");
+        else if (unapproved) verifyRequired.show(unapproved, "unapproved");
         throw err;
       }
     },

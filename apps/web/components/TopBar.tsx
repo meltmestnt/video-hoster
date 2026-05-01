@@ -15,9 +15,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useUpload, isUploadBusy } from "@/lib/upload-context";
 import { useRequireAuth } from "@/lib/auth-required";
+import { useUploadDialog } from "@/lib/upload-dialog-context";
 import { useT } from "@/lib/i18n";
-import { UploadDialog } from "./UploadDialog";
-import { GifUploadDialog } from "./GifUploadDialog";
 import { ConvertDialog } from "./ConvertDialog";
 import { UploadProgressBar } from "./UploadProgressBar";
 import { UploadSuccessToast } from "./UploadSuccessToast";
@@ -45,7 +44,6 @@ export function TopBar({
   miniPlayerEnabled,
   isAdmin,
 }: TopBarProps) {
-  const [open, setOpen] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const upload = useUpload();
@@ -53,6 +51,7 @@ export function TopBar({
   const otherTabBusy = upload.otherTabUploading;
   const uploadDisabled = busy || otherTabBusy;
   const requireAuth = useRequireAuth();
+  const uploadDialog = useUploadDialog();
   const t = useT();
 
   const router = useRouter();
@@ -94,7 +93,11 @@ export function TopBar({
 
   const openUpload = () => {
     if (uploadDisabled) return;
-    setOpen(true);
+    if (onGifs) {
+      uploadDialog.openGifUpload();
+    } else {
+      uploadDialog.openVideoUpload();
+    }
     setDrawerOpen(false);
   };
 
@@ -295,11 +298,6 @@ export function TopBar({
       {signedIn && (
         <>
           <UploadProgressBar />
-          {onGifs ? (
-            <GifUploadDialog open={open} onOpenChange={setOpen} />
-          ) : (
-            <UploadDialog open={open} onOpenChange={setOpen} />
-          )}
           <UploadSuccessToast />
         </>
       )}

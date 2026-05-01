@@ -13,6 +13,8 @@ import {
   DAILY_VIDEO_BYTES_LIMIT_GB,
   DAILY_VIDEO_UPLOAD_LIMIT,
   MAX_VIDEO_BYTES,
+  UNAPPROVED_DAILY_VIDEO_LIMIT,
+  UNAPPROVED_LIMIT_ERROR_PREFIX,
   UNVERIFIED_LIMIT_ERROR_PREFIX,
   UNVERIFIED_VIDEO_LIMIT,
   type VideoSort,
@@ -34,6 +36,7 @@ import { MediaService } from "../media/media.service";
 interface CreateUploadArgs {
   ownerId: string;
   ownerStatus: User["status"];
+  ownerApproved: boolean;
   title: string;
   description: string;
   mimeType: string;
@@ -115,6 +118,16 @@ export class VideosService {
       where: { ownerId: args.ownerId, createdAt: MoreThanOrEqual(since) },
       select: ["id", "sizeBytes"],
     });
+
+    // Unapproved-but-verified accounts get a tighter daily cap until an
+    // admin approves them. Sits between the unverified hard cap (1 total)
+    // and the regular daily quota.
+    if (!args.ownerApproved && recent.length >= UNAPPROVED_DAILY_VIDEO_LIMIT) {
+      throw new BadRequestException(
+        `${UNAPPROVED_LIMIT_ERROR_PREFIX}video`,
+      );
+    }
+
     if (recent.length >= DAILY_VIDEO_UPLOAD_LIMIT) {
       throw new BadRequestException(
         `Daily upload limit reached (${DAILY_VIDEO_UPLOAD_LIMIT} videos in 24h). Try again later.`,
