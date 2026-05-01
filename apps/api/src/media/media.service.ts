@@ -43,6 +43,32 @@ export function isMediaKind(s: string): s is MediaKind {
 // of an hour, cutting the share-and-loop attack surface 4×.
 const URL_TTL_MS = 15 * 60 * 1000;
 
+// For *immutable* media (a GIF's bytes never change once finalized) we
+// hand out URLs that stay stable across page loads inside a 1h "bucket".
+// The signed URL is valid for a longer window (24h) so a URL the browser
+// cached at minute 59 still works at minute 61, but the bucket-aligned
+// `exp` means two page loads within the same hour produce *the same*
+// querystring — which is what makes the browser HTTP cache actually hit.
+// Without this rounding, every server-render minted a different `exp`
+// and the cache was a no-op despite max-age on the response.
+const CACHEABLE_BUCKET_MS = 60 * 60 * 1000;
+const CACHEABLE_TTL_MS = 24 * 60 * 60 * 1000;
+// Cap browser cache freshness just under the bucket size so the URL
+// rotates promptly when a row is deleted (the underlying object 404s,
+// the next request after the bucket boundary fetches and cache-busts).
+export const CACHEABLE_MAX_AGE_SECONDS = 50 * 60;
+
+const CACHEABLE_KINDS: ReadonlySet<MediaKind> = new Set([
+  "gif",
+  "screenshot",
+  "thumbnail",
+  "avatar",
+]);
+
+export function isCacheableKind(kind: MediaKind): boolean {
+  return CACHEABLE_KINDS.has(kind);
+}
+
 @Injectable()
 export class MediaService {
   private readonly logger = new Logger(MediaService.name);
@@ -86,7 +112,16 @@ export class MediaService {
     // handing out URLs that would 404 on resolution.
     const key = await this.resolveKey(args.kind, args.id);
     if (!key) return null;
-    const exp = Date.now() + URL_TTL_MS;
+    const exp = isCacheableKind(args.kind)
+      ? // Round-down to the current bucket and add the long TTL so
+        // every request within the same bucket window produces the
+        // exact same `exp` (and therefore the same signature, querystring,
+        // and URL). Browser HTTP cache hits on revisit. URL is still
+        // valid for the full 24h window so a request near a bucket
+        // boundary doesn't race with expiry.
+        Math.floor(Date.now() / CACHEABLE_BUCKET_MS) * CACHEABLE_BUCKET_MS +
+        CACHEABLE_TTL_MS
+      : Date.now() + URL_TTL_MS;
     const sig = this.sign(args.kind, args.id, exp);
     const params = new URLSearchParams({ exp: String(exp), sig });
     return `${this.publicBase}/media/${args.kind}/${args.id}?${params.toString()}`;

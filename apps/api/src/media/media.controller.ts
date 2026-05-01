@@ -13,7 +13,12 @@ import {
 import { ConfigService } from "@nestjs/config";
 import type { Request, Response } from "express";
 import { S3Service } from "../s3/s3.service";
-import { MediaService, isMediaKind } from "./media.service";
+import {
+  CACHEABLE_MAX_AGE_SECONDS,
+  isCacheableKind,
+  MediaService,
+  isMediaKind,
+} from "./media.service";
 import {
   acquireStreamSlot,
   concurrentStreamsForIp,
@@ -241,14 +246,27 @@ export class MediaController {
     if (obj.lastModified) {
       res.setHeader("Last-Modified", obj.lastModified.toUTCString());
     }
-    // Match the signed-URL TTL so the browser doesn't hold a "fresh" cached
-    // response past the point the URL itself stops working. The URL is
-    // unique per page load (querystring-signed), so revisits fetch a new
-    // cache entry anyway.
-    res.setHeader(
-      "Cache-Control",
-      obj.cacheControl ?? "private, max-age=900",
-    );
+    // Caching strategy:
+    //   • Immutable kinds (gif/screenshot/thumbnail/avatar) — the bytes
+    //     never change once written. Pair them with bucket-aligned signed
+    //     URLs (see MediaService.signUrl) so two page loads inside the
+    //     same hour produce the same URL, then advertise a long max-age
+    //     + immutable so the browser keeps the response and reuses it on
+    //     revisit. CDNs are welcome to cache too — the URL signature is
+    //     the access control.
+    //   • Everything else (video/audio) — the URL changes per page load
+    //     for tighter wallet protection, so private/short caching only.
+    if (isCacheableKind(kindParam)) {
+      res.setHeader(
+        "Cache-Control",
+        `public, max-age=${CACHEABLE_MAX_AGE_SECONDS}, immutable`,
+      );
+    } else {
+      res.setHeader(
+        "Cache-Control",
+        obj.cacheControl ?? "private, max-age=900",
+      );
+    }
     res.status(obj.statusCode);
 
     // Release the concurrent-stream slot once the response is no longer
