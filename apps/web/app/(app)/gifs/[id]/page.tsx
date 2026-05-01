@@ -10,6 +10,7 @@ import { GifReactions } from "@/components/GifReactions";
 import { GifCommentsSection } from "@/components/GifCommentsSection";
 import { DeleteGifButton } from "@/components/DeleteGifButton";
 import { SubscribeButton } from "@/components/SubscribeButton";
+import { ShareButton } from "@/components/ShareButton";
 import { absoluteUrl } from "@/lib/site";
 import { T } from "@/lib/i18n";
 
@@ -152,6 +153,7 @@ export default async function GifPage({
               initialDislikes={gif.dislikeCount}
               initialReaction={gif.viewerReaction}
             />
+            <ShareButton path={`/gifs/${gif.id}`} title={gif.title} />
             {isOwner && (
               <DeleteGifButton gifId={gif.id} title={gif.title} />
             )}

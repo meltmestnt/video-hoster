@@ -12,6 +12,7 @@ import { DeleteVideoButton } from "@/components/DeleteVideoButton";
 import { VideoReactions } from "@/components/VideoReactions";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { SubscribeButton } from "@/components/SubscribeButton";
+import { ShareButton } from "@/components/ShareButton";
 import { MorphLandingSignal } from "@/components/MorphLandingSignal";
 import { absoluteUrl } from "@/lib/site";
 import { T } from "@/lib/i18n";
@@ -212,6 +213,10 @@ export default async function VideoPage({
                 initial={video.viewerFavorited ?? false}
               />
             )}
+            <ShareButton
+              path={`/videos/${video.id}`}
+              title={video.title}
+            />
             {isOwner && (
               <DeleteVideoButton videoId={video.id} title={video.title} />
             )}

@@ -180,6 +180,10 @@ export const uk: EnDict = {
   "favorite.button.on": "В обраному",
   "favorite.button.off": "В обране",
 
+  // ─── Share ───
+  "share.button": "Поділитися",
+  "share.copied": "Скопійовано!",
+
   // ─── Comments ───
   "comments.count.one": "{n} коментар",
   "comments.count.many": "{n} коментарів",

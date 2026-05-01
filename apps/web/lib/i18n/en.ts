@@ -172,6 +172,10 @@ export const en = {
   "favorite.button.on": "Favorited",
   "favorite.button.off": "Favorite",
 
+  // ─── Share ───
+  "share.button": "Share",
+  "share.copied": "Copied!",
+
   // ─── Comments ───
   "comments.count.one": "{n} comment",
   "comments.count.many": "{n} comments",

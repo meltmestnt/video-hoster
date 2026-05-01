@@ -5,6 +5,7 @@ import { DownloadIcon } from "@radix-ui/react-icons";
 import { getServerTrpc } from "@/lib/trpc-server";
 import { absoluteUrl } from "@/lib/site";
 import { T } from "@/lib/i18n";
+import { ShareButton } from "@/components/ShareButton";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +68,7 @@ export default async function ScreenshotPage({
             <T k="common.private" />
           </Badge>
         )}
+        <ShareButton path={`/screenshots/${shot.id}`} title={shot.title} />
         {shot.url && (
           <Button asChild variant="soft" color="iris">
             <a
