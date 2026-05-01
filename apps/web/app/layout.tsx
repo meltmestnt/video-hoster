@@ -15,8 +15,31 @@ import { siteUrl } from "@/lib/site";
 const GA_ID = process.env.NEXT_PUBLIC_GA_ID ?? "G-ST8WSD8TJE";
 
 const SITE_NAME = "vids&gifs";
+// Plain-text variants of the brand. Search engines tokenize them as
+// separate words, so seeding all three forms — "vids&gifs",
+// "vids and gifs", "vidsandgifs" — gives us a hit on whichever spelling
+// the user types into Google.
 const SITE_DESCRIPTION =
-  "Upload, share, and discover short videos, GIFs, and screenshots.";
+  "vids & gifs (vidsandgifs.xyz) — upload, share, convert, and download short videos, GIFs, and screenshots in your browser. Trim and compress videos, convert MP4 to GIF, capture frames as screenshots, and post them to your feed. Free, no installs, works on desktop and mobile.";
+const SITE_KEYWORDS = [
+  "vids and gifs",
+  "vids & gifs",
+  "vidsandgifs",
+  "vidsandgifs.xyz",
+  "vids gifs",
+  "upload vids and gifs",
+  "upload video",
+  "upload gif",
+  "share videos",
+  "share gifs",
+  "video to gif",
+  "mp4 to gif",
+  "gif to video",
+  "compress video online",
+  "screenshot from video",
+  "online video editor",
+  "in-browser video editor",
+];
 
 // Search engine site-verification tokens. These are public values that get
 // emitted into every page's <meta>, so pinning the Google token to the
@@ -32,22 +55,27 @@ const YANDEX_SITE_VERIFICATION = process.env.YANDEX_SITE_VERIFICATION;
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl()),
   title: {
-    default: SITE_NAME,
+    // Branded long-form title used as the default for any page that
+    // doesn't override `title`. Google trims past ~60 chars, so the
+    // most-searched phrases ("vids and gifs", "upload videos") are kept
+    // up front.
+    default: "vids & gifs — upload videos and GIFs, convert, share",
     template: `%s — ${SITE_NAME}`,
   },
   description: SITE_DESCRIPTION,
+  keywords: SITE_KEYWORDS,
   applicationName: SITE_NAME,
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
     siteName: SITE_NAME,
-    title: SITE_NAME,
+    title: "vids & gifs — upload videos and GIFs, convert, share",
     description: SITE_DESCRIPTION,
     url: siteUrl(),
   },
   twitter: {
     card: "summary_large_image",
-    title: SITE_NAME,
+    title: "vids & gifs — upload videos and GIFs, convert, share",
     description: SITE_DESCRIPTION,
   },
   robots: {
@@ -80,6 +108,31 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
+// Schema.org WebSite payload Google reads to learn the canonical brand
+// plus alternates. Listing every spelling we want to rank for as
+// `alternateName` tells search engines that "vids and gifs",
+// "vidsandgifs", and "vids & gifs" are the same site, so a query in any
+// of those forms can surface this domain.
+const WEBSITE_JSONLD = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: SITE_NAME,
+  alternateName: [
+    "vids & gifs",
+    "vids and gifs",
+    "vidsandgifs",
+    "vidsandgifs.xyz",
+    "vids gifs",
+  ],
+  url: siteUrl(),
+  description: SITE_DESCRIPTION,
+  potentialAction: {
+    "@type": "SearchAction",
+    target: `${siteUrl()}/search?q={search_term_string}`,
+    "query-input": "required name=search_term_string",
+  },
+};
+
 export default function RootLayout({
   children,
 }: {
@@ -92,6 +145,10 @@ export default function RootLayout({
           attributes to <html>/<body> before React hydrates. Only applies
           to the root tags — content inside is still strictly checked. */}
       <body suppressHydrationWarning>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(WEBSITE_JSONLD) }}
+        />
         <Theme appearance="dark" accentColor="iris" radius="large" scaling="100%">
           <Providers>{children}</Providers>
           {/* Mounted inside <Theme> so the banner's Radix Buttons + CSS

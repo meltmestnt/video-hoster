@@ -13,15 +13,25 @@ import { T } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
+// The root path is the natural landing for any "vids and gifs" /
+// "vidsandgifs" search, so we use `title.absolute` here to break out of
+// the layout's "%s — vids&gifs" template and lead with the brand and
+// every common spelling. Description repeats them in plain prose so the
+// SERP snippet (which Google often pulls verbatim from this string)
+// reads like a description of what the site does.
 export const metadata: Metadata = {
-  title: "All",
+  title: {
+    absolute:
+      "vids & gifs — upload videos and GIFs, convert MP4 to GIF, share in your browser",
+  },
   description:
-    "Browse the latest public videos and GIFs uploaded to vids&gifs. Sort by newest, most liked, or most disliked.",
+    "vids & gifs (vidsandgifs.xyz) lets you upload videos and GIFs, convert MP4 to GIF, extract audio, capture screenshots from any frame, and share them publicly or privately. Free, no installs, runs in your browser. Browse the latest community uploads or sign up to post your own.",
   alternates: { canonical: absoluteUrl("/") },
   openGraph: {
-    title: "All — vids&gifs",
+    title:
+      "vids & gifs — upload videos and GIFs, convert, share in your browser",
     description:
-      "Browse the latest public videos and GIFs uploaded to vids&gifs.",
+      "Upload videos and GIFs, convert MP4 to GIF, extract audio, capture screenshots, and share. Free in-browser tools at vidsandgifs.xyz.",
     url: absoluteUrl("/"),
     type: "website",
   },
