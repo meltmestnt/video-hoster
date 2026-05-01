@@ -4,6 +4,7 @@ import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import { Theme } from "@radix-ui/themes";
 import { CookieConsent } from "@/components/CookieConsent";
+import { RegisterSW } from "@/components/RegisterSW";
 import { Providers } from "./providers";
 import { siteUrl } from "@/lib/site";
 
@@ -155,6 +156,7 @@ export default function RootLayout({
               tokens (--gray-*, --accent-*) resolve against the dark
               palette instead of the unstyled default. */}
           {GA_ID && <CookieConsent gaId={GA_ID} />}
+          <RegisterSW />
         </Theme>
       </body>
     </html>
