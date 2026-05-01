@@ -332,6 +332,10 @@ export const appRouter = router({
       .mutation(({ ctx, input }) =>
         ctx.services.screenshots.deleteScreenshot(input.id, ctx.user.id),
       ),
+
+    sitemap: publicProcedure.query(({ ctx }) =>
+      ctx.services.screenshots.listPublicForSitemap(),
+    ),
   }),
 
   comments: router({

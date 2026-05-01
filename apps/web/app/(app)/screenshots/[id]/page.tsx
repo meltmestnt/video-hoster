@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
@@ -75,7 +76,7 @@ export default async function ScreenshotPage({
           </Badge>
         )}
         <ShareButton path={`/screenshots/${shot.id}`} title={shot.title} />
-        {shot.url && (
+        {shot.url && session?.user && (
           <Button asChild variant="soft" color="iris">
             <a
               href={shot.url}
@@ -115,7 +116,32 @@ export default async function ScreenshotPage({
           </>
         )}
       </Flex>
-      {shot.url ? (
+      {!session?.user ? (
+        <Box
+          className="player-frame"
+          style={{ background: "black", overflow: "hidden" }}
+        >
+          <Flex
+            align="center"
+            justify="center"
+            direction="column"
+            gap="3"
+            style={{
+              height: "100%",
+              background: "rgba(0, 0, 0, 0.6)",
+            }}
+          >
+            <Text size="3" weight="medium" style={{ color: "white" }}>
+              <T k="page.screenshot.signInOverlay" />
+            </Text>
+            <Button asChild size="2" variant="solid">
+              <Link href={`/login?callbackUrl=/screenshots/${shot.id}`}>
+                <T k="page.screenshot.signInButton" />
+              </Link>
+            </Button>
+          </Flex>
+        </Box>
+      ) : shot.url ? (
         <Box
           style={{
             borderRadius: "var(--radius-3)",

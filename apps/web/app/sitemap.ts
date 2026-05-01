@@ -10,10 +10,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   let videos: Array<{ id: string; createdAt: string | Date }> = [];
   let gifs: Array<{ id: string; createdAt: string | Date }> = [];
+  let screenshots: Array<{ id: string; createdAt: string | Date }> = [];
   try {
-    [videos, gifs] = await Promise.all([
+    [videos, gifs, screenshots] = await Promise.all([
       trpc.videos.sitemap.query(),
       trpc.gifs.sitemap.query(),
+      trpc.screenshots.sitemap.query(),
     ]);
   } catch {
     // If the API is briefly unavailable, ship the static entries rather
@@ -46,6 +48,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "hourly",
       priority: 0.9,
     },
+    {
+      url: absoluteUrl("/screenshots"),
+      lastModified: now,
+      changeFrequency: "hourly",
+      priority: 0.7,
+    },
   ];
 
   const videoEntries: MetadataRoute.Sitemap = videos.map((v) => ({
@@ -62,5 +70,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }));
 
-  return [...staticEntries, ...videoEntries, ...gifEntries];
+  const screenshotEntries: MetadataRoute.Sitemap = screenshots.map((s) => ({
+    url: absoluteUrl(`/screenshots/${s.id}`),
+    lastModified: new Date(s.createdAt),
+    changeFrequency: "weekly",
+    priority: 0.6,
+  }));
+
+  return [
+    ...staticEntries,
+    ...videoEntries,
+    ...gifEntries,
+    ...screenshotEntries,
+  ];
 }

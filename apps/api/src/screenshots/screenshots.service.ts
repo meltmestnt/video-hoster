@@ -183,6 +183,17 @@ export class ScreenshotsService {
     };
   }
 
+  async listPublicForSitemap(): Promise<
+    Array<{ id: string; createdAt: Date }>
+  > {
+    return this.screenshots.find({
+      select: { id: true, createdAt: true },
+      where: { status: "ready", visibility: "public" },
+      order: { createdAt: "DESC" },
+      take: 5000,
+    });
+  }
+
   async byId(id: string, viewerId?: string | null) {
     const shot = await this.screenshots.findOne({
       where: { id },
