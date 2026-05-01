@@ -348,6 +348,16 @@ export class UsersService {
       confirmationTokenExpiresAt: expiresAt,
     });
     await this.users.save(user);
+
+    // Fire-and-forget admin notification — never block signup on it.
+    this.mail
+      .notifyAdminsOfSignup({ name: input.name, email })
+      .catch((err) =>
+        this.logger.warn(
+          `Failed to notify admins of new signup ${email}: ${(err as Error).message}`,
+        ),
+      );
+
     return { status: "pending", email };
   }
 

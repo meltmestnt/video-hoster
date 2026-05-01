@@ -17,6 +17,7 @@ import {
 } from "@repo/shared";
 import { Video, VideoDownloadPolicy, VideoVisibility } from "./video.entity";
 import { Thumbnail } from "../thumbnails/thumbnail.entity";
+import { User } from "../users/user.entity";
 import { TagsService } from "../tags/tags.service";
 import { S3Service } from "../s3/s3.service";
 import { TranscoderService } from "../transcoder/transcoder.service";
@@ -25,6 +26,7 @@ import type { ReactionType } from "../reactions/reaction.entity";
 import { FavoritesService } from "../favorites/favorites.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { AudioService } from "../audio/audio.service";
+import { MailService } from "../mail/mail.service";
 
 interface CreateUploadArgs {
   ownerId: string;
@@ -67,6 +69,7 @@ export class VideosService {
     @InjectRepository(Video) private readonly videos: Repository<Video>,
     @InjectRepository(Thumbnail)
     private readonly thumbnails: Repository<Thumbnail>,
+    @InjectRepository(User) private readonly users: Repository<User>,
     private readonly tagsService: TagsService,
     private readonly s3: S3Service,
     private readonly transcoder: TranscoderService,
@@ -74,6 +77,7 @@ export class VideosService {
     private readonly favoritesService: FavoritesService,
     private readonly notificationsService: NotificationsService,
     private readonly audioService: AudioService,
+    private readonly mailService: MailService,
   ) {}
 
   async createUpload(args: CreateUploadArgs) {
@@ -202,6 +206,27 @@ export class VideosService {
 
     video.status = "ready";
     await this.videos.save(video);
+
+    // Fire-and-forget admin alert. Looking up the owner here keeps the
+    // common path simple; failing the email must never fail the upload.
+    this.users
+      .findOne({ where: { id: video.ownerId } })
+      .then((owner) => {
+        if (!owner) return;
+        return this.mailService.notifyAdminsOfVideoUpload({
+          user: { name: owner.name, email: owner.email },
+          video: {
+            id: video.id,
+            title: video.title,
+            visibility: video.visibility,
+          },
+        });
+      })
+      .catch((err) =>
+        this.logger.warn(
+          `Failed to notify admins of upload ${video.id}: ${(err as Error).message}`,
+        ),
+      );
 
     // Fan out "uploaded a new video" notifications to subscribers. Done before
     // the thumbnail step so the notification lands even if thumbnail
