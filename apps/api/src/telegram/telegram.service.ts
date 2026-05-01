@@ -65,6 +65,37 @@ export class TelegramService
       this.config.get<string>("TELEGRAM_BOT_USERNAME")?.replace(/^@/, "") ??
       null;
     this.bot = new Bot(token);
+    // Diagnostic transformer: log the exact answerInlineQuery payload
+    // we send and Telegram's response. Telegram silently drops
+    // individual results from a successful answerInlineQuery call when
+    // it can't render them, so the bot side sees ok=true while the
+    // user sees "No results". The response logging is the only way
+    // to tell whether the rejection happens here or after delivery
+    // to the client. Drop this transformer in cleanup once inline
+    // results are reliably displaying.
+    this.bot.api.config.use(async (prev, method, payload, signal) => {
+      if (method === "answerInlineQuery") {
+        try {
+          this.logger.log(
+            `telegram.api.answerInlineQuery payload: ${JSON.stringify(payload)}`,
+          );
+        } catch {
+          // payload should always be JSON-serializable, but never let
+          // a logging hiccup take the API call down.
+        }
+      }
+      const result = await prev(method, payload, signal);
+      if (method === "answerInlineQuery") {
+        try {
+          this.logger.log(
+            `telegram.api.answerInlineQuery result: ${JSON.stringify(result)}`,
+          );
+        } catch {
+          // ignore
+        }
+      }
+      return result;
+    });
     this.registerHandlers(this.bot);
     // Keep the description in sync with what we say in bot-strings — uk
     // is the default, en is registered with language_code so Telegram
