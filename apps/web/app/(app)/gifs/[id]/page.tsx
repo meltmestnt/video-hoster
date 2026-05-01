@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import type { Metadata } from "next";
 import { Badge, Box, Button, Flex, Heading, Text } from "@radix-ui/themes";
@@ -38,6 +38,12 @@ export async function generateMetadata({
     ? gif.description.slice(0, 200)
     : `GIF "${gif.title}" by ${gif.owner.name} on vids&gifs.`;
   const canonical = absoluteUrl(`/gifs/${gif.id}`);
+  // og:image alone shows the GIF inline on most platforms (the file is
+  // an animated GIF, so Discord/Slack play it). Adding og:video on top
+  // unlocks autoplay-with-sound on platforms that prefer video tags
+  // (Twitter, Facebook). Private gifs already throw NotFound for
+  // anonymous requests, so this branch never runs for them.
+  const ogMedia = !isPrivate && gif.gifUrl ? gif.gifUrl : undefined;
   return {
     title: gif.title,
     description,
@@ -52,13 +58,24 @@ export async function generateMetadata({
       description,
       url: canonical,
       siteName: "vids&gifs",
-      images: gif.gifUrl ? [{ url: gif.gifUrl }] : undefined,
+      images: ogMedia ? [{ url: ogMedia }] : undefined,
+      ...(ogMedia
+        ? {
+            videos: [
+              {
+                url: ogMedia,
+                secureUrl: ogMedia,
+                type: "image/gif",
+              },
+            ],
+          }
+        : {}),
     },
     twitter: {
       card: "summary_large_image",
       title: gif.title,
       description,
-      images: gif.gifUrl ? [gif.gifUrl] : undefined,
+      images: ogMedia ? [ogMedia] : undefined,
     },
   };
 }
@@ -70,12 +87,10 @@ export default async function GifPage({
 }) {
   const { id } = await params;
   const session = await getServerSession(authOptions);
-  // Anonymous viewers get bounced to /login instead of seeing any of the
-  // GIF's metadata. Trade-off: search engines see a 307 too, so this
-  // page won't get indexed.
-  if (!session?.user) {
-    redirect(`/login?callbackUrl=${encodeURIComponent(`/gifs/${id}`)}`);
-  }
+  // Public GIFs render for anonymous viewers (link previews, scrapers,
+  // signed-out browsing). The page already shows a sign-in overlay over
+  // the player frame for them; private GIFs throw NotFound from the API
+  // for anyone except their owner so no extra redirect is needed.
   const trpc = await getServerTrpc();
 
   let gif;

@@ -44,6 +44,15 @@ export async function generateMetadata({
     : `Watch "${video.title}" by ${video.owner.name} on vids&gifs.`;
   const canonical = absoluteUrl(`/videos/${video.id}`);
   const ogImage = video.thumbnailUrl ?? undefined;
+  // og:video lets Discord, iMessage, Slack, Reddit, and Facebook render
+  // an inline playable preview when someone pastes a vidsandgifs link.
+  // The URL we hand out is the same signed media-proxy URL the page
+  // itself uses (1h TTL), so a leaked link buys at most an hour of
+  // hotlinking before re-scraping refreshes it. Private videos already
+  // throw NotFound for anonymous requests so this branch never runs for
+  // them.
+  const ogVideo = !isPrivate && video.videoUrl ? video.videoUrl : undefined;
+  const ogVideoType = video.mimeType ?? "video/mp4";
 
   return {
     title: video.title,
@@ -60,12 +69,25 @@ export async function generateMetadata({
       url: canonical,
       siteName: "vids&gifs",
       images: ogImage ? [{ url: ogImage }] : undefined,
-      // og:video would embed the signed S3 stream URL into every link
-      // preview that fetches the metadata — anyone could pull the MP4
-      // from there. Skip it; previews still get the thumbnail.
+      ...(ogVideo
+        ? {
+            videos: [
+              {
+                url: ogVideo,
+                secureUrl: ogVideo,
+                type: ogVideoType,
+                width: 1280,
+                height: 720,
+              },
+            ],
+          }
+        : {}),
     },
     twitter: {
-      card: "player",
+      // summary_large_image gives the most reliable rich card across
+      // clients. summary_large_image + og:video is what makes Twitter
+      // show inline playback without a custom player iframe.
+      card: "summary_large_image",
       title: video.title,
       description,
       images: ogImage ? [ogImage] : undefined,

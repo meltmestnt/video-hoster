@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { Badge, Box, Button, Flex, Heading, Text } from "@radix-ui/themes";
@@ -22,13 +22,40 @@ export async function generateMetadata({
   const trpc = await getServerTrpc();
   try {
     const shot = await trpc.screenshots.byId.query({ id });
+    const isPrivate = shot.visibility === "private";
+    const canonical = absoluteUrl(`/screenshots/${shot.id}`);
+    const description = `Screenshot "${shot.title}" by ${shot.owner.name} on vids&gifs.`;
+    // Public screenshots get an og:image so Discord/iMessage/Slack/
+    // Twitter render the image inline. Private screenshots already
+    // throw NotFound for anonymous requests so no need to gate further.
+    const ogImage = !isPrivate && shot.url ? shot.url : undefined;
     return {
       title: shot.title,
-      alternates: { canonical: absoluteUrl(`/screenshots/${shot.id}`) },
-      robots:
-        shot.visibility === "private"
-          ? { index: false, follow: false }
+      description,
+      alternates: { canonical },
+      robots: isPrivate ? { index: false, follow: false } : undefined,
+      openGraph: {
+        type: "article",
+        title: shot.title,
+        description,
+        url: canonical,
+        siteName: "vids&gifs",
+        images: ogImage
+          ? [
+              {
+                url: ogImage,
+                width: shot.width ?? undefined,
+                height: shot.height ?? undefined,
+              },
+            ]
           : undefined,
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: shot.title,
+        description,
+        images: ogImage ? [ogImage] : undefined,
+      },
     };
   } catch {
     return {
@@ -45,12 +72,10 @@ export default async function ScreenshotPage({
 }) {
   const { id } = await params;
   const session = await getServerSession(authOptions);
-  // Anonymous viewers get bounced to /login instead of seeing any of the
-  // screenshot's metadata. Trade-off: search engines see a 307 too, so
-  // this page won't get indexed.
-  if (!session?.user) {
-    redirect(`/login?callbackUrl=${encodeURIComponent(`/screenshots/${id}`)}`);
-  }
+  // Public screenshots render for anonymous viewers (link previews,
+  // scrapers, signed-out browsing). The page already shows a sign-in
+  // overlay for them; private screenshots throw NotFound from the API
+  // for anyone except their owner so no extra redirect is needed.
   const trpc = await getServerTrpc();
 
   let shot;
