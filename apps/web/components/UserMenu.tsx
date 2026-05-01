@@ -419,12 +419,15 @@ function ProfilePane({
             {t("user.profile.subscriptions")}
           </Link>
         </Button>
-        <Button asChild variant="soft" color="iris">
-          <Link href="/billing">{t("user.profile.billing")}</Link>
-        </Button>
-        {/* Trust the server-rendered prop on first paint, then let the
-            live query take over once it lands so a role change without a
-            full reload still propagates. */}
+        {/* Admins bypass the Pro paywall (proProcedure short-circuits for
+            them, useTier() returns "pro"), so the billing page is just
+            noise for them — hide it. Trust the server prop on first paint,
+            let the live query take over once it lands. */}
+        {!(me.data ? me.data.role === "admin" : isAdmin) && (
+          <Button asChild variant="soft" color="iris">
+            <Link href="/billing">{t("user.profile.billing")}</Link>
+          </Button>
+        )}
         {(me.data ? me.data.role === "admin" : isAdmin) && (
           <Button asChild variant="soft" color="red">
             <Link href="/manage">{t("user.profile.manage")}</Link>
