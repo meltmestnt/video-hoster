@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Box, Button, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Button, Flex, Text } from "@radix-ui/themes";
 import {
   CameraIcon,
   ChatBubbleIcon,
@@ -10,7 +10,7 @@ import {
 } from "@radix-ui/react-icons";
 import { T } from "@/lib/i18n";
 import { LocaleSwitcher } from "./LocaleSwitcher";
-import { DropTile } from "./DropTile";
+import { InstantGifDemo } from "./InstantGifDemo";
 
 type Icon = typeof VideoIcon;
 
@@ -68,102 +68,61 @@ const FEATURES: Feature[] = [
 export function AnonymousIntro() {
   return (
     <>
-      {/* Drop tile mirrors the signed-in dashboard placement — sits at the
-          top of the page so anonymous visitors can drop a file too. The
-          DropTile handles the signed-out path itself: stashes the file in
-          IDB, opens the auth-required dialog, and PendingUploadResumer
-          finishes the upload after sign-in. */}
-      <DropTile mode="any" signedIn={false} />
-    <Box
-      className="intro-card"
-      mb="6"
-      style={{
-        position: "relative",
-        overflow: "hidden",
-        background:
-          "linear-gradient(135deg, var(--accent-3) 0%, var(--gray-2) 65%)",
-        borderRadius: "var(--radius-4)",
-        padding: "40px 32px",
-      }}
-    >
-      {/* Soft accent glow in the upper-right corner — purely decorative,
-          uses the same iris palette as the brand glyph and OG image. */}
+      {/* The locale switcher is the only top-right control on the
+          anonymous landing — pinned in absolute coordinates so it sits
+          above the demo's gradient backdrop. The choice persists via
+          localStorage inside the i18n provider. */}
       <Box
-        aria-hidden
-        style={{
-          position: "absolute",
-          top: -120,
-          right: -120,
-          width: 360,
-          height: 360,
-          background:
-            "radial-gradient(circle, var(--accent-9) 0%, transparent 70%)",
-          opacity: 0.18,
-          pointerEvents: "none",
-        }}
-      />
-      <Box
-        aria-hidden
-        style={{
-          position: "absolute",
-          bottom: -160,
-          left: -100,
-          width: 320,
-          height: 320,
-          background:
-            "radial-gradient(circle, var(--accent-9) 0%, transparent 70%)",
-          opacity: 0.08,
-          pointerEvents: "none",
-        }}
-      />
-
-      {/* Anchored to the top-right so signed-out visitors landing here can
-          switch to English without first finding the user menu (which only
-          exists for signed-in users). The choice persists via localStorage
-          inside the i18n provider. */}
-      <Box
-        style={{
-          position: "absolute",
-          top: 16,
-          right: 16,
-          zIndex: 3,
-        }}
-      >
-        <LocaleSwitcher size="1" />
-      </Box>
-
-      <Box
-        className="intro-heading-block"
         style={{
           position: "relative",
-          zIndex: 2,
-          maxWidth: 720,
-          // Reserve space on the right so the heading text doesn't slide
-          // under the absolutely-positioned LocaleSwitcher on narrow
-          // viewports.
-          paddingRight: 110,
+          minHeight: 0,
         }}
       >
-        <Heading
-          size="8"
-          mb="3"
-          style={{ letterSpacing: "-0.025em", lineHeight: 1.1 }}
+        <Box
+          style={{
+            position: "absolute",
+            top: 8,
+            right: 8,
+            zIndex: 4,
+          }}
         >
-          <T k="intro.heading" />
-        </Heading>
-        <Text as="p" size="3" color="gray" mb="6">
-          <T k="intro.subtitle" />
-        </Text>
+          <LocaleSwitcher size="1" />
+        </Box>
+        {/* Hero showpiece — drop a video, get a GIF, all in-browser. The
+            killer demo that doubles as the home page's value prop. */}
+        <InstantGifDemo signedIn={false} />
       </Box>
 
+      <Flex
+        className="intro-cta-row"
+        gap="3"
+        mb="6"
+        wrap="wrap"
+        align="center"
+      >
+        <Button asChild size="3" variant="solid">
+          <Link href="/signup">
+            <T k="intro.cta.signUp" />
+          </Link>
+        </Button>
+        <Button asChild size="3" variant="soft" color="gray">
+          <Link href="/login">
+            <T k="intro.cta.signIn" />
+          </Link>
+        </Button>
+        <Button asChild size="3" variant="ghost" color="iris">
+          <Link href="/all">
+            <T k="intro.cta.browse" />
+          </Link>
+        </Button>
+      </Flex>
+
+      {/* Compact feature grid below the hero — keeps the rest of the
+          marketing pitch on the page without competing with the demo
+          for attention. */}
       <div className="intro-features">
         {FEATURES.map(({ Icon, titleKey, descKey }) => (
-          <Flex
-            key={titleKey}
-            align="start"
-            gap="3"
-            style={{ position: "relative" }}
-          >
+          <Flex key={titleKey} align="start" gap="3">
             <Box
               style={{
                 width: 40,
@@ -196,32 +155,6 @@ export function AnonymousIntro() {
           </Flex>
         ))}
       </div>
-
-      <Flex
-        className="intro-cta-row"
-        gap="4"
-        mt="7"
-        wrap="wrap"
-        align="center"
-        style={{ position: "relative", zIndex: 2 }}
-      >
-        <Button asChild size="3" variant="solid">
-          <Link href="/signup">
-            <T k="intro.cta.signUp" />
-          </Link>
-        </Button>
-        <Button asChild size="3" variant="soft" color="gray">
-          <Link href="/login">
-            <T k="intro.cta.signIn" />
-          </Link>
-        </Button>
-        <Button asChild size="3" variant="ghost" color="iris">
-          <Link href="/all">
-            <T k="intro.cta.browse" />
-          </Link>
-        </Button>
-      </Flex>
-    </Box>
     </>
   );
 }

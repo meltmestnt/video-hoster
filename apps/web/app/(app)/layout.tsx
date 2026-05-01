@@ -7,6 +7,7 @@ import { UnverifiedBanner } from "@/components/UnverifiedBanner";
 import { UnapprovedBanner } from "@/components/UnapprovedBanner";
 import { DropZoneOverlay } from "@/components/DropZoneOverlay";
 import { PendingUploadResumer } from "@/components/PendingUploadResumer";
+import { PushPromptBanner } from "@/components/PushPromptBanner";
 import { Footer } from "@/components/Footer";
 import { Box, Container, Flex } from "@radix-ui/themes";
 import { AuthRequiredProvider } from "@/lib/auth-required";
@@ -70,6 +71,11 @@ export default async function AppLayout({
         )}
         <DropZoneOverlay signedIn={signedIn} />
         {signedIn && <PendingUploadResumer />}
+        {/* Bottom-right one-time prompt asking to enable browser
+            notifications. Internally checks Web Push support, current
+            permission state, and a localStorage dismissed flag, so it
+            self-suppresses after the first interaction. */}
+        {signedIn && <PushPromptBanner />}
       </UploadDialogProvider>
     </AuthRequiredProvider>
   );

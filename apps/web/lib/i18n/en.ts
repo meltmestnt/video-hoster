@@ -42,6 +42,39 @@ export const en = {
   "intro.cta.signIn": "Sign in",
   "intro.cta.browse": "Browse all videos →",
 
+  // ─── Instant GIF demo (landing hero) ───
+  "instant.badge": "Free, runs in your browser",
+  "instant.headline.before": "From a video to a ",
+  "instant.headline.highlight": "shareable GIF",
+  "instant.headline.after": " in 30 seconds.",
+  "instant.subtitle":
+    "Drop any MP4, MOV, WebM, or MKV. We convert it on your device with ffmpeg.wasm — your file never leaves the page until you choose to host it. Sign in afterwards to get a hotlinkable URL.",
+  "instant.dropzone.title": "Drop a video here, or click to pick one",
+  "instant.dropzone.subtitle":
+    "Up to 1.5 GB. We trim down to the first 20 seconds automatically.",
+  "instant.phase.idle": "Waiting for a file",
+  "instant.phase.loading": "Loading converter…",
+  "instant.phase.encoding": "Encoding GIF…",
+  "instant.phase.done": "Done",
+  "instant.phase.error": "Conversion failed",
+  "instant.progress.hint":
+    "Stay on this tab — the conversion runs locally and pauses if it loses focus.",
+  "instant.error.notVideo":
+    "That file isn't a real video. Pick an MP4, MOV, WebM, or MKV.",
+  "instant.action.download": "Download .gif",
+  "instant.action.host": "Get hotlinkable URL",
+  "instant.step1.title": "1 — Drop your video",
+  "instant.step1.body":
+    "MP4, MOV, WebM, or MKV. Up to 1.5 GB. We validate the file's bytes, not just its name.",
+  "instant.step2.title": "2 — Auto-converted on-device",
+  "instant.step2.body":
+    "ffmpeg.wasm trims to 20 seconds, encodes a 480p GIF, and shows a live preview. Nothing uploads.",
+  "instant.step3.title": "3 — Download or share",
+  "instant.step3.body":
+    "Save the .gif locally for free, or sign in once to get a hotlinkable URL on vidsandgifs.xyz.",
+  "instant.privacy":
+    "Conversion is fully on-device. Sign in is only needed for hosted URLs.",
+
   // ─── Cookie consent ───
   "consent.message":
     "We use cookies for analytics to understand how the site is used. Click Accept to allow, or Decline to opt out.",

@@ -44,6 +44,39 @@ export const uk: EnDict = {
   "intro.cta.signIn": "Увійти",
   "intro.cta.browse": "Переглянути всі відео →",
 
+  // ─── Демо миттєвого GIF (геро на лендінгу) ───
+  "instant.badge": "Безкоштовно, працює в браузері",
+  "instant.headline.before": "З відео в ",
+  "instant.headline.highlight": "GIF, готовий до поширення",
+  "instant.headline.after": " — за 30 секунд.",
+  "instant.subtitle":
+    "Перетягніть будь-який MP4, MOV, WebM чи MKV. Конвертуємо на вашому пристрої через ffmpeg.wasm — файл не покидає сторінку, поки ви самі не вирішите його розмістити. Увійдіть, щоб отримати посилання для гарячого вставлення.",
+  "instant.dropzone.title": "Перетягніть відео сюди або натисніть, щоб вибрати",
+  "instant.dropzone.subtitle":
+    "До 1,5 ГБ. Автоматично обріжемо до перших 20 секунд.",
+  "instant.phase.idle": "Очікую файл",
+  "instant.phase.loading": "Завантаження конвертера…",
+  "instant.phase.encoding": "Кодування GIF…",
+  "instant.phase.done": "Готово",
+  "instant.phase.error": "Не вдалося конвертувати",
+  "instant.progress.hint":
+    "Залишайтесь на цій вкладці — конвертація йде локально й призупиняється, коли вкладка втрачає фокус.",
+  "instant.error.notVideo":
+    "Цей файл не є справжнім відео. Виберіть MP4, MOV, WebM або MKV.",
+  "instant.action.download": "Завантажити .gif",
+  "instant.action.host": "Отримати посилання",
+  "instant.step1.title": "1 — Киньте своє відео",
+  "instant.step1.body":
+    "MP4, MOV, WebM або MKV. До 1,5 ГБ. Перевіряємо вміст файлу, а не лише його ім'я.",
+  "instant.step2.title": "2 — Конвертація на пристрої",
+  "instant.step2.body":
+    "ffmpeg.wasm обрізає до 20 секунд, кодує 480p GIF і показує живий перегляд. Нічого не вивантажується.",
+  "instant.step3.title": "3 — Завантажте чи поділіться",
+  "instant.step3.body":
+    "Збережіть .gif локально безкоштовно або увійдіть один раз, щоб отримати hotlink-посилання на vidsandgifs.xyz.",
+  "instant.privacy":
+    "Конвертація — повністю на пристрої. Вхід потрібен лише для розміщення на сайті.",
+
   // ─── Cookie consent ───
   "consent.message":
     "Ми використовуємо файли cookie для аналітики, щоб зрозуміти, як використовується сайт. Натисніть «Прийняти», щоб дозволити, або «Відхилити», щоб відмовитися.",
