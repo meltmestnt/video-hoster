@@ -88,6 +88,9 @@ export class TrpcService {
           ? await this.users.findById(payload.sub)
           : await this.users.upsertFromAuthPayload(payload);
       if (!user) return { user: null, services, ip };
+      // Presence tracking — fire-and-forget, throttled inside
+      // UsersService so a chatty SPA only writes once every 30s.
+      this.users.bumpLastSeen(user.id);
       return { user, services, ip };
     } catch {
       return { user: null, services, ip };

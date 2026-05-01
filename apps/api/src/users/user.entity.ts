@@ -121,6 +121,16 @@ export class User {
   @Column({ type: "timestamptz", nullable: true })
   subscriptionPeriodEnd: Date | null;
 
+  // Last time we saw this user make an authenticated request. Updated
+  // through UsersService.bumpLastSeen on every tRPC context resolution
+  // (in-memory throttled to once per 30s per user, so a chatty SPA
+  // doesn't trigger a write per query). Drives the "online" indicator
+  // on the admin manage page — anyone seen within the last 5 min is
+  // shown with a green presence dot.
+  @Index()
+  @Column({ type: "timestamptz", nullable: true })
+  lastSeenAt: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 }

@@ -49,6 +49,10 @@ export function ManageUsersList({ initial, myId }: Props) {
         ? undefined
         : { pages: [initial], pageParams: [undefined] },
       getNextPageParam: (last) => last.nextCursor ?? undefined,
+      // Refetch every minute so the presence dots stay fresh — the
+      // server's online window is 5 minutes, but a 60s poll keeps the
+      // perceived freshness tight without spamming the API.
+      refetchInterval: 60_000,
     },
   );
 
@@ -242,12 +246,37 @@ function UserRowView({
     <Table.Row>
       <Table.Cell>
         <Flex align="center" gap="2">
-          <Avatar
-            size="1"
-            src={row.avatarUrl ?? undefined}
-            fallback={row.name.slice(0, 1).toUpperCase()}
-            radius="full"
-          />
+          {/* Avatar + presence dot. The dot is positioned over the
+              bottom-right of the avatar (Telegram / Slack pattern).
+              The wrapping Box gives the absolute-positioned indicator
+              something to anchor to without needing to add layout to
+              the Avatar itself. */}
+          <Box style={{ position: "relative", flexShrink: 0 }}>
+            <Avatar
+              size="1"
+              src={row.avatarUrl ?? undefined}
+              fallback={row.name.slice(0, 1).toUpperCase()}
+              radius="full"
+            />
+            {row.online && (
+              <Tooltip content={t("manage.presence.online")}>
+                <span
+                  aria-label={t("manage.presence.online")}
+                  style={{
+                    position: "absolute",
+                    right: -2,
+                    bottom: -2,
+                    width: 10,
+                    height: 10,
+                    borderRadius: 999,
+                    background: "var(--green-9)",
+                    border: "2px solid var(--gray-1)",
+                    boxShadow: "0 0 0 1px var(--green-7)",
+                  }}
+                />
+              </Tooltip>
+            )}
+          </Box>
           <Text size="2" weight="medium">
             {row.name}
           </Text>

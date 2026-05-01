@@ -437,6 +437,7 @@ export const uk: EnDict = {
   "manage.col.actions": "Дії",
   "manage.role.admin": "Адміністратор",
   "manage.role.user": "Користувач",
+  "manage.presence.online": "Зараз онлайн",
   "manage.action.verify": "Підтвердити",
   "manage.verifying": "Підтвердження...",
   "manage.action.unverify": "Скасувати підтвердження",

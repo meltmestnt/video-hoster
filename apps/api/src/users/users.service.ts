@@ -50,6 +50,13 @@ export type SignUpResult =
 @Injectable()
 export class UsersService implements OnModuleInit {
   private readonly logger = new Logger(UsersService.name);
+  // In-memory throttle for the lastSeenAt write. Without this, every
+  // tRPC call from a chatty SPA (the dashboard polls notifications,
+  // the bell polls counts, etc.) would issue a DB UPDATE — fine
+  // correctness-wise, wasteful in practice. We only persist a bump
+  // when the previous one is older than this window.
+  private readonly lastSeenBumps = new Map<string, number>();
+  private static readonly LAST_SEEN_THROTTLE_MS = 30 * 1000;
 
   constructor(
     @InjectRepository(User) private readonly users: Repository<User>,
@@ -278,6 +285,28 @@ export class UsersService implements OnModuleInit {
   }
 
   /**
+   * Update the user's `lastSeenAt` so the admin manage page can show a
+   * presence dot. Writes are throttled per-user via an in-memory map so
+   * a chatty SPA only hits the DB once every LAST_SEEN_THROTTLE_MS.
+   * Best-effort: errors are logged and swallowed — last-seen drift
+   * shouldn't break the request that triggered it.
+   */
+  bumpLastSeen(userId: string): void {
+    const now = Date.now();
+    const last = this.lastSeenBumps.get(userId) ?? 0;
+    if (now - last < UsersService.LAST_SEEN_THROTTLE_MS) return;
+    this.lastSeenBumps.set(userId, now);
+    // Fire-and-forget — the caller is hot-path tRPC context resolution.
+    void this.users
+      .update({ id: userId }, { lastSeenAt: new Date(now) })
+      .catch((err) =>
+        this.logger.warn(
+          `users.bumpLastSeen failed userId=${userId}: ${(err as Error).message}`,
+        ),
+      );
+  }
+
+  /**
    * Public profile DTO. Throws 404 when the username doesn't resolve so
    * the page-level error boundary can render notFound() cleanly. The
    * counts are filtered to public-only when the viewer isn't the owner.
@@ -457,7 +486,8 @@ export class UsersService implements OnModuleInit {
         | "approved"
         | "avatarUrl"
         | "createdAt"
-      >
+        | "lastSeenAt"
+      > & { online: boolean }
     >;
     nextCursor: string | null;
   }> {
@@ -485,6 +515,10 @@ export class UsersService implements OnModuleInit {
     const items = hasMore ? rows.slice(0, args.limit) : rows;
     const nextCursor =
       hasMore && items.length > 0 ? items[items.length - 1].id : null;
+    // 5-minute presence window — long enough that a user reading a page
+    // for several minutes still reads as online, short enough that a
+    // closed tab clears within a coffee break.
+    const onlineCutoff = Date.now() - 5 * 60 * 1000;
     return {
       items: items.map((u) => ({
         id: u.id,
@@ -495,6 +529,8 @@ export class UsersService implements OnModuleInit {
         approved: u.approved,
         avatarUrl: u.avatarUrl,
         createdAt: u.createdAt,
+        lastSeenAt: u.lastSeenAt,
+        online: !!u.lastSeenAt && u.lastSeenAt.getTime() >= onlineCutoff,
       })),
       nextCursor,
     };

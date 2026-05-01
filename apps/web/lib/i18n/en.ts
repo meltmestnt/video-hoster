@@ -428,6 +428,7 @@ export const en = {
   "manage.col.actions": "Actions",
   "manage.role.admin": "Admin",
   "manage.role.user": "User",
+  "manage.presence.online": "Online now",
   "manage.action.verify": "Verify",
   "manage.verifying": "Verifying...",
   "manage.action.unverify": "Unverify",
