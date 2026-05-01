@@ -11,6 +11,7 @@ import { GifCommentsSection } from "@/components/GifCommentsSection";
 import { DeleteGifButton } from "@/components/DeleteGifButton";
 import { SubscribeButton } from "@/components/SubscribeButton";
 import { ShareButton } from "@/components/ShareButton";
+import { ViewCounter } from "@/components/ViewCounter";
 import { MorphLandingSignal } from "@/components/MorphLandingSignal";
 import { absoluteUrl } from "@/lib/site";
 import { T } from "@/lib/i18n";
@@ -244,12 +245,31 @@ export default async function GifPage({
           </Flex>
         </Flex>
         <Flex align="center" gap="3" mt="3" mb="3" wrap="wrap">
-          <Text size="2" color="gray">{gif.owner.name}</Text>
+          {gif.owner.username ? (
+            <Link
+              href={`/@${gif.owner.username}`}
+              style={{
+                color: "var(--gray-12)",
+                fontSize: "var(--font-size-2)",
+                textDecoration: "none",
+              }}
+            >
+              {gif.owner.name}
+            </Link>
+          ) : (
+            <Text size="2" color="gray">{gif.owner.name}</Text>
+          )}
           {/* Hide subscribe-to-self entirely; the API rejects it but the
               button shouldn't show up in the first place. */}
           {!!session?.user && session.user.id !== gif.owner.id && (
             <SubscribeButton targetUserId={gif.owner.id} />
           )}
+          <Text size="2" color="gray">·</Text>
+          <ViewCounter
+            kind="gif"
+            id={gif.id}
+            initialCount={gif.viewCount ?? 0}
+          />
           <Text size="2" color="gray">·</Text>
           <Text size="2" color="gray">
             {new Date(gif.createdAt).toLocaleDateString()}

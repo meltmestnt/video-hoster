@@ -60,6 +60,9 @@ export class Screenshot {
   @Column({ type: "varchar", length: 16, default: "manual" })
   source: ScreenshotSource;
 
+  @Column({ type: "int", default: 0 })
+  viewCount: number;
+
   @Index()
   @CreateDateColumn()
   createdAt: Date;

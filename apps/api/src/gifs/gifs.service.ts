@@ -266,6 +266,47 @@ export class GifsService {
     };
   }
 
+  /** Newest-first list of one owner's GIFs for /@username pages. */
+  async listByOwner({
+    ownerId,
+    cursor,
+    limit,
+    viewerId,
+  }: {
+    ownerId: string;
+    cursor?: string;
+    limit: number;
+    viewerId?: string | null;
+  }) {
+    const qb = this.gifs
+      .createQueryBuilder("g")
+      .leftJoinAndSelect("g.owner", "owner")
+      .leftJoinAndSelect("g.tags", "tags")
+      .where("g.status = :s", { s: "ready" })
+      .andWhere("g.ownerId = :ownerId", { ownerId })
+      .orderBy("g.createdAt", "DESC")
+      .addOrderBy("g.id", "DESC")
+      .take(limit + 1);
+
+    if (viewerId !== ownerId) {
+      qb.andWhere("g.visibility = :pub", { pub: "public" });
+    }
+
+    if (cursor) {
+      const c = await this.gifs.findOne({ where: { id: cursor } });
+      if (c) qb.andWhere("g.createdAt < :cAt", { cAt: c.createdAt });
+    }
+    const rows = await qb.getMany();
+    const hasMore = rows.length > limit;
+    const items = hasMore ? rows.slice(0, limit) : rows;
+    const nextCursor =
+      hasMore && items.length > 0 ? items[items.length - 1].id : null;
+    return {
+      items: await this.attachExtras(items, viewerId),
+      nextCursor,
+    };
+  }
+
   async search({
     q,
     tag,
@@ -319,6 +360,23 @@ export class GifsService {
       items: await this.attachExtras(items, viewerId),
       nextCursor: hasMore && items.length > 0 ? items[items.length - 1].id : null,
     };
+  }
+
+  /** Atomic +1 on the gif's view counter. Mirrors VideosService. */
+  async incrementView(id: string): Promise<{ viewCount: number }> {
+    const row = await this.gifs.findOne({
+      where: { id },
+      select: { id: true, status: true },
+    });
+    if (!row) throw new NotFoundException("Gif not found");
+    if (row.status !== "ready") return { viewCount: 0 };
+    const result = await this.gifs.manager.query<Array<{ viewCount: number }>>(
+      `UPDATE gifs SET "viewCount" = "viewCount" + 1
+       WHERE id = $1
+       RETURNING "viewCount"`,
+      [id],
+    );
+    return { viewCount: result[0]?.viewCount ?? 0 };
   }
 
   async byId(id: string, viewerId?: string | null) {
@@ -511,6 +569,7 @@ export class GifsService {
           owner: {
             id: g.owner.id,
             name: g.owner.name,
+            username: g.owner.username,
             avatarUrl: g.owner.avatarUrl,
           },
           tags: g.tags.map((t) => ({ id: t.id, name: t.name })),
@@ -518,6 +577,7 @@ export class GifsService {
           thumbnailUrl: url,
           likeCount: c.likes,
           dislikeCount: c.dislikes,
+          viewCount: g.viewCount,
           viewerReaction: viewerReactions.get(g.id) ?? null,
         };
       }),

@@ -15,6 +15,7 @@ import { FavoriteButton } from "@/components/FavoriteButton";
 import { SubscribeButton } from "@/components/SubscribeButton";
 import { VideoAudioControls } from "@/components/VideoAudioControls";
 import { ShareButton } from "@/components/ShareButton";
+import { ViewCounter } from "@/components/ViewCounter";
 import { MorphLandingSignal } from "@/components/MorphLandingSignal";
 import { absoluteUrl } from "@/lib/site";
 import { T } from "@/lib/i18n";
@@ -313,9 +314,20 @@ export default async function VideoPage({
           </Flex>
         </Flex>
         <Flex align="center" gap="3" mt="3" mb="3" wrap="wrap">
-          <Text size="2" color="gray">
-            {video.owner.name}
-          </Text>
+          {video.owner.username ? (
+            <Link
+              href={`/@${video.owner.username}`}
+              style={{
+                color: "var(--gray-12)",
+                fontSize: "var(--font-size-2)",
+                textDecoration: "none",
+              }}
+            >
+              {video.owner.name}
+            </Link>
+          ) : (
+            <Text size="2" color="gray">{video.owner.name}</Text>
+          )}
           {/* Subscribe is account-only; hide for anon to keep the page
               free of auth-gated UI that would 401 on click. Also hide
               when viewing your own video — subscribe-to-self is rejected
@@ -323,9 +335,13 @@ export default async function VideoPage({
           {!!session?.user && session.user.id !== video.owner.id && (
             <SubscribeButton targetUserId={video.owner.id} />
           )}
-          <Text size="2" color="gray">
-            ·
-          </Text>
+          <Text size="2" color="gray">·</Text>
+          <ViewCounter
+            kind="video"
+            id={video.id}
+            initialCount={video.viewCount ?? 0}
+          />
+          <Text size="2" color="gray">·</Text>
           <Text size="2" color="gray">
             {new Date(video.createdAt).toLocaleDateString()}
           </Text>

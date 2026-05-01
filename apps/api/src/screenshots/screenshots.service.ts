@@ -267,6 +267,25 @@ export class ScreenshotsService {
     return this.toDto(shot);
   }
 
+  /** Atomic +1 on the screenshot's view counter. */
+  async incrementView(id: string): Promise<{ viewCount: number }> {
+    const row = await this.screenshots.findOne({
+      where: { id },
+      select: { id: true, status: true },
+    });
+    if (!row) throw new NotFoundException("Screenshot not found");
+    if (row.status !== "ready") return { viewCount: 0 };
+    const result = await this.screenshots.manager.query<
+      Array<{ viewCount: number }>
+    >(
+      `UPDATE screenshots SET "viewCount" = "viewCount" + 1
+       WHERE id = $1
+       RETURNING "viewCount"`,
+      [id],
+    );
+    return { viewCount: result[0]?.viewCount ?? 0 };
+  }
+
   private async toDto(s: Screenshot) {
     const url =
       s.status === "ready"
@@ -283,9 +302,11 @@ export class ScreenshotsService {
       visibility: s.visibility,
       source: s.source,
       createdAt: s.createdAt,
+      viewCount: s.viewCount,
       owner: {
         id: s.owner.id,
         name: s.owner.name,
+        username: s.owner.username,
         avatarUrl: s.owner.avatarUrl,
       },
       url,

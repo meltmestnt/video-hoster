@@ -208,8 +208,128 @@ export class UsersService {
 
   async findById(id: string): Promise<User | null> {
     const user = await this.users.findOne({ where: { id } });
-    if (user) await this.syncRoleFromEnv(user);
+    if (user) {
+      await this.syncRoleFromEnv(user);
+      await this.ensureUsername(user);
+    }
     return user;
+  }
+
+  async findByUsername(username: string): Promise<User | null> {
+    return this.users.findOne({ where: { username: username.toLowerCase() } });
+  }
+
+  /**
+   * Public profile DTO. Throws 404 when the username doesn't resolve so
+   * the page-level error boundary can render notFound() cleanly. The
+   * counts are filtered to public-only when the viewer isn't the owner.
+   */
+  async getProfile(args: {
+    username: string;
+    viewerId: string | null;
+  }): Promise<{
+    id: string;
+    name: string;
+    username: string;
+    avatarUrl: string | null;
+    role: User["role"];
+    createdAt: Date;
+    counts: {
+      videos: number;
+      gifs: number;
+      screenshots: number;
+    };
+    followerCount: number;
+  }> {
+    const user = await this.findByUsername(args.username);
+    if (!user) throw new NotFoundException("Profile not found");
+
+    const isSelf = args.viewerId === user.id;
+    // Public counts only when viewing someone else's page; the owner
+    // sees their full count including private uploads.
+    const visibilityFilter = isSelf
+      ? ""
+      : `AND visibility = 'public'`;
+
+    const [videoCount, gifCount, screenshotCount, followerCount] =
+      await Promise.all([
+        this.users.manager
+          .query<Array<{ count: string }>>(
+            `SELECT COUNT(*) FROM videos
+             WHERE "ownerId" = $1 AND status = 'ready' ${visibilityFilter}`,
+            [user.id],
+          )
+          .then((rows) => Number(rows[0]?.count ?? 0)),
+        this.users.manager
+          .query<Array<{ count: string }>>(
+            `SELECT COUNT(*) FROM gifs
+             WHERE "ownerId" = $1 AND status = 'ready' ${visibilityFilter}`,
+            [user.id],
+          )
+          .then((rows) => Number(rows[0]?.count ?? 0)),
+        this.users.manager
+          .query<Array<{ count: string }>>(
+            `SELECT COUNT(*) FROM screenshots
+             WHERE "ownerId" = $1 AND status = 'ready' ${visibilityFilter}`,
+            [user.id],
+          )
+          .then((rows) => Number(rows[0]?.count ?? 0)),
+        this.users.manager
+          .query<Array<{ count: string }>>(
+            `SELECT COUNT(*) FROM subscriptions WHERE "targetUserId" = $1`,
+            [user.id],
+          )
+          .then((rows) => Number(rows[0]?.count ?? 0)),
+      ]);
+
+    const avatarUrl = await this.resolveAvatarUrl(user);
+    return {
+      id: user.id,
+      name: user.name,
+      // Lazy-fill if the row predates the column.
+      username: user.username ?? "",
+      avatarUrl,
+      role: user.role,
+      createdAt: user.createdAt,
+      counts: {
+        videos: videoCount,
+        gifs: gifCount,
+        screenshots: screenshotCount,
+      },
+      followerCount,
+    };
+  }
+
+  /**
+   * Generate a URL-safe handle for users that don't have one yet. Existing
+   * rows from before the column was added are NULL — this fills them in
+   * lazily on the first request that touches the user, so we never block
+   * sign-in on a backfill.
+   *
+   * Strategy: lowercase ascii from `name`, fall back to email local-part
+   * when the name has no Latin chars (Cyrillic-only names hash to empty),
+   * trim/clamp, then suffix `-2`, `-3`, … on collision.
+   */
+  async ensureUsername(user: User): Promise<void> {
+    if (user.username) return;
+    const base = buildUsernameBase(user.name, user.email);
+    let candidate = base;
+    let suffix = 1;
+    // 50 attempts is more than enough — past that the seed is degenerate.
+    while (suffix < 50) {
+      const taken = await this.users.findOne({
+        where: { username: candidate },
+        select: { id: true },
+      });
+      if (!taken || taken.id === user.id) break;
+      suffix += 1;
+      // Trim base if necessary so base + suffix stays under 32 chars.
+      const numStr = String(suffix);
+      const trimmed = base.slice(0, 32 - 1 - numStr.length);
+      candidate = `${trimmed}-${numStr}`;
+    }
+    await this.users.update({ id: user.id }, { username: candidate });
+    user.username = candidate;
   }
 
   /**
@@ -708,4 +828,30 @@ export class UsersService {
 
 function sha256(input: string): string {
   return createHash("sha256").update(input).digest("hex");
+}
+
+/**
+ * Compute the candidate username slug from name/email. Lowercased,
+ * Latin-only, no separators except `-`. Names like "Іра" produce empty
+ * strings; we fall back to the email local-part in that case, then to
+ * a generic "user" stem if even that is non-Latin.
+ */
+function buildUsernameBase(name: string, email: string): string {
+  const fromName = sluggify(name);
+  if (fromName.length >= 3) return fromName.slice(0, 32);
+  const fromEmail = sluggify(email.split("@")[0] ?? "");
+  if (fromEmail.length >= 3) return fromEmail.slice(0, 32);
+  return "user";
+}
+
+function sluggify(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFKD")
+    // Drop combining marks (accents) so "café" becomes "cafe", but
+    // characters with no decomposition (Cyrillic, CJK) just collapse to
+    // whatever fits the Latin filter below.
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9_-]+/g, "")
+    .replace(/^-+|-+$/g, "");
 }

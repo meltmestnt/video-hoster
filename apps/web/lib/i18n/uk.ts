@@ -523,6 +523,23 @@ export const uk: EnDict = {
   // ─── Дзвоник сповіщень ───
   "notifications.subscribed": "підписався на вас",
 
+  // ─── Публічний профіль ───
+  "profile.stats.videos": "{n} відео",
+  "profile.stats.gifs": "{n} GIF",
+  "profile.stats.screenshots": "{n} скріншотів",
+  "profile.stats.followers": "{n} підписників",
+  "profile.stats.joined": "Приєднався {date}",
+  "profile.tab.videos": "Відео",
+  "profile.tab.gifs": "GIF",
+  "profile.tab.screenshots": "Скріншоти",
+  "profile.empty.videos": "Ще немає публічних відео.",
+  "profile.empty.gifs": "Ще немає публічних GIF.",
+  "profile.empty.screenshots": "Ще немає публічних скріншотів.",
+
+  // ─── Перегляди ───
+  "views.count": "{n} переглядів",
+  "views.one": "1 перегляд",
+
   // ─── Inline drop tile ───
   "droptile.title.any": "Перетягніть відео або GIF сюди",
   "droptile.title.video": "Перетягніть відео сюди",

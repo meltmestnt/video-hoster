@@ -50,6 +50,8 @@ import {
   billingCheckoutInputSchema,
   pushSubscribeInputSchema,
   pushUnsubscribeInputSchema,
+  usernameInputSchema,
+  listByOwnerInputSchema,
 } from "@repo/shared";
 import {
   router,
@@ -186,6 +188,34 @@ export const appRouter = router({
     sitemap: publicProcedure.query(({ ctx }) =>
       ctx.services.videos.listPublicForSitemap(),
     ),
+
+    // Per-user listing for the /@username profile page.
+    byOwner: publicProcedure
+      .input(listByOwnerInputSchema)
+      .query(({ ctx, input }) =>
+        ctx.services.videos.listByOwner({
+          ownerId: input.ownerId,
+          cursor: input.cursor,
+          limit: input.limit,
+          viewerId: ctx.user?.id ?? null,
+        }),
+      ),
+
+    // Lifetime view counter +1. Public so anonymous viewers count too;
+    // per-session dedupe lives on the client.
+    incrementView: publicProcedure
+      .use(
+        rateLimit({
+          name: "videos.incrementView",
+          keyBy: "ip",
+          max: 60,
+          windowMs: MIN,
+        }),
+      )
+      .input(videoIdInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.videos.incrementView(input.id),
+      ),
 
     uploadQuota: protectedProcedure.query(({ ctx }) =>
       ctx.services.videos.getUploadQuota(ctx.user.id),
@@ -366,6 +396,31 @@ export const appRouter = router({
     sitemap: publicProcedure.query(({ ctx }) =>
       ctx.services.gifs.listPublicForSitemap(),
     ),
+
+    byOwner: publicProcedure
+      .input(listByOwnerInputSchema)
+      .query(({ ctx, input }) =>
+        ctx.services.gifs.listByOwner({
+          ownerId: input.ownerId,
+          cursor: input.cursor,
+          limit: input.limit,
+          viewerId: ctx.user?.id ?? null,
+        }),
+      ),
+
+    incrementView: publicProcedure
+      .use(
+        rateLimit({
+          name: "gifs.incrementView",
+          keyBy: "ip",
+          max: 60,
+          windowMs: MIN,
+        }),
+      )
+      .input(gifIdInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.gifs.incrementView(input.id),
+      ),
   }),
 
   screenshots: router({
@@ -435,6 +490,20 @@ export const appRouter = router({
     sitemap: publicProcedure.query(({ ctx }) =>
       ctx.services.screenshots.listPublicForSitemap(),
     ),
+
+    incrementView: publicProcedure
+      .use(
+        rateLimit({
+          name: "screenshots.incrementView",
+          keyBy: "ip",
+          max: 60,
+          windowMs: MIN,
+        }),
+      )
+      .input(screenshotIdInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.screenshots.incrementView(input.id),
+      ),
   }),
 
   comments: router({
@@ -568,6 +637,18 @@ export const appRouter = router({
     deleteSelf: protectedProcedure.mutation(({ ctx }) =>
       ctx.services.users.deleteSelf(ctx.user.id),
     ),
+
+    // Public profile lookup by URL slug (the @-handle). Returns null
+    // when the user doesn't exist so the page can render notFound()
+    // without surfacing a tRPC error to the client.
+    profile: publicProcedure
+      .input(usernameInputSchema)
+      .query(({ ctx, input }) =>
+        ctx.services.users.getProfile({
+          username: input.username,
+          viewerId: ctx.user?.id ?? null,
+        }),
+      ),
   }),
 
   admin: router({

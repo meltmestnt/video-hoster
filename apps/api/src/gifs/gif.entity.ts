@@ -64,6 +64,9 @@ export class Gif {
   })
   tags: Tag[];
 
+  @Column({ type: "int", default: 0 })
+  viewCount: number;
+
   @Index()
   @CreateDateColumn()
   createdAt: Date;

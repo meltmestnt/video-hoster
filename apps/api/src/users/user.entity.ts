@@ -34,6 +34,14 @@ export class User {
   @Column()
   name: string;
 
+  // URL-safe handle that drives /@username profile pages. Generated lazily
+  // from `name` (or the email local-part when the name is non-Latin), with
+  // a numeric suffix on collision. Nullable so existing rows don't break
+  // until they hit any code path that calls UsersService.ensureUsername.
+  @Index({ unique: true })
+  @Column({ type: "varchar", length: 32, nullable: true })
+  username: string | null;
+
   @Column({ type: "text", nullable: true })
   avatarUrl: string | null;
 

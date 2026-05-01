@@ -9,6 +9,7 @@ import { getServerTrpc } from "@/lib/trpc-server";
 import { absoluteUrl } from "@/lib/site";
 import { T } from "@/lib/i18n";
 import { ShareButton } from "@/components/ShareButton";
+import { ViewCounter } from "@/components/ViewCounter";
 import { DeleteScreenshotButton } from "@/components/DeleteScreenshotButton";
 
 export const dynamic = "force-dynamic";
@@ -141,12 +142,27 @@ export default async function ScreenshotPage({
         </Flex>
       </Flex>
       <Flex align="center" gap="3" mb="4" wrap="wrap">
-        <Text size="2" color="gray">
-          {shot.owner.name}
-        </Text>
-        <Text size="2" color="gray">
-          ·
-        </Text>
+        {shot.owner.username ? (
+          <Link
+            href={`/@${shot.owner.username}`}
+            style={{
+              color: "var(--gray-12)",
+              fontSize: "var(--font-size-2)",
+              textDecoration: "none",
+            }}
+          >
+            {shot.owner.name}
+          </Link>
+        ) : (
+          <Text size="2" color="gray">{shot.owner.name}</Text>
+        )}
+        <Text size="2" color="gray">·</Text>
+        <ViewCounter
+          kind="screenshot"
+          id={shot.id}
+          initialCount={shot.viewCount ?? 0}
+        />
+        <Text size="2" color="gray">·</Text>
         <Text size="2" color="gray">
           {new Date(shot.createdAt).toLocaleDateString()}
         </Text>

@@ -83,6 +83,12 @@ export class Video {
   @Column({ type: "varchar", length: 8, default: "full" })
   downloadPolicy: VideoDownloadPolicy;
 
+  // Lifetime view counter. Incremented atomically by VideosService.
+  // Per-session dedupe lives on the client; this column is the
+  // monotonic source of truth.
+  @Column({ type: "int", default: 0 })
+  viewCount: number;
+
   @Index()
   @CreateDateColumn()
   createdAt: Date;

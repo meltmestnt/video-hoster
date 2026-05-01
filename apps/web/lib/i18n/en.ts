@@ -508,6 +508,23 @@ export const en = {
   // ─── Notifications bell ───
   "notifications.subscribed": "subscribed to you",
 
+  // ─── Public profile ───
+  "profile.stats.videos": "{n} videos",
+  "profile.stats.gifs": "{n} GIFs",
+  "profile.stats.screenshots": "{n} screenshots",
+  "profile.stats.followers": "{n} followers",
+  "profile.stats.joined": "Joined {date}",
+  "profile.tab.videos": "Videos",
+  "profile.tab.gifs": "GIFs",
+  "profile.tab.screenshots": "Screenshots",
+  "profile.empty.videos": "No public videos yet.",
+  "profile.empty.gifs": "No public GIFs yet.",
+  "profile.empty.screenshots": "No public screenshots yet.",
+
+  // ─── View counts ───
+  "views.count": "{n} views",
+  "views.one": "1 view",
+
   // ─── Inline drop tile ───
   "droptile.title.any": "Drag and drop a video or GIF here",
   "droptile.title.video": "Drag and drop a video here",

@@ -500,6 +500,51 @@ export class VideosService {
     };
   }
 
+  /**
+   * Newest-first list of a single owner's videos. Public-only when the
+   * viewer isn't the owner. Powers the /@username profile page.
+   */
+  async listByOwner({
+    ownerId,
+    cursor,
+    limit,
+    viewerId,
+  }: {
+    ownerId: string;
+    cursor?: string;
+    limit: number;
+    viewerId?: string | null;
+  }) {
+    const qb = this.videos
+      .createQueryBuilder("v")
+      .leftJoinAndSelect("v.owner", "owner")
+      .leftJoinAndSelect("v.tags", "tags")
+      .where("v.status = :s", { s: "ready" })
+      .andWhere("v.ownerId = :ownerId", { ownerId })
+      .orderBy("v.createdAt", "DESC")
+      .addOrderBy("v.id", "DESC")
+      .take(limit + 1);
+
+    if (viewerId !== ownerId) {
+      qb.andWhere("v.visibility = :pub", { pub: "public" });
+    }
+
+    if (cursor) {
+      const c = await this.videos.findOne({ where: { id: cursor } });
+      if (c) qb.andWhere("v.createdAt < :cAt", { cAt: c.createdAt });
+    }
+
+    const rows = await qb.getMany();
+    const hasMore = rows.length > limit;
+    const items = hasMore ? rows.slice(0, limit) : rows;
+    const nextCursor =
+      hasMore && items.length > 0 ? items[items.length - 1].id : null;
+    return {
+      items: await this.attachExtras(items, viewerId),
+      nextCursor,
+    };
+  }
+
   async search({
     q,
     tag,
@@ -658,6 +703,32 @@ export class VideosService {
       .filter((v): v is Video => v !== undefined);
   }
 
+  /**
+   * Atomic +1 on a video's view counter. Per-session dedupe lives on the
+   * client (sessionStorage); this method just bumps and returns the new
+   * count. Owner-private videos still count toward views — the column is
+   * a simple lifetime tally, not a unique-viewer metric.
+   */
+  async incrementView(id: string): Promise<{ viewCount: number }> {
+    const row = await this.videos.findOne({
+      where: { id },
+      select: { id: true, visibility: true, status: true },
+    });
+    if (!row) throw new NotFoundException("Video not found");
+    if (row.status !== "ready") {
+      // Don't count views on uploads that haven't finished — would inflate
+      // counters during long server-side compressions.
+      return { viewCount: 0 };
+    }
+    const result = await this.videos.manager.query<Array<{ viewCount: number }>>(
+      `UPDATE videos SET "viewCount" = "viewCount" + 1
+       WHERE id = $1
+       RETURNING "viewCount"`,
+      [id],
+    );
+    return { viewCount: result[0]?.viewCount ?? 0 };
+  }
+
   async byId(id: string, viewerId?: string | null) {
     const v = await this.videos.findOne({
       where: { id },
@@ -774,6 +845,7 @@ export class VideosService {
           owner: {
             id: v.owner.id,
             name: v.owner.name,
+            username: v.owner.username,
             avatarUrl: v.owner.avatarUrl,
           },
           tags: v.tags.map((t) => ({ id: t.id, name: t.name })),
@@ -781,6 +853,7 @@ export class VideosService {
           videoUrl,
           likeCount: c.likes,
           dislikeCount: c.dislikes,
+          viewCount: v.viewCount,
           viewerReaction: viewerReactions.get(v.id) ?? null,
           viewerFavorited: favoritedSet.has(v.id),
           mainAudioMuted: v.mainAudioMuted,

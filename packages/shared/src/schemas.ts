@@ -355,6 +355,27 @@ export const pushUnsubscribeInputSchema = z.object({
 });
 export type PushUnsubscribeInput = z.infer<typeof pushUnsubscribeInputSchema>;
 
+// ─── Public profile pages ───
+// 3–32 chars, lowercase ASCII letters/digits/_/- only — matches the
+// shape produced by UsersService.ensureUsername.
+export const usernameInputSchema = z.object({
+  username: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .min(3)
+    .max(32)
+    .regex(/^[a-z0-9_-]+$/),
+});
+export type UsernameInput = z.infer<typeof usernameInputSchema>;
+
+export const listByOwnerInputSchema = z.object({
+  ownerId: z.string().uuid(),
+  cursor: z.string().uuid().optional(),
+  limit: z.number().int().min(1).max(50).default(24),
+});
+export type ListByOwnerInput = z.infer<typeof listByOwnerInputSchema>;
+
 // ─── Audio templates ───
 export const createAudioUploadInputSchema = z.object({
   title: z.string().trim().min(1).max(120),
