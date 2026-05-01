@@ -265,6 +265,8 @@ export const en = {
   "manage.col.actions": "Actions",
   "manage.role.admin": "Admin",
   "manage.role.user": "User",
+  "manage.action.verify": "Verify",
+  "manage.verifying": "Verifying...",
   "manage.action.unverify": "Unverify",
   "manage.action.delete": "Delete",
   "manage.unverifying": "Unverifying...",

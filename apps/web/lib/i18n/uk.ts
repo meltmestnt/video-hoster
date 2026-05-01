@@ -273,6 +273,8 @@ export const uk: EnDict = {
   "manage.col.actions": "Дії",
   "manage.role.admin": "Адміністратор",
   "manage.role.user": "Користувач",
+  "manage.action.verify": "Підтвердити",
+  "manage.verifying": "Підтвердження...",
   "manage.action.unverify": "Скасувати підтвердження",
   "manage.action.delete": "Видалити",
   "manage.unverifying": "Скасування...",

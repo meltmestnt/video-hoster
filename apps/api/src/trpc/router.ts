@@ -506,6 +506,15 @@ export const appRouter = router({
           targetUserId: input.userId,
         }),
       ),
+
+    verifyUser: adminProcedure
+      .input(userIdInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.users.adminVerifyUser({
+          actingUserId: ctx.user.id,
+          targetUserId: input.userId,
+        }),
+      ),
   }),
 
   billing: router({

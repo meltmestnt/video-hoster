@@ -280,6 +280,23 @@ export class UsersService {
     return { ok: true };
   }
 
+  async adminVerifyUser(args: {
+    actingUserId: string;
+    targetUserId: string;
+  }): Promise<{ ok: true }> {
+    const target = await this.users.findOne({
+      where: { id: args.targetUserId },
+    });
+    if (!target) throw new NotFoundException("User not found");
+    target.status = "verified";
+    // Manual approval supersedes the email confirmation — clear the token
+    // so a stale one can't accidentally re-trigger anything later.
+    target.confirmationTokenHash = null;
+    target.confirmationTokenExpiresAt = null;
+    await this.users.save(target);
+    return { ok: true };
+  }
+
   async deleteSelf(userId: string): Promise<{ ok: true }> {
     const user = await this.users.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException("User not found");

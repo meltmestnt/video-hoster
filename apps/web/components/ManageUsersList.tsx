@@ -50,6 +50,7 @@ export function ManageUsersList({ initial, myId }: Props) {
 
   const refresh = () => utils.admin.listUsers.invalidate();
 
+  const verify = trpc.admin.verifyUser.useMutation({ onSuccess: refresh });
   const unverify = trpc.admin.unverifyUser.useMutation({ onSuccess: refresh });
   const remove = trpc.admin.deleteUser.useMutation({ onSuccess: refresh });
 
@@ -106,11 +107,14 @@ export function ManageUsersList({ initial, myId }: Props) {
                 key={u.id}
                 row={u}
                 isSelf={u.id === myId}
+                onVerify={() => verify.mutateAsync({ userId: u.id })}
                 onUnverify={() =>
                   unverify.mutateAsync({ userId: u.id })
                 }
                 onDelete={() => remove.mutateAsync({ userId: u.id })}
-                actionPending={unverify.isPending || remove.isPending}
+                actionPending={
+                  verify.isPending || unverify.isPending || remove.isPending
+                }
               />
             ))}
           </Table.Body>
@@ -138,12 +142,14 @@ export function ManageUsersList({ initial, myId }: Props) {
 function UserRowView({
   row,
   isSelf,
+  onVerify,
   onUnverify,
   onDelete,
   actionPending,
 }: {
   row: UserRow;
   isSelf: boolean;
+  onVerify: () => Promise<unknown>;
   onUnverify: () => Promise<unknown>;
   onDelete: () => Promise<unknown>;
   actionPending: boolean;
@@ -157,6 +163,16 @@ function UserRowView({
   // The API blocks self / admin actions, but we also hide the buttons so
   // admins don't bother clicking and discovering a 403.
   const actionsLocked = isSelf || isAdmin;
+  const isVerified = row.status === "verified";
+
+  const runVerify = async () => {
+    setError(null);
+    try {
+      await onVerify();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
 
   const runUnverify = async () => {
     setError(null);
@@ -230,57 +246,75 @@ function UserRowView({
           </Text>
         ) : (
           <Flex gap="2">
-            <AlertDialog.Root
-              open={unverifyOpen}
-              onOpenChange={(o) => {
-                setUnverifyOpen(o);
-                if (!o) setError(null);
-              }}
-            >
-              <AlertDialog.Trigger>
-                <Button
-                  size="1"
-                  variant="soft"
-                  color="amber"
-                  disabled={actionPending || row.status === "unverified"}
-                >
-                  {t("manage.action.unverify")}
-                </Button>
-              </AlertDialog.Trigger>
-              <AlertDialog.Content maxWidth="440px">
-                <AlertDialog.Title>
-                  {t("manage.unverify.title", { name: row.name })}
-                </AlertDialog.Title>
-                <AlertDialog.Description size="2">
-                  {t("manage.unverify.body", { email: row.email })}
-                </AlertDialog.Description>
-                {error && (
-                  <Callout.Root color="red" mt="3">
-                    <Callout.Text>{error}</Callout.Text>
-                  </Callout.Root>
-                )}
-                <Flex gap="3" mt="4" justify="end">
-                  <AlertDialog.Cancel>
-                    <Button
-                      variant="soft"
-                      color="gray"
-                      disabled={actionPending}
-                    >
-                      {t("common.cancel")}
-                    </Button>
-                  </AlertDialog.Cancel>
+            {isVerified ? (
+              // Verified → can be revoked. Confirmation dialog because this
+              // strips access to write actions.
+              <AlertDialog.Root
+                open={unverifyOpen}
+                onOpenChange={(o) => {
+                  setUnverifyOpen(o);
+                  if (!o) setError(null);
+                }}
+              >
+                <AlertDialog.Trigger>
                   <Button
+                    size="1"
+                    variant="soft"
                     color="amber"
-                    onClick={runUnverify}
                     disabled={actionPending}
                   >
-                    {actionPending
-                      ? t("manage.unverifying")
-                      : t("manage.action.unverify")}
+                    {t("manage.action.unverify")}
                   </Button>
-                </Flex>
-              </AlertDialog.Content>
-            </AlertDialog.Root>
+                </AlertDialog.Trigger>
+                <AlertDialog.Content maxWidth="440px">
+                  <AlertDialog.Title>
+                    {t("manage.unverify.title", { name: row.name })}
+                  </AlertDialog.Title>
+                  <AlertDialog.Description size="2">
+                    {t("manage.unverify.body", { email: row.email })}
+                  </AlertDialog.Description>
+                  {error && (
+                    <Callout.Root color="red" mt="3">
+                      <Callout.Text>{error}</Callout.Text>
+                    </Callout.Root>
+                  )}
+                  <Flex gap="3" mt="4" justify="end">
+                    <AlertDialog.Cancel>
+                      <Button
+                        variant="soft"
+                        color="gray"
+                        disabled={actionPending}
+                      >
+                        {t("common.cancel")}
+                      </Button>
+                    </AlertDialog.Cancel>
+                    <Button
+                      color="amber"
+                      onClick={runUnverify}
+                      disabled={actionPending}
+                    >
+                      {actionPending
+                        ? t("manage.unverifying")
+                        : t("manage.action.unverify")}
+                    </Button>
+                  </Flex>
+                </AlertDialog.Content>
+              </AlertDialog.Root>
+            ) : (
+              // Unverified → one-click approve. No dialog because granting
+              // access isn't destructive — admin can always Unverify after.
+              <Button
+                size="1"
+                variant="soft"
+                color="green"
+                onClick={runVerify}
+                disabled={actionPending}
+              >
+                {actionPending
+                  ? t("manage.verifying")
+                  : t("manage.action.verify")}
+              </Button>
+            )}
 
             <AlertDialog.Root
               open={deleteOpen}
