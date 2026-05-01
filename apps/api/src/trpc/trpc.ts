@@ -20,3 +20,12 @@ export const verifiedProcedure = protectedProcedure.use(({ ctx, next }) => {
   }
   return next({ ctx });
 });
+export const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (ctx.user.role !== "admin") {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Admin access required",
+    });
+  }
+  return next({ ctx });
+});

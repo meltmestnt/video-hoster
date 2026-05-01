@@ -45,12 +45,14 @@ import {
   toggleFavoriteInputSchema,
   updateCommentInputSchema,
   videoIdInputSchema,
+  adminListUsersInputSchema,
 } from "@repo/shared";
 import {
   router,
   publicProcedure,
   protectedProcedure,
   verifiedProcedure,
+  adminProcedure,
 } from "./trpc";
 
 export const appRouter = router({
@@ -65,6 +67,7 @@ export const appRouter = router({
         name: ctx.user.name,
         avatarUrl,
         status: ctx.user.status,
+        role: ctx.user.role,
         videoCount,
         miniPlayerEnabled: ctx.user.miniPlayerEnabled,
         miniPlayerPromptSeen: ctx.user.miniPlayerPromptSeen,
@@ -457,6 +460,36 @@ export const appRouter = router({
           ctx.user.id,
           input.enabled,
         ),
+      ),
+  }),
+
+  admin: router({
+    listUsers: adminProcedure
+      .input(adminListUsersInputSchema)
+      .query(({ ctx, input }) =>
+        ctx.services.users.adminListUsers({
+          cursor: input.cursor,
+          limit: input.limit,
+          q: input.q,
+        }),
+      ),
+
+    deleteUser: adminProcedure
+      .input(userIdInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.users.adminDeleteUser({
+          actingUserId: ctx.user.id,
+          targetUserId: input.userId,
+        }),
+      ),
+
+    unverifyUser: adminProcedure
+      .input(userIdInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.users.adminUnverifyUser({
+          actingUserId: ctx.user.id,
+          targetUserId: input.userId,
+        }),
       ),
   }),
 

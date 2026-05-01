@@ -393,6 +393,11 @@ function ProfilePane({
             {t("user.profile.subscriptions")}
           </Link>
         </Button>
+        {me.data?.role === "admin" && (
+          <Button asChild variant="soft" color="red">
+            <Link href="/manage">{t("user.profile.manage")}</Link>
+          </Button>
+        )}
         <Button variant="soft" onClick={onChangeAvatar}>
           {t("user.profile.changeAvatar")}
         </Button>

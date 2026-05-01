@@ -25,6 +25,8 @@ export const en = {
   "topbar.upload": "Upload",
   "topbar.uploadVideo": "Upload Video",
   "topbar.uploadGif": "Upload GIF",
+  "topbar.convert": "Convert",
+  "topbar.convertTooltip": "Convert video ↔ GIF",
   "topbar.uploadTooltip.any": "Upload a video or GIF",
   "topbar.uploadTooltip.video": "Upload a video",
   "topbar.uploadTooltip.gif": "Upload a GIF",
@@ -175,6 +177,35 @@ export const en = {
   // ─── Share ───
   "share.button": "Share",
   "share.copied": "Copied!",
+
+  // ─── Admin / manage ───
+  "user.profile.manage": "Manage users",
+  "manage.heading": "Manage users",
+  "manage.subtitle": "All registered users on this site.",
+  "manage.search.placeholder": "Search by name or email",
+  "manage.col.user": "User",
+  "manage.col.email": "Email",
+  "manage.col.role": "Role",
+  "manage.col.status": "Status",
+  "manage.col.joined": "Joined",
+  "manage.col.actions": "Actions",
+  "manage.role.admin": "Admin",
+  "manage.role.user": "User",
+  "manage.action.unverify": "Unverify",
+  "manage.action.delete": "Delete",
+  "manage.unverifying": "Unverifying...",
+  "manage.deleting": "Deleting...",
+  "manage.empty": "No users match.",
+  "manage.loadMore": "Load more",
+  "manage.loadingMore": "Loading...",
+  "manage.delete.title": "Delete {name}?",
+  "manage.delete.body":
+    "This permanently removes {email} and all of their videos, GIFs, screenshots, and comments. Cannot be undone.",
+  "manage.unverify.title": "Unverify {name}?",
+  "manage.unverify.body":
+    "{email} will lose access to upload until they confirm their account again.",
+  "manage.forbidden":
+    "You need admin access to view this page.",
 
   // ─── Comments ───
   "comments.count.one": "{n} comment",
@@ -351,6 +382,29 @@ export const en = {
     "Viewers can grab the audio track only — no video file.",
   "upload.video.download.hint.none":
     "No download button is shown.",
+
+  // ─── Convert dialog ───
+  "convert.title": "Convert media",
+  "convert.subtitle":
+    "Quickly convert a video to a GIF or a GIF to a video. Runs in your browser — no upload.",
+  "convert.mode.label": "Direction",
+  "convert.mode.video2gif": "Video → GIF",
+  "convert.mode.gif2video": "GIF → Video",
+  "convert.mode.hint.video2gif":
+    "Re-encodes the first {s}s of the clip into a 480×, 12fps GIF.",
+  "convert.mode.hint.gif2video": "Wraps the GIF as a 480p MP4 with no audio.",
+  "convert.field.video": "Video file",
+  "convert.field.gif": "GIF file",
+  "convert.dropHint.video": "Drop a video here, or click to browse",
+  "convert.dropHint.gif": "Drop a GIF here, or click to browse",
+  "convert.error.notVideo":
+    "Pick a supported video file (.mp4, .mov, .webm, .mkv).",
+  "convert.error.notGif": "That doesn't look like a GIF. Pick a .gif file.",
+  "convert.progress": "Converting… {pct}%",
+  "convert.run": "Convert",
+  "convert.converting": "Converting…",
+  "convert.done": "Saved {name}.",
+  "convert.downloadAgain": "Download again",
 
   // ─── Video page — download ───
   "video.download.video": "Download video",

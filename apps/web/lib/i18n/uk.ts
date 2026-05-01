@@ -27,6 +27,8 @@ export const uk: EnDict = {
   "topbar.upload": "Завантажити",
   "topbar.uploadVideo": "Завантажити відео",
   "topbar.uploadGif": "Завантажити GIF",
+  "topbar.convert": "Конвертувати",
+  "topbar.convertTooltip": "Конвертувати відео ↔ GIF",
   "topbar.uploadTooltip.any": "Завантажити відео або GIF",
   "topbar.uploadTooltip.video": "Завантажити відео",
   "topbar.uploadTooltip.gif": "Завантажити GIF",
@@ -183,6 +185,35 @@ export const uk: EnDict = {
   // ─── Share ───
   "share.button": "Поділитися",
   "share.copied": "Скопійовано!",
+
+  // ─── Admin / manage ───
+  "user.profile.manage": "Керування користувачами",
+  "manage.heading": "Керування користувачами",
+  "manage.subtitle": "Усі зареєстровані користувачі на сайті.",
+  "manage.search.placeholder": "Пошук за іменем або поштою",
+  "manage.col.user": "Користувач",
+  "manage.col.email": "Електронна пошта",
+  "manage.col.role": "Роль",
+  "manage.col.status": "Статус",
+  "manage.col.joined": "Приєднався",
+  "manage.col.actions": "Дії",
+  "manage.role.admin": "Адміністратор",
+  "manage.role.user": "Користувач",
+  "manage.action.unverify": "Скасувати підтвердження",
+  "manage.action.delete": "Видалити",
+  "manage.unverifying": "Скасування...",
+  "manage.deleting": "Видалення...",
+  "manage.empty": "Немає відповідних користувачів.",
+  "manage.loadMore": "Завантажити ще",
+  "manage.loadingMore": "Завантаження...",
+  "manage.delete.title": "Видалити {name}?",
+  "manage.delete.body":
+    "{email} та всі їхні відео, GIF, скріншоти й коментарі буде остаточно видалено. Це не можна скасувати.",
+  "manage.unverify.title": "Скасувати підтвердження для {name}?",
+  "manage.unverify.body":
+    "{email} втратить можливість завантажувати, доки знову не підтвердить акаунт.",
+  "manage.forbidden":
+    "Потрібен доступ адміністратора, щоб переглядати цю сторінку.",
 
   // ─── Comments ───
   "comments.count.one": "{n} коментар",
@@ -363,6 +394,31 @@ export const uk: EnDict = {
     "Глядачі можуть завантажити лише аудіодоріжку, без відео.",
   "upload.video.download.hint.none":
     "Кнопка завантаження не відображається.",
+
+  // ─── Convert dialog ───
+  "convert.title": "Конвертація",
+  "convert.subtitle":
+    "Швидко перетворіть відео в GIF або GIF у відео. Усе відбувається у браузері — без завантаження на сервер.",
+  "convert.mode.label": "Напрямок",
+  "convert.mode.video2gif": "Відео → GIF",
+  "convert.mode.gif2video": "GIF → Відео",
+  "convert.mode.hint.video2gif":
+    "Перекодовує перші {s}с кліпу у GIF 480×, 12fps.",
+  "convert.mode.hint.gif2video":
+    "Загортає GIF у 480p MP4 без звуку.",
+  "convert.field.video": "Відеофайл",
+  "convert.field.gif": "GIF-файл",
+  "convert.dropHint.video":
+    "Перетягніть відео сюди або натисніть, щоб вибрати",
+  "convert.dropHint.gif": "Перетягніть GIF сюди або натисніть, щоб вибрати",
+  "convert.error.notVideo":
+    "Оберіть підтримуваний відеофайл (.mp4, .mov, .webm, .mkv).",
+  "convert.error.notGif": "Це не схоже на GIF. Оберіть файл .gif.",
+  "convert.progress": "Конвертація… {pct}%",
+  "convert.run": "Конвертувати",
+  "convert.converting": "Конвертація…",
+  "convert.done": "Збережено {name}.",
+  "convert.downloadAgain": "Завантажити ще раз",
 
   // ─── Video page — download ───
   "video.download.video": "Завантажити відео",

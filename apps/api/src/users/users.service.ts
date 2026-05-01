@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -175,8 +176,135 @@ export class UsersService {
     return this.users.save(created);
   }
 
-  findById(id: string): Promise<User | null> {
-    return this.users.findOne({ where: { id } });
+  async findById(id: string): Promise<User | null> {
+    const user = await this.users.findOne({ where: { id } });
+    if (user) await this.syncRoleFromEnv(user);
+    return user;
+  }
+
+  /**
+   * Bootstrap admins from the ADMIN_EMAILS env var (comma-separated). Runs on
+   * every user load so promoting/demoting is just an env change + relogin —
+   * no DB editing required. Persists the change once so subsequent loads are
+   * a no-op when the env list hasn't changed.
+   */
+  private async syncRoleFromEnv(user: User): Promise<void> {
+    const raw = this.config.get<string>("ADMIN_EMAILS") ?? "";
+    const admins = new Set(
+      raw
+        .split(",")
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean),
+    );
+    const shouldBeAdmin = admins.has(user.email.toLowerCase());
+    const target: User["role"] = shouldBeAdmin ? "admin" : "user";
+    if (user.role !== target) {
+      user.role = target;
+      await this.users.update({ id: user.id }, { role: target });
+    }
+  }
+
+  async adminListUsers(args: {
+    cursor?: string;
+    limit: number;
+    q?: string;
+  }): Promise<{
+    items: Array<
+      Pick<
+        User,
+        | "id"
+        | "email"
+        | "name"
+        | "status"
+        | "role"
+        | "avatarUrl"
+        | "createdAt"
+      >
+    >;
+    nextCursor: string | null;
+  }> {
+    const qb = this.users
+      .createQueryBuilder("u")
+      .orderBy("u.createdAt", "DESC")
+      .addOrderBy("u.id", "DESC")
+      .take(args.limit + 1);
+
+    if (args.q && args.q.length > 0) {
+      const like = `%${args.q.toLowerCase()}%`;
+      qb.where(
+        "(LOWER(u.email) LIKE :q OR LOWER(u.name) LIKE :q)",
+        { q: like },
+      );
+    }
+
+    if (args.cursor) {
+      const c = await this.users.findOne({ where: { id: args.cursor } });
+      if (c) qb.andWhere("u.createdAt < :cAt", { cAt: c.createdAt });
+    }
+
+    const rows = await qb.getMany();
+    const hasMore = rows.length > args.limit;
+    const items = hasMore ? rows.slice(0, args.limit) : rows;
+    const nextCursor =
+      hasMore && items.length > 0 ? items[items.length - 1].id : null;
+    return {
+      items: items.map((u) => ({
+        id: u.id,
+        email: u.email,
+        name: u.name,
+        status: u.status,
+        role: u.role,
+        avatarUrl: u.avatarUrl,
+        createdAt: u.createdAt,
+      })),
+      nextCursor,
+    };
+  }
+
+  async adminUnverifyUser(args: {
+    actingUserId: string;
+    targetUserId: string;
+  }): Promise<{ ok: true }> {
+    if (args.actingUserId === args.targetUserId) {
+      throw new BadRequestException("You cannot unverify your own account");
+    }
+    const target = await this.users.findOne({
+      where: { id: args.targetUserId },
+    });
+    if (!target) throw new NotFoundException("User not found");
+    if (target.role === "admin") {
+      throw new ForbiddenException("Cannot unverify another admin");
+    }
+    target.status = "unverified";
+    await this.users.save(target);
+    return { ok: true };
+  }
+
+  async adminDeleteUser(args: {
+    actingUserId: string;
+    targetUserId: string;
+  }): Promise<{ ok: true }> {
+    if (args.actingUserId === args.targetUserId) {
+      throw new BadRequestException("You cannot delete your own account");
+    }
+    const target = await this.users.findOne({
+      where: { id: args.targetUserId },
+    });
+    if (!target) throw new NotFoundException("User not found");
+    if (target.role === "admin") {
+      throw new ForbiddenException("Cannot delete another admin");
+    }
+    // FK cascades on videos/gifs/comments/etc. handle their own rows;
+    // S3 objects belonging to the user will leak — out of scope for now.
+    if (target.avatarS3Key) {
+      this.s3.deleteObject(target.avatarS3Key).catch((err) => {
+        this.logger.warn(
+          `Failed to delete avatar ${target.avatarS3Key} for deleted user ${target.id}: ${(err as Error).message}`,
+        );
+      });
+    }
+    await this.users.delete({ id: target.id });
+    return { ok: true };
   }
 
   async signUp(input: {

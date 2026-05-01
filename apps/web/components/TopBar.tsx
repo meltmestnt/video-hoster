@@ -9,6 +9,7 @@ import { useRequireAuth } from "@/lib/auth-required";
 import { useT } from "@/lib/i18n";
 import { UploadDialog } from "./UploadDialog";
 import { GifUploadDialog } from "./GifUploadDialog";
+import { ConvertDialog } from "./ConvertDialog";
 import { UploadProgressBar } from "./UploadProgressBar";
 import { UploadSuccessToast } from "./UploadSuccessToast";
 import { UserMenu } from "./UserMenu";
@@ -34,6 +35,7 @@ export function TopBar({
   miniPlayerEnabled,
 }: TopBarProps) {
   const [open, setOpen] = useState(false);
+  const [convertOpen, setConvertOpen] = useState(false);
   const upload = useUpload();
   const busy = isUploadBusy(upload.status);
   const otherTabBusy = upload.otherTabUploading;
@@ -83,32 +85,44 @@ export function TopBar({
       }}
     >
       <Flex align="center" justify="between" px="4" py="3" gap="3">
-        <Link href="/">
-          <Heading size="5" style={{ letterSpacing: "-0.02em" }}>
-            {t("site.name")}
-          </Heading>
-        </Link>
-        <TopBarNav />
-        <Box asChild style={{ flex: 1, maxWidth: 520 }}>
-          <form onSubmit={submitSearch} role="search">
-            <TextField.Root
-              placeholder={
-                signedIn
-                  ? t("topbar.search.placeholder.signedIn")
-                  : t("topbar.search.placeholder.signedOut")
-              }
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onFocus={() => {
-                if (!signedIn) requireAuth();
-              }}
-              aria-label={t("topbar.search.aria")}
-            />
-          </form>
-        </Box>
+        <Flex align="center" gap="3" style={{ minWidth: 0 }}>
+          <Link href="/">
+            <Heading size="5" style={{ letterSpacing: "-0.02em" }}>
+              {t("site.name")}
+            </Heading>
+          </Link>
+          <TopBarNav />
+          <Box asChild style={{ width: 280, maxWidth: "30vw" }}>
+            <form onSubmit={submitSearch} role="search">
+              <TextField.Root
+                placeholder={
+                  signedIn
+                    ? t("topbar.search.placeholder.signedIn")
+                    : t("topbar.search.placeholder.signedOut")
+                }
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onFocus={() => {
+                  if (!signedIn) requireAuth();
+                }}
+                aria-label={t("topbar.search.aria")}
+              />
+            </form>
+          </Box>
+        </Flex>
         <Flex align="center" gap="3">
           {signedIn ? (
             <>
+              <Tooltip content={t("topbar.convertTooltip")}>
+                <Button
+                  size="2"
+                  variant="soft"
+                  color="gray"
+                  onClick={() => setConvertOpen(true)}
+                >
+                  {t("topbar.convert")}
+                </Button>
+              </Tooltip>
               <Tooltip
                 content={
                   otherTabBusy
@@ -149,6 +163,7 @@ export function TopBar({
           )}
         </Flex>
       </Flex>
+      <ConvertDialog open={convertOpen} onOpenChange={setConvertOpen} />
       {signedIn && (
         <>
           <UploadProgressBar />
