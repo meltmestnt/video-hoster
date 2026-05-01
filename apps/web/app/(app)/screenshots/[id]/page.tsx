@@ -1,11 +1,14 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { getServerSession } from "next-auth";
 import { Badge, Box, Button, Flex, Heading, Text } from "@radix-ui/themes";
 import { DownloadIcon } from "@radix-ui/react-icons";
+import { authOptions } from "@/lib/auth";
 import { getServerTrpc } from "@/lib/trpc-server";
 import { absoluteUrl } from "@/lib/site";
 import { T } from "@/lib/i18n";
 import { ShareButton } from "@/components/ShareButton";
+import { DeleteScreenshotButton } from "@/components/DeleteScreenshotButton";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +43,7 @@ export default async function ScreenshotPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const session = await getServerSession(authOptions);
   const trpc = await getServerTrpc();
 
   let shot;
@@ -48,6 +52,8 @@ export default async function ScreenshotPage({
   } catch {
     notFound();
   }
+
+  const isOwner = !!session?.user?.id && session.user.id === shot.owner.id;
 
   const downloadName = `${shot.title || "screenshot"}.${
     shot.mimeType === "image/png"
@@ -80,6 +86,12 @@ export default async function ScreenshotPage({
               <T k="screenshots.detail.download" />
             </a>
           </Button>
+        )}
+        {isOwner && (
+          <DeleteScreenshotButton
+            screenshotId={shot.id}
+            title={shot.title}
+          />
         )}
       </Flex>
       <Flex align="center" gap="3" mb="4" wrap="wrap">
