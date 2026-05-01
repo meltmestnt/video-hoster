@@ -206,15 +206,18 @@ export default async function VideoPage({
             </Flex>
           </Box>
         )}
-        <Flex align="center" gap="3" mt="4" wrap="wrap">
-          <Heading size="6" style={{ flex: 1, minWidth: 0 }}>
+        <Flex
+          direction={{ initial: "column", sm: "row" }}
+          align={{ initial: "start", sm: "center" }}
+          gap="3"
+          mt="4"
+        >
+          <Heading
+            size="6"
+            style={{ flex: 1, minWidth: 0, wordBreak: "break-word" }}
+          >
             {video.title}
           </Heading>
-          {video.visibility === "private" && (
-            <Badge variant="soft" color="gray">
-              <T k="card.private" />
-            </Badge>
-          )}
           <Flex
             align="center"
             justify="end"
@@ -222,6 +225,11 @@ export default async function VideoPage({
             wrap="wrap"
             style={{ rowGap: "8px" }}
           >
+            {video.visibility === "private" && (
+              <Badge variant="soft" color="gray">
+                <T k="card.private" />
+              </Badge>
+            )}
             <VideoReactions
               videoId={video.id}
               initialLikes={video.likeCount}

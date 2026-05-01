@@ -80,34 +80,44 @@ export default async function ScreenshotPage({
 
   return (
     <Box>
-      <Flex align="center" gap="3" mb="3" wrap="wrap">
-        <Heading size="6" style={{ flex: 1, minWidth: 0 }}>
+      {/* Mobile: heading on top wrapping freely, action buttons in a
+          row below. Desktop (≥640px): heading on the left flexing to
+          fill, buttons aligned to the right. */}
+      <Flex
+        direction={{ initial: "column", sm: "row" }}
+        align={{ initial: "start", sm: "center" }}
+        gap="3"
+        mb="3"
+      >
+        <Heading size="6" style={{ flex: 1, minWidth: 0, wordBreak: "break-word" }}>
           {shot.title}
         </Heading>
-        {shot.visibility === "private" && (
-          <Badge variant="soft" color="gray">
-            <T k="common.private" />
-          </Badge>
-        )}
-        <ShareButton path={`/screenshots/${shot.id}`} title={shot.title} />
-        {shot.url && session?.user && (
-          <Button asChild variant="soft" color="iris">
-            <a
-              href={shot.url}
-              download={downloadName}
-              rel="noopener noreferrer"
-            >
-              <DownloadIcon />
-              <T k="screenshots.detail.download" />
-            </a>
-          </Button>
-        )}
-        {canDelete && (
-          <DeleteScreenshotButton
-            screenshotId={shot.id}
-            title={shot.title}
-          />
-        )}
+        <Flex align="center" gap="2" wrap="wrap">
+          {shot.visibility === "private" && (
+            <Badge variant="soft" color="gray">
+              <T k="common.private" />
+            </Badge>
+          )}
+          <ShareButton path={`/screenshots/${shot.id}`} title={shot.title} />
+          {shot.url && session?.user && (
+            <Button asChild variant="soft" color="iris">
+              <a
+                href={shot.url}
+                download={downloadName}
+                rel="noopener noreferrer"
+              >
+                <DownloadIcon />
+                <T k="screenshots.detail.download" />
+              </a>
+            </Button>
+          )}
+          {canDelete && (
+            <DeleteScreenshotButton
+              screenshotId={shot.id}
+              title={shot.title}
+            />
+          )}
+        </Flex>
       </Flex>
       <Flex align="center" gap="3" mb="4" wrap="wrap">
         <Text size="2" color="gray">

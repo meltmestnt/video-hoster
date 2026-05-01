@@ -168,17 +168,27 @@ export default async function GifPage({
             </Flex>
           )}
         </Box>
-        <Flex align="center" gap="3" mt="4" wrap="wrap">
-          <Heading size="6" style={{ flex: 1, minWidth: 0 }}>
+        <Flex
+          direction={{ initial: "column", sm: "row" }}
+          align={{ initial: "start", sm: "center" }}
+          gap="3"
+          mt="4"
+        >
+          <Heading
+            size="6"
+            style={{ flex: 1, minWidth: 0, wordBreak: "break-word" }}
+          >
             {gif.title}
           </Heading>
-          <Badge variant="solid" color="iris">GIF</Badge>
-          {gif.visibility === "private" && (
-            <Badge variant="soft" color="gray">
-              <T k="card.private" />
-            </Badge>
-          )}
           <Flex align="center" gap="2" wrap="wrap">
+            <Badge variant="solid" color="iris">
+              GIF
+            </Badge>
+            {gif.visibility === "private" && (
+              <Badge variant="soft" color="gray">
+                <T k="card.private" />
+              </Badge>
+            )}
             <GifReactions
               gifId={gif.id}
               initialLikes={gif.likeCount}
