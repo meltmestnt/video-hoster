@@ -14,7 +14,7 @@ import {
 import { signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { StarIcon } from "@radix-ui/react-icons";
 import { trpc } from "@/lib/trpc";
 import { useLocale, useSetLocale, useT } from "@/lib/i18n";
@@ -49,6 +49,8 @@ export function UserMenu({
   const [liveAvatarUrl, setLiveAvatarUrl] = useState<string | null>(avatarUrl);
 
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const utils = trpc.useUtils();
   const createUpload = trpc.users.createAvatarUpload.useMutation();
   const finalizeUpload = trpc.users.finalizeAvatarUpload.useMutation();
@@ -65,6 +67,14 @@ export function UserMenu({
     setOpen(next);
     if (!next) reset();
   };
+
+  // Close the popover whenever the route or query changes — clicking a link
+  // inside the menu (Favorites, Subscriptions, etc.) leaves it stuck open
+  // otherwise, since Next App Router navigation doesn't unmount the trigger.
+  useEffect(() => {
+    setOpen(false);
+    reset();
+  }, [pathname, searchParams]);
 
   const handleSave = async (blob: Blob) => {
     setBusy(true);

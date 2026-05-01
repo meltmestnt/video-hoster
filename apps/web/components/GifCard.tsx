@@ -25,15 +25,36 @@ export function GifCard({
   const t = useT();
   const href = `/gifs/${gif.id}`;
   const imgRef = useRef<HTMLImageElement | null>(null);
-  const [loaded, setLoaded] = useState(false);
+  // Browsers progressively decode GIFs: the first frame becomes visible long
+  // before the full file lands, and naturalWidth flips to non-zero at that
+  // moment. We use it to drop the spinner as soon as we have anything to
+  // show — the still first frame acts as a thumbnail until the rest of the
+  // bytes arrive and the browser starts animating.
+  const [hasFirstFrame, setHasFirstFrame] = useState(false);
 
   useEffect(() => {
     router.prefetch(href);
   }, [router, href]);
 
   useEffect(() => {
+    setHasFirstFrame(false);
     const img = imgRef.current;
-    if (img && img.complete && img.naturalWidth > 0) setLoaded(true);
+    if (!img) return;
+    if (img.complete && img.naturalWidth > 0) {
+      setHasFirstFrame(true);
+      return;
+    }
+    let raf = 0;
+    const tick = () => {
+      const live = imgRef.current;
+      if (live && live.naturalWidth > 0) {
+        setHasFirstFrame(true);
+        return;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
   }, [gif.gifUrl]);
 
   return (
@@ -56,14 +77,15 @@ export function GifCard({
                 src={gif.gifUrl}
                 alt={gif.title}
                 loading="lazy"
-                onLoad={() => setLoaded(true)}
-                onError={() => setLoaded(true)}
+                decoding="async"
+                onLoad={() => setHasFirstFrame(true)}
+                onError={() => setHasFirstFrame(true)}
                 style={{
-                  opacity: loaded ? 1 : 0,
+                  opacity: hasFirstFrame ? 1 : 0,
                   transition: "opacity 200ms ease",
                 }}
               />
-              {!loaded && <div className="media-loader" aria-hidden />}
+              {!hasFirstFrame && <div className="media-loader" aria-hidden />}
               <Badge
                 variant="solid"
                 color="iris"
