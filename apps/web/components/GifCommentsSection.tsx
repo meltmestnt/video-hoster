@@ -11,8 +11,9 @@ import {
   Text,
   TextArea,
 } from "@radix-ui/themes";
-import { signIn, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { trpc } from "@/lib/trpc";
+import { useEnsureVerified } from "@/lib/verify-action";
 import { useT } from "@/lib/i18n";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@repo/api";
@@ -29,6 +30,7 @@ export function GifCommentsSection({ gifId, initial }: Props) {
   const t = useT();
   const utils = trpc.useUtils();
   const session = useSession();
+  const ensureVerified = useEnsureVerified();
   const myId = session.data?.user?.id ?? null;
 
   const [sort, setSort] = useState<CommentSort>("newest");
@@ -48,14 +50,15 @@ export function GifCommentsSection({ gifId, initial }: Props) {
   const roots = items.filter((c) => !c.parentId);
 
   const submit = async () => {
-    if (!session.data) {
-      signIn();
-      return;
-    }
+    if (!ensureVerified.ensure("gif")) return;
     const trimmed = body.trim();
     if (!trimmed) return;
-    await create.mutateAsync({ gifId, body: trimmed });
-    setBody("");
+    try {
+      await create.mutateAsync({ gifId, body: trimmed });
+      setBody("");
+    } catch (err) {
+      ensureVerified.handleError(err, "gif");
+    }
   };
 
   return (
@@ -121,7 +124,7 @@ function CommentRow({
   mine: boolean;
 }) {
   void mine;
-  const session = useSession();
+  const ensureVerified = useEnsureVerified();
   const [likes, setLikes] = useState(comment.likeCount);
   const [dislikes, setDislikes] = useState(comment.dislikeCount);
   const [reaction, setReaction] = useState<"like" | "dislike" | null>(
@@ -130,10 +133,7 @@ function CommentRow({
   const react = trpc.comments.react.useMutation();
 
   const click = async (next: "like" | "dislike") => {
-    if (!session.data) {
-      signIn();
-      return;
-    }
+    if (!ensureVerified.ensure("gif")) return;
     const prev = reaction;
     let oLikes = likes;
     let oDislikes = dislikes;
@@ -163,10 +163,11 @@ function CommentRow({
         type: next,
       });
       setReaction(res.reaction ?? null);
-    } catch {
+    } catch (err) {
       setLikes(likes);
       setDislikes(dislikes);
       setReaction(prev);
+      ensureVerified.handleError(err, "gif");
     }
   };
 

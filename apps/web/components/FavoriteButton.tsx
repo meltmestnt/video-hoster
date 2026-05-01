@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@radix-ui/themes";
 import { StarIcon, StarFilledIcon } from "@radix-ui/react-icons";
 import { trpc } from "@/lib/trpc";
+import { useEnsureVerified } from "@/lib/verify-action";
 import { useT } from "@/lib/i18n";
 
 interface Props {
@@ -14,6 +15,7 @@ interface Props {
 export function FavoriteButton({ videoId, initial }: Props) {
   const t = useT();
   const utils = trpc.useUtils();
+  const ensureVerified = useEnsureVerified();
   const [favorited, setFavorited] = useState(initial);
   const toggle = trpc.favorites.toggle.useMutation({
     onMutate: () => {
@@ -21,8 +23,9 @@ export function FavoriteButton({ videoId, initial }: Props) {
       setFavorited(next);
       return { previous: !next };
     },
-    onError: (_err, _vars, ctx) => {
+    onError: (err, _vars, ctx) => {
       if (ctx) setFavorited(ctx.previous);
+      ensureVerified.handleError(err, "video");
     },
     onSuccess: ({ favorited: server }) => {
       setFavorited(server);
@@ -33,11 +36,16 @@ export function FavoriteButton({ videoId, initial }: Props) {
     },
   });
 
+  const onClick = () => {
+    if (!ensureVerified.ensure("video")) return;
+    toggle.mutate({ videoId });
+  };
+
   return (
     <Button
       variant={favorited ? "solid" : "soft"}
       color={favorited ? "amber" : "gray"}
-      onClick={() => toggle.mutate({ videoId })}
+      onClick={onClick}
       disabled={toggle.isPending}
     >
       {favorited ? <StarFilledIcon /> : <StarIcon />}

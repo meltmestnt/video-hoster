@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Flex } from "@radix-ui/themes";
-import { signIn, useSession } from "next-auth/react";
 import { trpc } from "@/lib/trpc";
+import { useEnsureVerified } from "@/lib/verify-action";
 
 interface Props {
   videoId: string;
@@ -19,8 +19,8 @@ export function VideoReactions({
   initialDislikes,
   initialReaction,
 }: Props) {
-  const session = useSession();
   const router = useRouter();
+  const ensureVerified = useEnsureVerified();
   const [likes, setLikes] = useState(initialLikes);
   const [dislikes, setDislikes] = useState(initialDislikes);
   const [reaction, setReaction] = useState<"like" | "dislike" | null>(
@@ -29,10 +29,7 @@ export function VideoReactions({
   const react = trpc.videos.react.useMutation();
 
   const click = async (next: "like" | "dislike") => {
-    if (!session.data) {
-      signIn();
-      return;
-    }
+    if (!ensureVerified.ensure("video")) return;
     if (react.isPending) return;
 
     const prev = reaction;
@@ -66,11 +63,12 @@ export function VideoReactions({
       // Server is the source of truth; sync if our optimistic guess drifted.
       setReaction(res.reaction ?? null);
       router.refresh();
-    } catch {
+    } catch (err) {
       // Roll back optimistic update on failure
       setLikes(likes);
       setDislikes(dislikes);
       setReaction(prev);
+      ensureVerified.handleError(err, "video");
     }
   };
 

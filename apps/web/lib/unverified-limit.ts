@@ -5,7 +5,7 @@ import {
   UNVERIFIED_LIMIT_ERROR_PREFIX,
 } from "@repo/shared";
 
-export type UnverifiedLimitKind = "video" | "gif" | "screenshot";
+export type UnverifiedLimitKind = "video" | "gif" | "screenshot" | "action";
 
 function parseLimitError(
   err: unknown,

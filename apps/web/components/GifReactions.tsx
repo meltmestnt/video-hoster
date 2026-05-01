@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Flex } from "@radix-ui/themes";
-import { signIn, useSession } from "next-auth/react";
 import { trpc } from "@/lib/trpc";
+import { useEnsureVerified } from "@/lib/verify-action";
 
 interface Props {
   gifId: string;
@@ -19,8 +19,8 @@ export function GifReactions({
   initialDislikes,
   initialReaction,
 }: Props) {
-  const session = useSession();
   const router = useRouter();
+  const ensureVerified = useEnsureVerified();
   const [likes, setLikes] = useState(initialLikes);
   const [dislikes, setDislikes] = useState(initialDislikes);
   const [reaction, setReaction] = useState<"like" | "dislike" | null>(
@@ -29,10 +29,7 @@ export function GifReactions({
   const react = trpc.gifs.react.useMutation();
 
   const click = async (next: "like" | "dislike") => {
-    if (!session.data) {
-      signIn();
-      return;
-    }
+    if (!ensureVerified.ensure("gif")) return;
     if (react.isPending) return;
 
     const prev = reaction;
@@ -62,10 +59,11 @@ export function GifReactions({
       const res = await react.mutateAsync({ gifId, type: next });
       setReaction(res.reaction ?? null);
       router.refresh();
-    } catch {
+    } catch (err) {
       setLikes(likes);
       setDislikes(dislikes);
       setReaction(prev);
+      ensureVerified.handleError(err, "gif");
     }
   };
 

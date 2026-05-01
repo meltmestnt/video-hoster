@@ -3,6 +3,7 @@
 import { Button, Tooltip } from "@radix-ui/themes";
 import { trpc } from "@/lib/trpc";
 import { useRequireAuth } from "@/lib/auth-required";
+import { useEnsureVerified } from "@/lib/verify-action";
 import { useT } from "@/lib/i18n";
 
 interface Props {
@@ -16,6 +17,7 @@ export function SubscribeButton({ targetUserId, hideForSelf = true }: Props) {
   const me = trpc.auth.me.useQuery();
   const utils = trpc.useUtils();
   const requireAuth = useRequireAuth();
+  const ensureVerified = useEnsureVerified();
   const t = useT();
 
   const status = trpc.subscriptions.isSubscribed.useQuery(
@@ -35,13 +37,14 @@ export function SubscribeButton({ targetUserId, hideForSelf = true }: Props) {
       );
       return { previous };
     },
-    onError: (_err, _input, ctx) => {
+    onError: (err, _input, ctx) => {
       if (ctx?.previous !== undefined) {
         utils.subscriptions.isSubscribed.setData(
           { userId: targetUserId },
           ctx.previous,
         );
       }
+      ensureVerified.handleError(err, "action");
     },
     onSettled: () => {
       utils.subscriptions.isSubscribed.invalidate({ userId: targetUserId });
@@ -56,6 +59,7 @@ export function SubscribeButton({ targetUserId, hideForSelf = true }: Props) {
   const subscribed = !!status.data;
   const onClick = () => {
     if (!requireAuth()) return;
+    if (!ensureVerified.ensure("action")) return;
     toggle.mutate({ userId: targetUserId });
   };
 

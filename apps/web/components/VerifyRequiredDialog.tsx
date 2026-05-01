@@ -4,10 +4,12 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from "react";
 import { Button, Callout, Dialog, Flex, Text } from "@radix-ui/themes";
+import { trpc } from "@/lib/trpc";
 import { useT } from "@/lib/i18n";
 import type { UnverifiedLimitKind } from "@/lib/unverified-limit";
 
@@ -62,7 +64,9 @@ export function VerifyRequiredProvider({
         ? "verify.popup.body.video"
         : open.kind === "gif"
           ? "verify.popup.body.gif"
-          : "verify.popup.body.screenshot";
+          : open.kind === "screenshot"
+            ? "verify.popup.body.screenshot"
+            : "verify.popup.body.action";
   const dismissKey =
     open?.reason === "unapproved" ? "unapproved.popup.gotIt" : "verify.popup.gotIt";
 
@@ -83,6 +87,7 @@ export function VerifyRequiredProvider({
               <Callout.Root color="amber" mb="3">
                 <Callout.Text>{t("verify.popup.checkInbox")}</Callout.Text>
               </Callout.Root>
+              <ResendRow open={open !== null} />
               <Text as="p" size="2" color="gray" mb="4">
                 {t("verify.popup.contact")}
               </Text>
@@ -98,6 +103,69 @@ export function VerifyRequiredProvider({
         </Dialog.Content>
       </Dialog.Root>
     </Ctx.Provider>
+  );
+}
+
+/**
+ * Inline "Resend confirmation" row inside the dialog. Mirrors the resend
+ * UX from UnverifiedUploadNotice — same mutation, same rate limit (2/24h
+ * per IP, enforced server-side), same status messages. Reset whenever
+ * the dialog opens so a previous "sent" state doesn't leak.
+ */
+function ResendRow({ open }: { open: boolean }) {
+  const t = useT();
+  const me = trpc.auth.me.useQuery();
+  const resend = trpc.auth.resendConfirmation.useMutation();
+  const [status, setStatus] = useState<"idle" | "ok" | "err">("idle");
+  const [errMessage, setErrMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setStatus("idle");
+      setErrMessage(null);
+    }
+  }, [open]);
+
+  const tryResend = async () => {
+    setStatus("idle");
+    setErrMessage(null);
+    if (!me.data?.email) {
+      setStatus("err");
+      return;
+    }
+    try {
+      const r = await resend.mutateAsync({ email: me.data.email });
+      setStatus(r.mailSent ? "ok" : "err");
+    } catch (err) {
+      setStatus("err");
+      setErrMessage((err as Error).message ?? null);
+    }
+  };
+
+  return (
+    <Flex align="center" gap="2" wrap="wrap" mb="3">
+      <Button
+        size="1"
+        variant="soft"
+        color="amber"
+        onClick={tryResend}
+        disabled={resend.isPending || !me.data}
+      >
+        {resend.isPending
+          ? t("auth.signup.resending")
+          : t("auth.signup.resend")}
+      </Button>
+      {status === "ok" && (
+        <Text size="1" color="green">
+          {t("auth.signup.resendOk")}
+        </Text>
+      )}
+      {status === "err" && (
+        <Text size="1" color="red">
+          {errMessage ?? t("auth.signup.resendErr")}
+        </Text>
+      )}
+    </Flex>
   );
 }
 

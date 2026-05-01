@@ -15,6 +15,7 @@ import {
 } from "@radix-ui/themes";
 import { signIn, useSession } from "next-auth/react";
 import { trpc } from "@/lib/trpc";
+import { useEnsureVerified } from "@/lib/verify-action";
 import { useT } from "@/lib/i18n";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@repo/api";
@@ -59,6 +60,7 @@ export function CommentsSection({ videoId, initial }: Props) {
   const session = useSession();
   const signedIn = session.status === "authenticated";
   const me = trpc.auth.me.useQuery();
+  const ensureVerified = useEnsureVerified();
   const myId = me.data?.id ?? null;
 
   const [sort, setSort] = useState<CommentSort>("newest");
@@ -83,10 +85,15 @@ export function CommentsSection({ videoId, initial }: Props) {
   const total = items.length;
 
   const submitTopLevel = async () => {
+    if (!ensureVerified.ensure("video")) return;
     const trimmed = body.trim();
     if (!trimmed) return;
-    await create.mutateAsync({ videoId, body: trimmed });
-    setBody("");
+    try {
+      await create.mutateAsync({ videoId, body: trimmed });
+      setBody("");
+    } catch (err) {
+      ensureVerified.handleError(err, "video");
+    }
   };
 
   return (
@@ -159,15 +166,23 @@ export function CommentsSection({ videoId, initial }: Props) {
             comment={c}
             myId={myId}
             isReplying={replyTo === c.id}
-            onStartReply={() => setReplyTo(c.id)}
+            onStartReply={() => {
+              if (!ensureVerified.ensure("video")) return;
+              setReplyTo(c.id);
+            }}
             onCancelReply={() => setReplyTo(null)}
             onSubmitReply={async (text) => {
-              await create.mutateAsync({
-                videoId,
-                body: text,
-                parentId: c.id,
-              });
-              setReplyTo(null);
+              if (!ensureVerified.ensure("video")) return;
+              try {
+                await create.mutateAsync({
+                  videoId,
+                  body: text,
+                  parentId: c.id,
+                });
+                setReplyTo(null);
+              } catch (err) {
+                ensureVerified.handleError(err, "video");
+              }
             }}
             replyPending={create.isPending}
             editingId={editingId}
@@ -551,7 +566,7 @@ function CommentReactionButtons({
   initialDislikes: number;
   initialReaction: "like" | "dislike" | null;
 }) {
-  const session = useSession();
+  const ensureVerified = useEnsureVerified();
   const [likes, setLikes] = useState(initialLikes);
   const [dislikes, setDislikes] = useState(initialDislikes);
   const [reaction, setReaction] = useState<"like" | "dislike" | null>(
@@ -560,10 +575,7 @@ function CommentReactionButtons({
   const react = trpc.comments.react.useMutation();
 
   const click = async (next: "like" | "dislike") => {
-    if (!session.data) {
-      signIn();
-      return;
-    }
+    if (!ensureVerified.ensure("video")) return;
     if (react.isPending) return;
 
     const prev = reaction;
@@ -595,10 +607,11 @@ function CommentReactionButtons({
     try {
       const res = await react.mutateAsync({ commentId, type: next });
       setReaction(res.reaction ?? null);
-    } catch {
+    } catch (err) {
       setLikes(likes);
       setDislikes(dislikes);
       setReaction(prev);
+      ensureVerified.handleError(err, "video");
     }
   };
 

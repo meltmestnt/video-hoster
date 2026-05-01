@@ -324,6 +324,8 @@ export const en = {
   "unverified.banner.title": "Verify your email to participate.",
   "unverified.banner.body":
     "You can browse, but uploads, reactions, comments, favorites, downloads, and conversions stay locked until you click the link in the confirmation email we sent you.",
+  "unverified.upload.notice":
+    "Confirm your email to enable uploads. Click the link in the confirmation email we sent — the form will start accepting submissions immediately after.",
 
   // ─── Unapproved-account banner ───
   "unapproved.banner.title": "Waiting on admin approval.",
@@ -429,6 +431,11 @@ export const en = {
   "upload.file.errorSize":
     "File is {gib} GiB. Max allowed is {max} GiB.",
   "upload.file.errorType": "Unsupported file type: {type}.",
+  "upload.file.errorSignatureVideo":
+    "That file isn't a real video. Pick an MP4, MOV, WebM, or MKV.",
+  "upload.file.errorSignatureGif":
+    "That file isn't a real GIF. Pick an actual .gif image.",
+  "upload.file.checking": "Checking file…",
   "upload.busy": "Uploading...",
   "upload.continue": "Continue",
   "upload.otherTab.busy":
@@ -476,6 +483,29 @@ export const en = {
   "dropzone.unsupported":
     "Unsupported file type. Drop a video or GIF instead.",
   "dropzone.resumed": "Resumed your upload from before sign-in.",
+
+  // ─── Push notifications ───
+  "push.prompt.title": "Get notified instantly",
+  "push.prompt.body":
+    "Turn on browser notifications to hear about new subscribers, likes, and uploads from creators you follow.",
+  "push.prompt.enable": "Enable notifications",
+  "push.prompt.dismiss": "Not now",
+  "push.prompt.blocked":
+    "Notifications are blocked in your browser settings. Allow them for vids&gifs to enable.",
+  "push.prompt.unsupported":
+    "Your browser doesn't support push notifications.",
+  "push.menu.label": "Browser notifications",
+  "push.menu.hintOn":
+    "On — you'll get a push when someone subscribes or reacts.",
+  "push.menu.hintOff": "Off — only the in-site bell will notify you.",
+  "push.menu.toggleAria": "Toggle browser notifications",
+  "push.menu.blocked":
+    "Blocked in browser settings. Update site permissions to enable.",
+  "push.menu.failed":
+    "Couldn't enable notifications. Try again or check browser settings.",
+
+  // ─── Notifications bell ───
+  "notifications.subscribed": "subscribed to you",
 
   // ─── Inline drop tile ───
   "droptile.title.any": "Drag and drop a video or GIF here",
@@ -590,6 +620,8 @@ export const en = {
     "Unverified accounts can upload up to 1 GIF. Confirm your email to upload more.",
   "verify.popup.body.screenshot":
     "Unverified accounts can save up to 1 screenshot. Confirm your email to save more.",
+  "verify.popup.body.action":
+    "Confirm your email to react, comment, follow, and use other actions on vids&gifs.",
   "verify.popup.checkInbox":
     "Check your inbox (and the spam folder) for the confirmation link we sent when you signed up.",
   "verify.popup.contact":
