@@ -80,6 +80,9 @@ export interface CompressOptions {
   onProgress?: (ratio: number) => void;
   signal?: AbortSignal;
   edit?: EditOptions;
+  // Skip the audio encoder. Set when the input has no audio stream (e.g. a
+  // GIF) so ffmpeg doesn't try to spin up AAC against nothing.
+  noAudio?: boolean;
 }
 
 function buildVideoFilters(edit: EditOptions | undefined): string {
@@ -202,16 +205,17 @@ export async function compressTo480p(
       "28",
       "-vf",
       buildVideoFilters(options.edit),
-      "-c:a",
-      "aac",
-      "-b:a",
-      "128k",
     );
-    const audioTempo = options.edit?.playbackRate
-      ? atempoChain(options.edit.playbackRate)
-      : "";
-    if (audioTempo) {
-      args.push("-af", audioTempo);
+    if (options.noAudio) {
+      args.push("-an");
+    } else {
+      args.push("-c:a", "aac", "-b:a", "128k");
+      const audioTempo = options.edit?.playbackRate
+        ? atempoChain(options.edit.playbackRate)
+        : "";
+      if (audioTempo) {
+        args.push("-af", audioTempo);
+      }
     }
     args.push("-movflags", "+faststart", outputName);
 

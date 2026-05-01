@@ -56,11 +56,19 @@ interface UploadState {
   lastSuccess: UploadSuccess | null;
 }
 
+interface StartOptions {
+  edit?: EditOptions;
+  // Skip the in-browser ffmpeg pass. Set when the caller has already produced
+  // a final-quality mp4 (e.g. converting a GIF to mp4 in a separate step) and
+  // re-running compress would be wasted work.
+  skipCompression?: boolean;
+}
+
 interface UploadContextValue extends UploadState {
   start: (
     file: File,
     meta: UploadMeta,
-    edit?: EditOptions,
+    options?: StartOptions,
   ) => Promise<void>;
   startGif: (
     blob: Blob,
@@ -221,14 +229,14 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
   );
 
   const start = useCallback(
-    async (file: File, meta: UploadMeta, edit?: EditOptions) => {
+    async (file: File, meta: UploadMeta, options?: StartOptions) => {
       if (otherTabUploading) {
         throw new Error(
           "Another tab is already uploading. Wait for that one to finish.",
         );
       }
       setState((s) => ({
-        status: "compressing",
+        status: options?.skipCompression ? "preparing" : "compressing",
         fileName: file.name,
         videoId: null,
         progress: 0,
@@ -251,19 +259,21 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
           | "video/webm"
           | "video/x-matroska");
         let compressServerSide = false;
-        try {
-          const compressed = await compressTo480p(file, {
-            onProgress: (p) => setState((s) => ({ ...s, progress: p })),
-            edit,
-          });
-          payload = compressed;
-          payloadMime = "video/mp4";
-        } catch (compressErr) {
-          console.warn(
-            "Client-side video compression failed, falling back to server:",
-            compressErr,
-          );
-          compressServerSide = true;
+        if (!options?.skipCompression) {
+          try {
+            const compressed = await compressTo480p(file, {
+              onProgress: (p) => setState((s) => ({ ...s, progress: p })),
+              edit: options?.edit,
+            });
+            payload = compressed;
+            payloadMime = "video/mp4";
+          } catch (compressErr) {
+            console.warn(
+              "Client-side video compression failed, falling back to server:",
+              compressErr,
+            );
+            compressServerSide = true;
+          }
         }
 
         setState((s) => ({ ...s, status: "preparing", progress: 0 }));

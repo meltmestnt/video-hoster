@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { useUpload, isUploadBusy } from "@/lib/upload-context";
 import { useRequireAuth } from "@/lib/auth-required";
 import { UploadDialog } from "./UploadDialog";
+import { GifUploadDialog } from "./GifUploadDialog";
 import { UploadProgressBar } from "./UploadProgressBar";
 import { UploadSuccessToast } from "./UploadSuccessToast";
 import { UserMenu } from "./UserMenu";
@@ -39,6 +40,19 @@ export function TopBar({
 
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname() ?? "/";
+  const onGifs = pathname === "/gifs" || pathname.startsWith("/gifs/");
+  const onVideos = pathname === "/videos" || pathname.startsWith("/videos/");
+  const uploadLabel = onGifs
+    ? "Upload GIF"
+    : onVideos
+      ? "Upload Video"
+      : "Upload";
+  const uploadTooltip = onGifs
+    ? "Upload a GIF"
+    : onVideos
+      ? "Upload a video"
+      : "Upload a video or GIF";
   const initialQ = searchParams.get("q") ?? "";
   const [query, setQuery] = useState(initialQ);
 
@@ -97,7 +111,7 @@ export function TopBar({
                     ? "Another tab is uploading. Wait for it to finish."
                     : busy
                       ? "Wait for current upload to finish"
-                      : "Upload a video"
+                      : uploadTooltip
                 }
               >
                 <Button
@@ -106,7 +120,7 @@ export function TopBar({
                   onClick={() => !uploadDisabled && setOpen(true)}
                   disabled={uploadDisabled}
                 >
-                  Upload
+                  {uploadLabel}
                 </Button>
               </Tooltip>
               <UserMenu
@@ -133,7 +147,11 @@ export function TopBar({
       {signedIn && (
         <>
           <UploadProgressBar />
-          <UploadDialog open={open} onOpenChange={setOpen} />
+          {onGifs ? (
+            <GifUploadDialog open={open} onOpenChange={setOpen} />
+          ) : (
+            <UploadDialog open={open} onOpenChange={setOpen} />
+          )}
           <UploadSuccessToast />
         </>
       )}

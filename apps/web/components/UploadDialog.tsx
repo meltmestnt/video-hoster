@@ -106,7 +106,7 @@ export function UploadDialog({ open, onOpenChange }: Props) {
             mimeType: file.type,
             visibility,
           },
-          output.edit,
+          { edit: output.edit },
         );
       } else {
         await upload.startGif(
