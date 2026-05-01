@@ -1029,6 +1029,39 @@ export const appRouter = router({
           .then(() => ({ ok: true as const })),
       ),
   }),
+
+  // ─── Telegram bot integration ───
+  // Read-only `status` is public-safe (returns linked=false when called
+  // without auth) so the settings card renders without flicker for both
+  // signed-in and signed-out users. The mutations require auth.
+  telegram: router({
+    status: protectedProcedure.query(async ({ ctx }) => {
+      const link = await ctx.services.telegramLinks.findByUserId(
+        ctx.user.id,
+      );
+      return {
+        linked: !!link,
+        telegramUsername: link?.telegramUsername ?? null,
+        linkedAt: link?.linkedAt ?? null,
+      };
+    }),
+
+    startLink: protectedProcedure.mutation(({ ctx }) => {
+      const start = ctx.services.telegram.buildStartLink(ctx.user.id);
+      if (!start) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Telegram bot is not configured on this server.",
+        });
+      }
+      return start;
+    }),
+
+    unlink: protectedProcedure.mutation(async ({ ctx }) => {
+      await ctx.services.telegramLinks.unlinkByUserId(ctx.user.id);
+      return { ok: true as const };
+    }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;

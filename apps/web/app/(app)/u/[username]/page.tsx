@@ -164,6 +164,17 @@ export default async function ProfilePage({
             <Text size="2" color="gray">
               <T k="profile.stats.joined" vars={{ date: joined }} />
             </Text>
+            {profile.counts.gifsViaTelegram > 0 && (
+              <>
+                <Text size="2" color="gray">·</Text>
+                <Text size="2" color="gray">
+                  <T
+                    k="profile.stats.viaTelegram"
+                    vars={{ n: profile.counts.gifsViaTelegram }}
+                  />
+                </Text>
+              </>
+            )}
           </Flex>
         </Box>
         {!isSelf && session?.user && (

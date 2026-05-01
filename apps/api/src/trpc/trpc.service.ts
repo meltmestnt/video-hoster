@@ -15,6 +15,8 @@ import { S3Service } from "../s3/s3.service";
 import { AuthService } from "../auth/auth.service";
 import { BillingService } from "../billing/billing.service";
 import { PushService } from "../push/push.service";
+import { TelegramService } from "../telegram/telegram.service";
+import { TelegramLinkService } from "../telegram/telegram-link.service";
 import { appRouter, type AppRouter } from "./router";
 import type { Context } from "./context";
 
@@ -38,6 +40,8 @@ export class TrpcService {
     private readonly auth: AuthService,
     private readonly billing: BillingService,
     private readonly push: PushService,
+    private readonly telegram: TelegramService,
+    private readonly telegramLinks: TelegramLinkService,
   ) {}
 
   createContext = async ({
@@ -59,6 +63,8 @@ export class TrpcService {
       auth: this.auth,
       billing: this.billing,
       push: this.push,
+      telegram: this.telegram,
+      telegramLinks: this.telegramLinks,
     };
 
     // Cloudflare's CF-Connecting-IP is a spoofing-resistant source for the

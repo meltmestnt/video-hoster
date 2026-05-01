@@ -14,6 +14,11 @@ import { Tag } from "../tags/tag.entity";
 
 export type GifStatus = "uploading" | "ready";
 export type GifVisibility = "public" | "private";
+// How the GIF entered the system. "telegram" means the bot uploaded it
+// on the user's behalf — surfaced as a badge on cards and a per-user
+// count on the public profile page. New rows from the website default
+// to "web".
+export type GifSource = "web" | "telegram";
 
 const bigintToNumber = {
   from: (v: string | null) => (v == null ? null : Number(v)),
@@ -55,6 +60,10 @@ export class Gif {
   @Index()
   @Column({ type: "varchar", length: 16, default: "public" })
   visibility: GifVisibility;
+
+  @Index()
+  @Column({ type: "varchar", length: 16, default: "web" })
+  source: GifSource;
 
   @ManyToMany(() => Tag, { eager: true, cascade: true })
   @JoinTable({

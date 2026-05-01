@@ -158,6 +158,15 @@ export const en = {
     "Send a notification to your subscribers when you publish a new video or GIF.",
   "user.profile.notifySubs.toggleAria":
     "Toggle subscriber notifications on upload",
+  "user.profile.telegram.label": "Telegram",
+  "user.profile.telegram.hint":
+    "Search GIFs in any Telegram chat and upload your own through the bot.",
+  "user.profile.telegram.connected": "Connected.",
+  "user.profile.telegram.connectedAs": "Connected as {handle}.",
+  "user.profile.telegram.connect": "Connect",
+  "user.profile.telegram.connecting": "Opening…",
+  "user.profile.telegram.unlink": "Unlink",
+  "user.profile.telegram.unlinking": "Unlinking…",
   "user.profile.viewProfile": "View my profile",
   "user.profile.favorites": "Favorites",
   "user.profile.subscriptions": "Subscriptions",
@@ -284,6 +293,7 @@ export const en = {
   "card.noThumbnail": "No thumbnail",
   "card.noPreview": "No preview",
   "card.private": "Private",
+  "card.viaTelegram": "via Telegram",
   "suggested.empty": "No similar videos yet.",
 
   // ─── Reactions / favorites ───
@@ -563,6 +573,7 @@ export const en = {
   "profile.stats.screenshots": "{n} screenshots",
   "profile.stats.followers": "{n} followers",
   "profile.stats.joined": "Joined {date}",
+  "profile.stats.viaTelegram": "{n} GIFs via Telegram",
   "profile.tab.videos": "Videos",
   "profile.tab.gifs": "GIFs",
   "profile.tab.screenshots": "Screenshots",

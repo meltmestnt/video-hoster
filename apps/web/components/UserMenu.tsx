@@ -24,6 +24,7 @@ import { usePushSubscription } from "@/lib/push";
 import { AvatarUploadPane } from "./AvatarUploadPane";
 import { AvatarEditPane } from "./AvatarEditPane";
 import { Morph } from "./Morph";
+import { TelegramConnectRow } from "./TelegramConnectRow";
 
 type View = "profile" | "upload" | "edit";
 
@@ -390,6 +391,7 @@ function ProfilePane({
         />
       </Flex>
       <PushToggleRow />
+      <TelegramConnectRow />
       <Flex justify="between" align="center" px="1" gap="3">
         <Text size="2" color="gray">
           {t("user.profile.language")}

@@ -17,6 +17,7 @@ import { AudioTemplate } from "../audio/audio-template.entity";
 import { VideoAudioTrack } from "../audio/video-audio-track.entity";
 import { Screenshot } from "../screenshots/screenshot.entity";
 import { PushSubscription } from "../push/push-subscription.entity";
+import { TelegramLink } from "../telegram/telegram-link.entity";
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { PushSubscription } from "../push/push-subscription.entity";
           VideoAudioTrack,
           Screenshot,
           PushSubscription,
+          TelegramLink,
         ],
         synchronize: true,
         logging: ["error", "warn"],

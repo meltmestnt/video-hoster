@@ -14,6 +14,7 @@ import { S3Module } from "../s3/s3.module";
 import { AuthModule } from "../auth/auth.module";
 import { BillingModule } from "../billing/billing.module";
 import { PushModule } from "../push/push.module";
+import { TelegramModule } from "../telegram/telegram.module";
 import { TrpcService } from "./trpc.service";
 
 @Module({
@@ -33,6 +34,7 @@ import { TrpcService } from "./trpc.service";
     AuthModule,
     BillingModule,
     PushModule,
+    TelegramModule,
   ],
   providers: [TrpcService],
   exports: [TrpcService],

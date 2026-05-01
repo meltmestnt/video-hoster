@@ -296,6 +296,10 @@ export class UsersService implements OnModuleInit {
     counts: {
       videos: number;
       gifs: number;
+      // How many of `gifs` came in through the Telegram bot. Always
+      // included (zero means the user hasn't used the bot). Subset of
+      // the `gifs` count above; UI shows it as a separate stat row.
+      gifsViaTelegram: number;
       screenshots: number;
     };
     followerCount: number;
@@ -311,36 +315,48 @@ export class UsersService implements OnModuleInit {
     const visibilityFilter =
       isSelf || args.viewerIsAdmin ? "" : `AND visibility = 'public'`;
 
-    const [videoCount, gifCount, screenshotCount, followerCount] =
-      await Promise.all([
-        this.users.manager
-          .query<Array<{ count: string }>>(
-            `SELECT COUNT(*) FROM videos
+    const [
+      videoCount,
+      gifCount,
+      gifsViaTelegram,
+      screenshotCount,
+      followerCount,
+    ] = await Promise.all([
+      this.users.manager
+        .query<Array<{ count: string }>>(
+          `SELECT COUNT(*) FROM videos
              WHERE "ownerId" = $1 AND status = 'ready' ${visibilityFilter}`,
-            [user.id],
-          )
-          .then((rows) => Number(rows[0]?.count ?? 0)),
-        this.users.manager
-          .query<Array<{ count: string }>>(
-            `SELECT COUNT(*) FROM gifs
+          [user.id],
+        )
+        .then((rows) => Number(rows[0]?.count ?? 0)),
+      this.users.manager
+        .query<Array<{ count: string }>>(
+          `SELECT COUNT(*) FROM gifs
              WHERE "ownerId" = $1 AND status = 'ready' ${visibilityFilter}`,
-            [user.id],
-          )
-          .then((rows) => Number(rows[0]?.count ?? 0)),
-        this.users.manager
-          .query<Array<{ count: string }>>(
-            `SELECT COUNT(*) FROM screenshots
+          [user.id],
+        )
+        .then((rows) => Number(rows[0]?.count ?? 0)),
+      this.users.manager
+        .query<Array<{ count: string }>>(
+          `SELECT COUNT(*) FROM gifs
+             WHERE "ownerId" = $1 AND status = 'ready' AND source = 'telegram' ${visibilityFilter}`,
+          [user.id],
+        )
+        .then((rows) => Number(rows[0]?.count ?? 0)),
+      this.users.manager
+        .query<Array<{ count: string }>>(
+          `SELECT COUNT(*) FROM screenshots
              WHERE "ownerId" = $1 AND status = 'ready' ${visibilityFilter}`,
-            [user.id],
-          )
-          .then((rows) => Number(rows[0]?.count ?? 0)),
-        this.users.manager
-          .query<Array<{ count: string }>>(
-            `SELECT COUNT(*) FROM subscriptions WHERE "targetUserId" = $1`,
-            [user.id],
-          )
-          .then((rows) => Number(rows[0]?.count ?? 0)),
-      ]);
+          [user.id],
+        )
+        .then((rows) => Number(rows[0]?.count ?? 0)),
+      this.users.manager
+        .query<Array<{ count: string }>>(
+          `SELECT COUNT(*) FROM subscriptions WHERE "targetUserId" = $1`,
+          [user.id],
+        )
+        .then((rows) => Number(rows[0]?.count ?? 0)),
+    ]);
 
     const avatarUrl = await this.resolveAvatarUrl(user);
     return {
@@ -354,6 +370,7 @@ export class UsersService implements OnModuleInit {
       counts: {
         videos: videoCount,
         gifs: gifCount,
+        gifsViaTelegram,
         screenshots: screenshotCount,
       },
       followerCount,

@@ -198,6 +198,119 @@ export class GifsService {
     return { ok: true };
   }
 
+  /**
+   * Server-side path used by the Telegram bot. Skips the
+   * presign/finalize roundtrip because the bytes are already in process
+   * memory — we still run the same size, magic-byte, and per-account-tier
+   * limit checks the regular flow does, and the row lands in `ready` with
+   * the same notifications fired.
+   */
+  async createFromBuffer(args: {
+    ownerId: string;
+    ownerStatus: User["status"];
+    ownerApproved: boolean;
+    title: string;
+    buffer: Buffer;
+  }): Promise<Gif> {
+    if (args.buffer.length > MAX_GIF_BYTES) {
+      throw new BadRequestException("GIF exceeds 20 MB limit");
+    }
+    if (!looksLikeGif(args.buffer.subarray(0, 16))) {
+      throw new BadRequestException(
+        "Uploaded file does not look like a real GIF",
+      );
+    }
+
+    if (args.ownerStatus !== "verified") {
+      const existing = await this.gifs.count({
+        where: { ownerId: args.ownerId },
+      });
+      if (existing >= UNVERIFIED_GIF_LIMIT) {
+        throw new BadRequestException(
+          `${UNVERIFIED_LIMIT_ERROR_PREFIX}gif`,
+        );
+      }
+    }
+    if (!args.ownerApproved) {
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const recent = await this.gifs.count({
+        where: { ownerId: args.ownerId, createdAt: MoreThanOrEqual(since) },
+      });
+      if (recent >= UNAPPROVED_DAILY_GIF_LIMIT) {
+        throw new BadRequestException(
+          `${UNAPPROVED_LIMIT_ERROR_PREFIX}gif`,
+        );
+      }
+    }
+
+    const slug = slugify(args.title);
+    const draft = this.gifs.create({
+      ownerId: args.ownerId,
+      title: args.title,
+      description: "",
+      s3Key: "",
+      sizeBytes: args.buffer.length,
+      // Telegram doesn't tell us the duration of a GIF document. We don't
+      // use it for any quota — leaving 0 is safe and lets the row pass the
+      // not-null constraint.
+      durationSeconds: 0,
+      status: "uploading",
+      visibility: "public",
+      // Drives the "uploaded via Telegram" badge on cards/detail pages
+      // and the count on the user's profile.
+      source: "telegram",
+      tags: [],
+    });
+    const saved = await this.gifs.save(draft);
+    const s3Key = `gifs/${saved.id}/${slug}.gif`;
+    await this.s3.uploadBuffer(s3Key, args.buffer, "image/gif");
+    saved.s3Key = s3Key;
+    saved.status = "ready";
+    await this.gifs.save(saved);
+    this.logger.log(
+      `gifs.createFromBuffer ok ownerId=${args.ownerId} gifId=${saved.id} size=${args.buffer.length} source=telegram`,
+    );
+    this.notificationsService
+      .onGifUploaded(saved.id, saved.ownerId)
+      .catch((err) =>
+        this.logger.warn(
+          `Failed to notify subscribers of GIF upload ${saved.id}: ${(err as Error).message}`,
+        ),
+      );
+    return saved;
+  }
+
+  /**
+   * Lightweight projection used by the Telegram bot's inline-query handler.
+   * Public + ready only, optional title/tag substring filter, no extras
+   * computed (we don't need likes/views to render the inline gif card).
+   */
+  async searchInlineForBot(args: {
+    q: string;
+    limit: number;
+  }): Promise<Array<{ id: string; title: string }>> {
+    const qb = this.gifs
+      .createQueryBuilder("g")
+      .select(["g.id", "g.title"])
+      .where("g.status = :s", { s: "ready" })
+      .andWhere("g.visibility = :pub", { pub: "public" })
+      .orderBy("g.createdAt", "DESC")
+      .take(args.limit);
+    const trimmed = args.q.trim();
+    if (trimmed) {
+      const escaped = trimmed.replace(/[\\%_]/g, (c) => `\\${c}`);
+      qb.andWhere(
+        `(g.title ILIKE :qLike OR EXISTS (
+           SELECT 1 FROM gif_tags gt
+           JOIN tags t ON t.id = gt."tagId"
+           WHERE gt."gifId" = g.id AND t.name ILIKE :qLike
+         ))`,
+        { qLike: `%${escaped}%` },
+      );
+    }
+    return qb.getMany();
+  }
+
   async deleteGif(gifId: string, ownerId: string, isAdmin = false) {
     const gif = await this.gifs.findOne({ where: { id: gifId } });
     if (!gif) throw new NotFoundException("Gif not found");
@@ -567,6 +680,7 @@ export class GifsService {
           durationSeconds: g.durationSeconds,
           status: g.status,
           visibility: g.visibility,
+          source: g.source,
           createdAt: g.createdAt,
           owner: {
             id: g.owner.id,

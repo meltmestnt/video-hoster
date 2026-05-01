@@ -11,6 +11,7 @@ interface GifCardData {
   title: string;
   gifUrl: string | null;
   visibility: "public" | "private";
+  source?: "web" | "telegram";
   owner: { name: string; username?: string | null; avatarUrl: string | null };
   tags: { id: string; name: string }[];
 }
@@ -156,6 +157,11 @@ export function GifCard({
             {gif.visibility === "private" && (
               <Badge variant="soft" color="gray" size="1">
                 {t("card.private")}
+              </Badge>
+            )}
+            {gif.source === "telegram" && (
+              <Badge variant="soft" color="sky" size="1">
+                {t("card.viaTelegram")}
               </Badge>
             )}
           </Flex>

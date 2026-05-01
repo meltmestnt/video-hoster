@@ -14,6 +14,8 @@ import type { S3Service } from "../s3/s3.service";
 import type { AuthService } from "../auth/auth.service";
 import type { BillingService } from "../billing/billing.service";
 import type { PushService } from "../push/push.service";
+import type { TelegramLinkService } from "../telegram/telegram-link.service";
+import type { TelegramService } from "../telegram/telegram.service";
 
 export interface Services {
   users: UsersService;
@@ -31,6 +33,8 @@ export interface Services {
   auth: AuthService;
   billing: BillingService;
   push: PushService;
+  telegram: TelegramService;
+  telegramLinks: TelegramLinkService;
 }
 
 export interface Context {

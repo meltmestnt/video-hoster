@@ -160,6 +160,15 @@ export const uk: EnDict = {
     "Надсилати сповіщення підписникам, коли ви публікуєте нове відео чи GIF.",
   "user.profile.notifySubs.toggleAria":
     "Перемкнути сповіщення підписників про завантаження",
+  "user.profile.telegram.label": "Telegram",
+  "user.profile.telegram.hint":
+    "Шукайте GIF у будь-якому чаті Telegram і завантажуйте свої через бота.",
+  "user.profile.telegram.connected": "Підʼєднано.",
+  "user.profile.telegram.connectedAs": "Підʼєднано як {handle}.",
+  "user.profile.telegram.connect": "Підʼєднати",
+  "user.profile.telegram.connecting": "Відкриваємо…",
+  "user.profile.telegram.unlink": "Відʼєднати",
+  "user.profile.telegram.unlinking": "Відʼєднуємо…",
   "user.profile.viewProfile": "Мій профіль",
   "user.profile.favorites": "Обране",
   "user.profile.subscriptions": "Підписки",
@@ -293,6 +302,7 @@ export const uk: EnDict = {
   "card.noThumbnail": "Без обкладинки",
   "card.noPreview": "Без прев’ю",
   "card.private": "Приватне",
+  "card.viaTelegram": "через Telegram",
   "suggested.empty": "Поки немає схожих відео.",
 
   // ─── Reactions / favorites ───
@@ -578,6 +588,7 @@ export const uk: EnDict = {
   "profile.stats.screenshots": "{n} скріншотів",
   "profile.stats.followers": "{n} підписників",
   "profile.stats.joined": "Приєднався {date}",
+  "profile.stats.viaTelegram": "{n} GIF через Telegram",
   "profile.tab.videos": "Відео",
   "profile.tab.gifs": "GIF",
   "profile.tab.screenshots": "Скріншоти",

@@ -103,6 +103,26 @@ export class S3Service {
     await upload.done();
   }
 
+  /**
+   * Server-side path used by the Telegram bot — the gif arrives as bytes
+   * already in our process memory, so we PUT it directly instead of
+   * round-tripping through a presigned URL.
+   */
+  async uploadBuffer(
+    key: string,
+    body: Buffer,
+    contentType: string,
+  ): Promise<void> {
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: body,
+        ContentType: contentType,
+      }),
+    );
+  }
+
   async deleteObject(key: string): Promise<void> {
     await this.client.send(
       new DeleteObjectCommand({ Bucket: this.bucket, Key: key }),

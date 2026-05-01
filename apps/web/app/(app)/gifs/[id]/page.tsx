@@ -224,6 +224,11 @@ export default async function GifPage({
                 <T k="card.private" />
               </Badge>
             )}
+            {gif.source === "telegram" && (
+              <Badge variant="soft" color="sky" size="2">
+                <T k="card.viaTelegram" />
+              </Badge>
+            )}
           </Flex>
           <Flex align="center" gap="2" wrap="wrap">
             <GifReactions
