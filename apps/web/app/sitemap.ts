@@ -9,14 +9,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const trpc = await getServerTrpc();
 
   let videos: Array<{ id: string; createdAt: string | Date }> = [];
-  let gifs: Array<{ id: string; createdAt: string | Date }> = [];
-  let screenshots: Array<{ id: string; createdAt: string | Date }> = [];
+  // GIF and screenshot detail pages now redirect anonymous viewers to
+  // /login, so we deliberately don't include them in the sitemap —
+  // Google flags sitemap entries that 30x as soft errors.
   try {
-    [videos, gifs, screenshots] = await Promise.all([
-      trpc.videos.sitemap.query(),
-      trpc.gifs.sitemap.query(),
-      trpc.screenshots.sitemap.query(),
-    ]);
+    [videos] = await Promise.all([trpc.videos.sitemap.query()]);
   } catch {
     // If the API is briefly unavailable, ship the static entries rather
     // than a 500 — Google will retry the sitemap.
@@ -42,18 +39,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "hourly",
       priority: 0.9,
     },
-    {
-      url: absoluteUrl("/gifs"),
-      lastModified: now,
-      changeFrequency: "hourly",
-      priority: 0.9,
-    },
-    {
-      url: absoluteUrl("/screenshots"),
-      lastModified: now,
-      changeFrequency: "hourly",
-      priority: 0.7,
-    },
   ];
 
   const videoEntries: MetadataRoute.Sitemap = videos.map((v) => ({
@@ -63,24 +48,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }));
 
-  const gifEntries: MetadataRoute.Sitemap = gifs.map((g) => ({
-    url: absoluteUrl(`/gifs/${g.id}`),
-    lastModified: new Date(g.createdAt),
-    changeFrequency: "weekly",
-    priority: 0.7,
-  }));
-
-  const screenshotEntries: MetadataRoute.Sitemap = screenshots.map((s) => ({
-    url: absoluteUrl(`/screenshots/${s.id}`),
-    lastModified: new Date(s.createdAt),
-    changeFrequency: "weekly",
-    priority: 0.6,
-  }));
-
-  return [
-    ...staticEntries,
-    ...videoEntries,
-    ...gifEntries,
-    ...screenshotEntries,
-  ];
+  return [...staticEntries, ...videoEntries];
 }

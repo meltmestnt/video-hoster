@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import type { Metadata } from "next";
 import { Badge, Box, Button, Flex, Heading, Text } from "@radix-ui/themes";
@@ -69,6 +69,12 @@ export default async function GifPage({
 }) {
   const { id } = await params;
   const session = await getServerSession(authOptions);
+  // Anonymous viewers get bounced to /login instead of seeing any of the
+  // GIF's metadata. Trade-off: search engines see a 307 too, so this
+  // page won't get indexed.
+  if (!session?.user) {
+    redirect(`/login?callbackUrl=${encodeURIComponent(`/gifs/${id}`)}`);
+  }
   const trpc = await getServerTrpc();
 
   let gif;

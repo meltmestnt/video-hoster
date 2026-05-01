@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { Badge, Box, Button, Flex, Heading, Text } from "@radix-ui/themes";
@@ -45,6 +45,12 @@ export default async function ScreenshotPage({
 }) {
   const { id } = await params;
   const session = await getServerSession(authOptions);
+  // Anonymous viewers get bounced to /login instead of seeing any of the
+  // screenshot's metadata. Trade-off: search engines see a 307 too, so
+  // this page won't get indexed.
+  if (!session?.user) {
+    redirect(`/login?callbackUrl=${encodeURIComponent(`/screenshots/${id}`)}`);
+  }
   const trpc = await getServerTrpc();
 
   let shot;
