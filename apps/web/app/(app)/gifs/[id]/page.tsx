@@ -169,15 +169,15 @@ export default async function GifPage({
           )}
         </Box>
         <Flex
-          direction={{ initial: "column", sm: "row" }}
-          align={{ initial: "start", sm: "center" }}
+          // Same as the video page — keep the heading on its own row at
+          // sm widths so it doesn't get crushed into a single-character
+          // column by the action buttons next to it.
+          direction={{ initial: "column", md: "row" }}
+          align={{ initial: "start", md: "center" }}
           gap="3"
           mt="4"
         >
-          <Heading
-            size="6"
-            style={{ flex: 1, minWidth: 0, wordBreak: "break-word" }}
-          >
+          <Heading size="6" style={{ wordBreak: "break-word" }}>
             {gif.title}
           </Heading>
           <Flex align="center" gap="2" wrap="wrap">

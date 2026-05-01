@@ -207,14 +207,22 @@ export default async function VideoPage({
           </Box>
         )}
         <Flex
-          direction={{ initial: "column", sm: "row" }}
-          align={{ initial: "start", sm: "center" }}
+          // Stay stacked until ≥md (768px) — at sm widths the action row
+          // (reactions + favorite + share + download buttons + delete) is
+          // wide enough to crush the heading into a single-character column.
+          direction={{ initial: "column", md: "row" }}
+          align={{ initial: "start", md: "center" }}
           gap="3"
           mt="4"
         >
           <Heading
             size="6"
-            style={{ flex: 1, minWidth: 0, wordBreak: "break-word" }}
+            // No `flex: 1, minWidth: 0` — that combo lets the heading
+            // shrink to 0 in row mode and break each character onto its
+            // own line. In column mode it's naturally full-width; in row
+            // mode it takes its content width and the action row stays
+            // beside it.
+            style={{ wordBreak: "break-word" }}
           >
             {video.title}
           </Heading>
