@@ -10,6 +10,7 @@ import {
 } from "@radix-ui/react-icons";
 import { T } from "@/lib/i18n";
 import { LocaleSwitcher } from "./LocaleSwitcher";
+import { DropTile } from "./DropTile";
 
 type Icon = typeof VideoIcon;
 
@@ -66,6 +67,13 @@ const FEATURES: Feature[] = [
 
 export function AnonymousIntro() {
   return (
+    <>
+      {/* Drop tile mirrors the signed-in dashboard placement — sits at the
+          top of the page so anonymous visitors can drop a file too. The
+          DropTile handles the signed-out path itself: stashes the file in
+          IDB, opens the auth-required dialog, and PendingUploadResumer
+          finishes the upload after sign-in. */}
+      <DropTile mode="any" signedIn={false} />
     <Box
       className="intro-card"
       mb="6"
@@ -214,5 +222,6 @@ export function AnonymousIntro() {
         </Button>
       </Flex>
     </Box>
+    </>
   );
 }
