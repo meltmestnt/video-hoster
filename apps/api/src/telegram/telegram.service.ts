@@ -33,6 +33,9 @@ export class TelegramService
   private readonly logger = new Logger(TelegramService.name);
   private bot: Bot | null = null;
   private botUsername: string | null = null;
+  // Flipped during onApplicationShutdown so the polling-restart loop
+  // gracefully exits instead of fighting with itself during a deploy.
+  private shuttingDown = false;
 
   constructor(
     private readonly config: ConfigService,
@@ -71,25 +74,67 @@ export class TelegramService
     );
     // Fire-and-forget: grammY's bot.start() is a long-running poll loop.
     // Don't await — that would block app shutdown signals from Nest.
-    this.bot.start({
-      drop_pending_updates: true,
-      onStart: (info) => {
-        this.botUsername = this.botUsername ?? info.username;
-        this.logger.log(
-          `telegram.bot started username=@${info.username} id=${info.id}`,
-        );
-      },
-    }).catch((err) => {
-      this.logger.error(
-        `telegram.bot polling failed: ${(err as Error).message}`,
-        (err as Error).stack,
-      );
-    });
+    void this.runWithRetry();
   }
 
   async onApplicationShutdown(): Promise<void> {
+    this.shuttingDown = true;
     if (this.bot) {
       await this.bot.stop().catch(() => {});
+    }
+  }
+
+  /**
+   * Long-poll forever, restarting on transient errors. Telegram returns
+   * 409 Conflict whenever two consumers call getUpdates on the same
+   * token — typical cause is a previous Railway replica still finishing
+   * its shutdown, or a local `pnpm dev` running against prod creds. The
+   * 409 clears as soon as the other consumer drops off, so we just back
+   * off and retry instead of going dark until the next deploy.
+   *
+   * Backoff is bounded: 5s → 10s → 20s → 30s, capped. The shuttingDown
+   * flag lets a graceful Nest shutdown exit the loop cleanly.
+   */
+  private async runWithRetry(): Promise<void> {
+    const bot = this.bot;
+    if (!bot) return;
+    let attempt = 0;
+    while (!this.shuttingDown) {
+      try {
+        await bot.start({
+          drop_pending_updates: true,
+          onStart: (info) => {
+            this.botUsername = this.botUsername ?? info.username;
+            this.logger.log(
+              `telegram.bot started username=@${info.username} id=${info.id}`,
+            );
+            attempt = 0;
+          },
+        });
+        // bot.start() resolves cleanly only when bot.stop() is called.
+        // If we get here outside of shutdown, treat it as a graceful
+        // restart cue.
+        if (this.shuttingDown) return;
+      } catch (err) {
+        const message = (err as Error).message ?? "";
+        const is409 = /\b409\b/.test(message) || /Conflict/i.test(message);
+        const delaySec = is409
+          ? Math.min(30, 5 * 2 ** Math.min(attempt, 3))
+          : Math.min(60, 10 * 2 ** Math.min(attempt, 3));
+        if (is409) {
+          this.logger.warn(
+            `telegram.bot 409 conflict (another instance is polling). Retrying in ${delaySec}s. ${message}`,
+          );
+        } else {
+          this.logger.error(
+            `telegram.bot polling failed: ${message}; retrying in ${delaySec}s`,
+            (err as Error).stack,
+          );
+        }
+        await new Promise((resolve) => setTimeout(resolve, delaySec * 1000));
+        attempt++;
+        if (this.shuttingDown) return;
+      }
     }
   }
 
