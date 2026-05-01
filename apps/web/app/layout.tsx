@@ -10,12 +10,14 @@ const SITE_NAME = "vids&gifs";
 const SITE_DESCRIPTION =
   "Upload, share, and discover short videos, GIFs, and screenshots.";
 
-// Search engine site-verification tokens. Each platform issues a unique
-// string when you add the property — paste the bare code (no surrounding
-// quotes, no <meta> tag) into the matching env var and the framework will
-// emit the verification meta tag on every page. Leave unset until you have
-// the code from the platform.
-const GOOGLE_SITE_VERIFICATION = process.env.GOOGLE_SITE_VERIFICATION;
+// Search engine site-verification tokens. These are public values that get
+// emitted into every page's <meta>, so pinning the Google token to the
+// vidsandgifs.xyz property here means a fresh deploy is verified without
+// any Railway config. Override via env if you ever rotate the property or
+// need a different token per environment.
+const GOOGLE_SITE_VERIFICATION =
+  process.env.GOOGLE_SITE_VERIFICATION ??
+  "nKXIsKwl0ygpSh3BMcTlHKGuvxHeETkh9T-wqlMhcQY";
 const BING_SITE_VERIFICATION = process.env.BING_SITE_VERIFICATION;
 const YANDEX_SITE_VERIFICATION = process.env.YANDEX_SITE_VERIFICATION;
 
