@@ -191,8 +191,8 @@ export function AnonymousIntro() {
 
       <Flex
         className="intro-cta-row"
-        gap="3"
-        mt="6"
+        gap="4"
+        mt="7"
         wrap="wrap"
         align="center"
         style={{ position: "relative", zIndex: 2 }}
