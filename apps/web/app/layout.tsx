@@ -8,7 +8,7 @@ import { siteUrl } from "@/lib/site";
 
 const SITE_NAME = "vids&gifs";
 const SITE_DESCRIPTION =
-  "A minimalist video hosting platform — watch and share short videos.";
+  "Upload, share, and discover short videos, GIFs, and screenshots.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl()),
@@ -56,7 +56,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="uk" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       {/* suppressHydrationWarning silences React's mismatch warning when
           browser extensions (ColorZilla, Grammarly, etc.) add their own
           attributes to <html>/<body> before React hydrates. Only applies
