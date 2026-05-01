@@ -212,28 +212,28 @@ export class TranscoderService {
     const TIMEOUT_MS = 2 * 60 * 1000;
     return new Promise((resolve, reject) => {
       // Animated-GIF demuxer treats per-frame "delay" centiseconds as
-      // timestamps, which produces an MP4 with broken mvhd.duration
-      // (Chrome shows 0:00, Telegram drops the inline preview). Three
-      // counter-measures, all needed:
+      // timestamps, producing an MP4 with broken mvhd.duration. Two
+      // counter-measures:
       //
-      //   • -ignore_loop 0 on the input so the loop count isn't
-      //     interpreted as a duration cap.
-      //   • -vsync cfr on the output forces a constant-rate timeline
-      //     instead of preserving the GIF's variable per-frame timing.
-      //   • -r 25 pins that timeline to 25 fps; combined with vsync cfr
-      //     ffmpeg dupes/drops frames as needed and the output gets a
-      //     real duration.
+      //   • -vsync cfr + -r 25 forces a constant-rate timeline
+      //     instead of preserving the GIF's variable per-frame timing,
+      //     so mvhd.duration ends up as a real number rather than 0.
+      //   • -t 20 caps output duration. GIFs are bounded to 20 s on
+      //     upload, so this is a no-op for valid input — but it's a
+      //     hard safety net against ffmpeg looping a `loop=0` GIF
+      //     forever (cf. the earlier `-ignore_loop 0` regression that
+      //     produced 12-minute outputs and timed out the encoder).
       //
       // Even-pixel scale stays (H.264 hard rule); faststart moves moov
       // to the top so previews start without the full download.
       const cmd = ffmpeg(inputPath)
-        .inputOptions(["-ignore_loop 0"])
         .noAudio()
         .videoCodec("libx264")
         .videoFilter("scale=trunc(iw/2)*2:trunc(ih/2)*2")
         .outputOptions([
           "-r 25",
           "-vsync cfr",
+          "-t 20",
           "-pix_fmt yuv420p",
           "-preset veryfast",
           "-crf 23",
