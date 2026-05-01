@@ -199,7 +199,9 @@ export const appRouter = router({
         ctx.services.videos.createUpload({
           ownerId: ctx.user.id,
           ownerStatus: ctx.user.status,
-          ownerApproved: ctx.user.approved,
+          // Admins always count as approved — the column may not have been
+          // synced yet by syncRoleFromEnv on their first request.
+          ownerApproved: ctx.user.role === "admin" || ctx.user.approved,
           title: input.title,
           description: input.description,
           mimeType: input.mimeType,
@@ -314,7 +316,9 @@ export const appRouter = router({
         ctx.services.gifs.createUpload({
           ownerId: ctx.user.id,
           ownerStatus: ctx.user.status,
-          ownerApproved: ctx.user.approved,
+          // Admins always count as approved — the column may not have been
+          // synced yet by syncRoleFromEnv on their first request.
+          ownerApproved: ctx.user.role === "admin" || ctx.user.approved,
           title: input.title,
           description: input.description,
           sizeBytes: input.sizeBytes,
@@ -390,7 +394,9 @@ export const appRouter = router({
         ctx.services.screenshots.createUpload({
           ownerId: ctx.user.id,
           ownerStatus: ctx.user.status,
-          ownerApproved: ctx.user.approved,
+          // Admins always count as approved — the column may not have been
+          // synced yet by syncRoleFromEnv on their first request.
+          ownerApproved: ctx.user.role === "admin" || ctx.user.approved,
           title: input.title,
           mimeType: input.mimeType,
           sizeBytes: input.sizeBytes,

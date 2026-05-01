@@ -21,7 +21,12 @@ export function UnapprovedBanner() {
   if (
     !me.data ||
     me.data.status !== "verified" ||
-    me.data.approved
+    me.data.approved ||
+    // Admins bypass every quota gate downstream — never bother them with
+    // the "waiting on admin approval" banner even if their row's
+    // `approved` column happens to be false (it gets auto-flipped on next
+    // load by syncRoleFromEnv, but skip the banner in the meantime).
+    me.data.role === "admin"
   ) {
     return null;
   }
