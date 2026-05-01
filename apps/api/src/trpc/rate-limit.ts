@@ -73,6 +73,11 @@ export const rateLimit = (opts: RateLimitOpts) =>
     }
 
     bucket.hits.push(now);
+    // Map keeps insertion order — `set` on an existing key does NOT refresh
+    // its position, so the eviction sweep would happily drop hot keys.
+    // Delete then set bumps the key to the most-recent slot, giving us
+    // proper LRU eviction.
+    buckets.delete(key);
     buckets.set(key, bucket);
     evictIfNeeded();
 

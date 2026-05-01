@@ -52,12 +52,15 @@ export class BillingController {
     try {
       await this.billing.handleEvent(payload);
     } catch (err) {
-      // Log + still 200 so LS doesn't retry forever on a bug we have
-      // visibility into.
       this.logger.error(
         `Failed to handle LemonSqueezy event ${payload.meta?.event_name}: ${(err as Error).message}`,
         (err as Error).stack,
       );
+      // Re-throw so LS retries. The original "always 200" approach risked
+      // silently leaving a user on the wrong tier when a transient DB hiccup
+      // hit during sync. The signature was already verified above, so a
+      // failure here is genuinely server-side — LS retries with backoff.
+      throw err;
     }
     return { received: true };
   }

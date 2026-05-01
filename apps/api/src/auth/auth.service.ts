@@ -22,6 +22,11 @@ export class AuthService {
     try {
       const { payload } = await jwtVerify(token, this.secret, {
         algorithms: ["HS256"],
+        // Issuer + audience must match what the web side stamps in mintApiToken.
+        // Anything signed with a different scope (a leaked dev token, a reused
+        // secret elsewhere) is rejected up front.
+        issuer: "vidsandgifs-web",
+        audience: "vidsandgifs-api",
       });
       const sub = payload.sub;
       const email = payload.email as string | undefined;

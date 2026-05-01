@@ -190,9 +190,13 @@ export function NotificationsBell() {
                         <Text size="2" as="div">
                           <Text weight="medium">{n.actor.name}</Text>{" "}
                           <Text color="gray">
-                            {n.subject.kind === "gif"
+                            {n.type === "gif_like"
                               ? t("notifications.likedGif")
-                              : t("notifications.likedVideo")}
+                              : n.type === "video_like"
+                                ? t("notifications.likedVideo")
+                                : n.type === "gif_upload"
+                                  ? t("notifications.uploadedGif")
+                                  : t("notifications.uploadedVideo")}
                           </Text>{" "}
                           <Text
                             weight="medium"

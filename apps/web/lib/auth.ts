@@ -24,6 +24,12 @@ const apiTokenSecret = () =>
 
 const apiUrl = () => process.env.NEST_URL ?? "http://localhost:4000";
 
+// Pinning issuer + audience scopes a token to "minted by web, intended for api"
+// so a token leaked or reused across environments (or accepted by some other
+// service that happens to share NEXTAUTH_SECRET) still won't authenticate.
+const JWT_ISSUER = "vidsandgifs-web";
+const JWT_AUDIENCE = "vidsandgifs-api";
+
 const mintApiToken = async (params: {
   sub: string;
   email: string;
@@ -39,6 +45,8 @@ const mintApiToken = async (params: {
   })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(params.sub)
+    .setIssuer(JWT_ISSUER)
+    .setAudience(JWT_AUDIENCE)
     .setIssuedAt()
     .setExpirationTime("12h")
     .sign(apiTokenSecret());

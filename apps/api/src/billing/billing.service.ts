@@ -96,13 +96,19 @@ export class BillingService {
    */
   verifySignature(rawBody: Buffer, signature: string | undefined): boolean {
     if (!signature) return false;
+    // Sanity check the format up front. The header from LS is always lower-
+    // hex of the right length; arbitrary unicode in the parameter would
+    // make the Buffer compare misbehave (e.g. multi-byte chars distorting
+    // length) and constant-time comparisons aren't constant-time on inputs
+    // that fail the precondition.
+    if (!/^[a-f0-9]{64}$/i.test(signature)) return false;
     const digest = createHmac("sha256", this.webhookSecret)
       .update(rawBody)
       .digest("hex");
-    const a = Buffer.from(digest, "utf8");
-    const b = Buffer.from(signature, "utf8");
-    if (a.length !== b.length) return false;
-    return timingSafeEqual(a, b);
+    return timingSafeEqual(
+      Buffer.from(digest, "hex"),
+      Buffer.from(signature, "hex"),
+    );
   }
 
   parsePayload(rawBody: Buffer): LSWebhookPayload {

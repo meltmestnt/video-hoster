@@ -104,7 +104,10 @@ export class TranscoderService {
 
       return { key: outKey, sizeBytes: stats.size, mimeType: "video/mp4" };
     } finally {
-      await rm(workDir, { recursive: true, force: true });
+      // `force: true` swallows ENOENT and tolerates partial dirs (e.g. a
+      // file Windows hasn't released yet) instead of surfacing as the
+      // request error.
+      await rm(workDir, { recursive: true, force: true }).catch(() => {});
     }
   }
 
@@ -148,8 +151,13 @@ export class TranscoderService {
   }
 
   private runFfmpeg(inputPath: string, outputPath: string): Promise<void> {
+    // Cap per-job runtime. A poison input or a degenerate filter graph can
+    // otherwise hang forever holding a tRPC request, the temp dir, and the
+    // input file. Picked generously: a 5-minute 480p re-encode of even a
+    // worst-case 1.5 GiB source on a slow runner finishes well under this.
+    const TIMEOUT_MS = 10 * 60 * 1000;
     return new Promise((resolve, reject) => {
-      ffmpeg(inputPath)
+      const cmd = ffmpeg(inputPath)
         .videoCodec("libx264")
         .videoFilter("scale=-2:480")
         .outputOptions([
@@ -160,11 +168,26 @@ export class TranscoderService {
         ])
         .audioCodec("aac")
         .audioBitrate("128k")
-        .format("mp4")
-        .on("end", () => resolve())
-        .on("error", (err) =>
-          reject(new Error(`ffmpeg failed: ${err.message}`)),
-        )
+        .format("mp4");
+
+      const timer = setTimeout(() => {
+        try {
+          cmd.kill("SIGKILL");
+        } catch {
+          // ignore — best-effort kill, the reject below is the contract
+        }
+        reject(new Error(`ffmpeg timed out after ${TIMEOUT_MS / 1000}s`));
+      }, TIMEOUT_MS);
+
+      cmd
+        .on("end", () => {
+          clearTimeout(timer);
+          resolve();
+        })
+        .on("error", (err) => {
+          clearTimeout(timer);
+          reject(new Error(`ffmpeg failed: ${err.message}`));
+        })
         .save(outputPath);
     });
   }

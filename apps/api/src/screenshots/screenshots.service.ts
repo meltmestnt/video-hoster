@@ -125,8 +125,19 @@ export class ScreenshotsService {
       throw new BadRequestException("Screenshot object not found in S3");
     }
     if (head.size > MAX_SCREENSHOT_BYTES) {
-      await this.s3.deleteObject(shot.s3Key);
+      await this.s3.deleteObject(shot.s3Key).catch(() => {});
       throw new BadRequestException("Uploaded screenshot exceeds 10 MB limit");
+    }
+    if (
+      head.contentType &&
+      !(ALLOWED_SCREENSHOT_MIME_TYPES as readonly string[]).includes(
+        head.contentType,
+      )
+    ) {
+      await this.s3.deleteObject(shot.s3Key).catch(() => {});
+      throw new BadRequestException(
+        `Uploaded object has type "${head.contentType}", not an image`,
+      );
     }
     shot.sizeBytes = head.size;
     shot.status = "ready";

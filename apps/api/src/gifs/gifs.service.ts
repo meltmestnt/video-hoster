@@ -9,6 +9,7 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import { In, Repository, SelectQueryBuilder } from "typeorm";
 import {
+  MAX_GIF_BYTES,
   UNVERIFIED_GIF_LIMIT,
   UNVERIFIED_LIMIT_ERROR_PREFIX,
   type VideoSort,
@@ -22,7 +23,6 @@ import type { ReactionType } from "../reactions/reaction.entity";
 import { NotificationsService } from "../notifications/notifications.service";
 import { MediaService } from "../media/media.service";
 
-const MAX_GIF_BYTES = 20 * 1024 * 1024;
 
 interface CreateUploadArgs {
   ownerId: string;
@@ -129,8 +129,17 @@ export class GifsService {
       throw new BadRequestException("Gif object not found in S3");
     }
     if (head.size > MAX_GIF_BYTES) {
-      await this.s3.deleteObject(gif.s3Key);
+      await this.s3.deleteObject(gif.s3Key).catch(() => {});
       throw new BadRequestException("Uploaded gif exceeds 20 MB limit");
+    }
+    // Server-side type check: presigned PUT was for image/gif, but a
+    // client could PUT a different MIME. Reject so the GIF page doesn't
+    // end up serving e.g. a video or PDF.
+    if (head.contentType && head.contentType !== "image/gif") {
+      await this.s3.deleteObject(gif.s3Key).catch(() => {});
+      throw new BadRequestException(
+        `Uploaded object has type "${head.contentType}", not a GIF`,
+      );
     }
     gif.sizeBytes = head.size;
     gif.status = "ready";

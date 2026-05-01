@@ -477,6 +477,8 @@ export const en = {
   "notifications.markAll": "Mark all as read",
   "notifications.likedVideo": "liked your video",
   "notifications.likedGif": "liked your GIF",
+  "notifications.uploadedVideo": "uploaded a new video",
+  "notifications.uploadedGif": "uploaded a new GIF",
   "notifications.time.secondsAgo": "{n}s ago",
   "notifications.time.minutesAgo": "{n}m ago",
   "notifications.time.hoursAgo": "{n}h ago",

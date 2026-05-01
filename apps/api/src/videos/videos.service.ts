@@ -94,8 +94,11 @@ export class VideosService {
     // The error message carries a stable prefix so the client can detect
     // it and pop a "verify your email" dialog instead of a generic toast.
     if (args.ownerStatus !== "verified") {
+      // Only count finalized rows — a stuck `uploading` draft from a failed
+      // earlier attempt shouldn't permanently lock the user out of their
+      // first preview upload.
       const existing = await this.videos.count({
-        where: { ownerId: args.ownerId },
+        where: { ownerId: args.ownerId, status: "ready" },
       });
       if (existing >= UNVERIFIED_VIDEO_LIMIT) {
         throw new BadRequestException(
@@ -193,8 +196,17 @@ export class VideosService {
       throw new BadRequestException("Video object not found in S3");
     }
     if (head.size > MAX_VIDEO_BYTES) {
-      await this.s3.deleteObject(video.s3Key);
+      await this.s3.deleteObject(video.s3Key).catch(() => {});
       throw new BadRequestException("Uploaded file exceeds 1.5 GiB limit");
+    }
+    // Server-side type check: the client signed a PUT with a video/* MIME,
+    // but a client could pre-sign for video/mp4 and then PUT a 1 MB image.
+    // Reject obvious mismatches before we mark the row ready and broadcast.
+    if (head.contentType && !head.contentType.startsWith("video/")) {
+      await this.s3.deleteObject(video.s3Key).catch(() => {});
+      throw new BadRequestException(
+        `Uploaded object has type "${head.contentType}", not a video`,
+      );
     }
 
     video.sizeBytes = head.size;
@@ -260,6 +272,7 @@ export class VideosService {
         );
     }
 
+    let thumbnailLanded = false;
     if (args.thumbnailS3Key) {
       const expectedPrefix = `videos/${video.id}/thumb-`;
       if (!args.thumbnailS3Key.startsWith(expectedPrefix)) {
@@ -267,33 +280,40 @@ export class VideosService {
           `Rejecting thumbnail key ${args.thumbnailS3Key} — does not match video ${video.id}`,
         );
       } else {
-        const head = await this.s3.headObject(args.thumbnailS3Key);
-        if (head) {
+        const thumbHead = await this.s3.headObject(args.thumbnailS3Key);
+        if (thumbHead) {
           const row = this.thumbnails.create({
             videoId: video.id,
             s3Key: args.thumbnailS3Key,
           });
           await this.thumbnails.save(row);
-          return { ok: true };
+          thumbnailLanded = true;
+        } else {
+          this.logger.warn(
+            `Client-supplied thumbnail ${args.thumbnailS3Key} not found in S3; falling back`,
+          );
         }
-        this.logger.warn(
-          `Client-supplied thumbnail ${args.thumbnailS3Key} not found in S3; falling back`,
-        );
       }
     }
 
-    try {
-      const thumb = await this.transcoder.generateThumbnail(video.id);
-      if (!thumb) {
-        this.logger.warn(
-          `Thumbnail generation skipped for video ${video.id} (ffmpeg unavailable)`,
+    // Fall through to ffmpeg whenever no thumbnail landed — covers the
+    // "client didn't supply one", "supplied key was rejected", and
+    // "supplied key 404'd" cases. Without this path the row stays
+    // thumbnail-less even though the broadcast already fired.
+    if (!thumbnailLanded) {
+      try {
+        const thumb = await this.transcoder.generateThumbnail(video.id);
+        if (!thumb) {
+          this.logger.warn(
+            `Thumbnail generation skipped for video ${video.id} (ffmpeg unavailable)`,
+          );
+        }
+      } catch (err) {
+        this.logger.error(
+          `Thumbnail generation failed for video ${video.id}: ${(err as Error).message}`,
+          (err as Error).stack,
         );
       }
-    } catch (err) {
-      this.logger.error(
-        `Thumbnail generation failed for video ${video.id}: ${(err as Error).message}`,
-        (err as Error).stack,
-      );
     }
 
     return { ok: true };
@@ -330,20 +350,22 @@ export class VideosService {
       ...(video.s3Key ? [video.s3Key] : []),
       ...thumbs.map((t) => t.s3Key),
     ];
+
+    // DB delete first, then S3. If we deleted S3 first and the DB delete
+    // failed, the row would point at a 404 key. The other way around the
+    // worst case is a leaked S3 object — visible to the user as success.
+    // Cascades remove thumbnails and video_tags rows; tags themselves stay.
+    await this.videos.delete({ id: videoId });
+
     await Promise.all(
-      s3Keys.map(async (key) => {
-        try {
-          await this.s3.deleteObject(key);
-        } catch (err) {
+      s3Keys.map((key) =>
+        this.s3.deleteObject(key).catch((err) => {
           this.logger.warn(
             `Failed to delete S3 object ${key}: ${(err as Error).message}`,
           );
-        }
-      }),
+        }),
+      ),
     );
-
-    // Cascades remove thumbnails and video_tags rows; tags themselves stay.
-    await this.videos.delete({ id: videoId });
 
     return { ok: true };
   }

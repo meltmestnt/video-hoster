@@ -489,6 +489,8 @@ export const uk: EnDict = {
   "notifications.markAll": "Позначити всі як прочитані",
   "notifications.likedVideo": "вподобав(-ла) ваше відео",
   "notifications.likedGif": "вподобав(-ла) ваш GIF",
+  "notifications.uploadedVideo": "завантажив(-ла) нове відео",
+  "notifications.uploadedGif": "завантажив(-ла) новий GIF",
   "notifications.time.secondsAgo": "{n} с тому",
   "notifications.time.minutesAgo": "{n} хв тому",
   "notifications.time.hoursAgo": "{n} год тому",

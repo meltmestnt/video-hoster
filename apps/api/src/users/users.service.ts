@@ -13,6 +13,7 @@ import bcrypt from "bcryptjs";
 import { createHash, randomBytes } from "node:crypto";
 import {
   ALLOWED_AVATAR_MIME_TYPES,
+  MAX_AVATAR_BYTES,
   type AllowedAvatarMimeType,
 } from "@repo/shared";
 import { User } from "./user.entity";
@@ -82,26 +83,27 @@ export class UsersService {
     userId: string,
     enabled: boolean,
   ): Promise<{ miniPlayerEnabled: boolean; miniPlayerPromptSeen: boolean }> {
-    const user = await this.users.findOne({ where: { id: userId } });
-    if (!user) throw new NotFoundException("User not found");
-    user.miniPlayerEnabled = enabled;
-    user.miniPlayerPromptSeen = true;
-    await this.users.save(user);
-    return {
-      miniPlayerEnabled: user.miniPlayerEnabled,
-      miniPlayerPromptSeen: user.miniPlayerPromptSeen,
-    };
+    // Use update() rather than findOne+mutate+save() — `passwordHash` has
+    // `select: false`, and TypeORM's save() can re-emit the row including
+    // null for unselected columns depending on driver/version.
+    const result = await this.users.update(
+      { id: userId },
+      { miniPlayerEnabled: enabled, miniPlayerPromptSeen: true },
+    );
+    if (!result.affected) throw new NotFoundException("User not found");
+    return { miniPlayerEnabled: enabled, miniPlayerPromptSeen: true };
   }
 
   async setNotifySubscribersOnUpload(
     userId: string,
     enabled: boolean,
   ): Promise<{ notifySubscribersOnUpload: boolean }> {
-    const user = await this.users.findOne({ where: { id: userId } });
-    if (!user) throw new NotFoundException("User not found");
-    user.notifySubscribersOnUpload = enabled;
-    await this.users.save(user);
-    return { notifySubscribersOnUpload: user.notifySubscribersOnUpload };
+    const result = await this.users.update(
+      { id: userId },
+      { notifySubscribersOnUpload: enabled },
+    );
+    if (!result.affected) throw new NotFoundException("User not found");
+    return { notifySubscribersOnUpload: enabled };
   }
 
   async finalizeAvatarUpload(
@@ -116,12 +118,20 @@ export class UsersService {
     if (!head) {
       throw new BadRequestException("Avatar object not found in S3");
     }
+    // Server-side enforce the size cap. The presigned PUT itself doesn't
+    // constrain bytes, so a client can declare 1 KB and upload 1 GB —
+    // delete the offending object before it sticks around in S3.
+    if (head.size > MAX_AVATAR_BYTES) {
+      await this.s3.deleteObject(s3Key).catch(() => {});
+      throw new BadRequestException(
+        `Avatar exceeds ${Math.round(MAX_AVATAR_BYTES / 1024 / 1024)} MB limit`,
+      );
+    }
     const user = await this.users.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException("User not found");
 
     const previousKey = user.avatarS3Key;
-    user.avatarS3Key = s3Key;
-    await this.users.save(user);
+    await this.users.update({ id: userId }, { avatarS3Key: s3Key });
 
     if (previousKey && previousKey !== s3Key) {
       this.s3.deleteObject(previousKey).catch((err) => {
@@ -163,8 +173,11 @@ export class UsersService {
       where: { email: payload.email },
     });
     if (emailTaken) {
+      // Generic message — don't leak that the email is registered with
+      // credentials. The legitimate path here is the user signing in via
+      // their original method; an attacker probing accounts gets nothing.
       throw new ConflictException(
-        "An account with this email already exists. Sign in with email/password.",
+        "Could not link this Google account. Please sign in with your existing method.",
       );
     }
 
@@ -176,7 +189,21 @@ export class UsersService {
       passwordHash: null,
       status: "verified",
     });
-    return this.users.save(created);
+    try {
+      return await this.users.save(created);
+    } catch (err) {
+      // Race: a concurrent OAuth callback for the same user just inserted.
+      // The unique index on email/googleId throws a 23505 unique_violation;
+      // re-fetch and return the winner so both callers see a stable user.
+      const code = (err as { code?: string }).code;
+      if (code === "23505") {
+        const winner = await this.users.findOne({
+          where: { googleId: payload.sub },
+        });
+        if (winner) return winner;
+      }
+      throw err;
+    }
   }
 
   async findById(id: string): Promise<User | null> {
@@ -192,13 +219,18 @@ export class UsersService {
    * a no-op when the env list hasn't changed.
    */
   private async syncRoleFromEnv(user: User): Promise<void> {
-    const raw = this.config.get<string>("ADMIN_EMAILS") ?? "";
+    const raw = this.config.get<string>("ADMIN_EMAILS")?.trim() ?? "";
+    // Fail closed: if ADMIN_EMAILS is unset (e.g. a redeploy missed it) we
+    // skip the sync entirely instead of silently demoting every existing
+    // admin. Only an explicit non-empty list reshapes role state.
+    if (!raw) return;
     const admins = new Set(
       raw
         .split(",")
         .map((s) => s.trim().toLowerCase())
         .filter(Boolean),
     );
+    if (admins.size === 0) return;
     const shouldBeAdmin = admins.has(user.email.toLowerCase());
     const target: User["role"] = shouldBeAdmin ? "admin" : "user";
     if (user.role !== target) {
@@ -278,8 +310,7 @@ export class UsersService {
     if (target.role === "admin") {
       throw new ForbiddenException("Cannot unverify another admin");
     }
-    target.status = "unverified";
-    await this.users.save(target);
+    await this.users.update({ id: target.id }, { status: "unverified" });
     return { ok: true };
   }
 
@@ -291,28 +322,23 @@ export class UsersService {
       where: { id: args.targetUserId },
     });
     if (!target) throw new NotFoundException("User not found");
-    target.status = "verified";
     // Manual approval supersedes the email confirmation — clear the token
     // so a stale one can't accidentally re-trigger anything later.
-    target.confirmationTokenHash = null;
-    target.confirmationTokenExpiresAt = null;
-    await this.users.save(target);
+    await this.users.update(
+      { id: target.id },
+      {
+        status: "verified",
+        confirmationTokenHash: null,
+        confirmationTokenExpiresAt: null,
+      },
+    );
     return { ok: true };
   }
 
   async deleteSelf(userId: string): Promise<{ ok: true }> {
     const user = await this.users.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException("User not found");
-    // FK cascades wipe owned videos/gifs/comments. S3 media will leak — same
-    // tradeoff as adminDeleteUser; can be addressed by a sweeper later.
-    if (user.avatarS3Key) {
-      this.s3.deleteObject(user.avatarS3Key).catch((err) => {
-        this.logger.warn(
-          `Failed to delete avatar ${user.avatarS3Key} for self-deleted user ${user.id}: ${(err as Error).message}`,
-        );
-      });
-    }
-    await this.users.delete({ id: user.id });
+    await this.purgeUser(user);
     return { ok: true };
   }
 
@@ -330,17 +356,54 @@ export class UsersService {
     if (target.role === "admin") {
       throw new ForbiddenException("Cannot delete another admin");
     }
-    // FK cascades on videos/gifs/comments/etc. handle their own rows;
-    // S3 objects belonging to the user will leak — out of scope for now.
-    if (target.avatarS3Key) {
-      this.s3.deleteObject(target.avatarS3Key).catch((err) => {
-        this.logger.warn(
-          `Failed to delete avatar ${target.avatarS3Key} for deleted user ${target.id}: ${(err as Error).message}`,
-        );
-      });
-    }
-    await this.users.delete({ id: target.id });
+    await this.purgeUser(target);
     return { ok: true };
+  }
+
+  /**
+   * Delete a user plus every S3 object they own. Without this the FK
+   * cascades drop DB rows but the bucket fills up with orphaned video/gif/
+   * screenshot/audio/avatar/thumbnail objects. We collect the keys first
+   * (so the cascade hasn't deleted the rows yet), then wipe S3, then drop
+   * the user — DB is the source of truth, so leaving an orphaned S3 object
+   * (S3 delete failed, DB delete succeeded) is the lesser evil.
+   */
+  private async purgeUser(user: User): Promise<void> {
+    const keys = new Set<string>();
+    if (user.avatarS3Key) keys.add(user.avatarS3Key);
+
+    const collect = async (sql: string) => {
+      const rows = await this.users.manager.query<Array<{ s3Key: string }>>(
+        sql,
+        [user.id],
+      );
+      for (const r of rows) if (r.s3Key) keys.add(r.s3Key);
+    };
+    // Each entity table has an `s3Key` column on rows owned by this user.
+    // Thumbnails are joined through videos so we follow the FK explicitly.
+    await Promise.all([
+      collect(`SELECT "s3Key" FROM videos WHERE "ownerId" = $1`),
+      collect(`SELECT "s3Key" FROM gifs WHERE "ownerId" = $1`),
+      collect(`SELECT "s3Key" FROM screenshots WHERE "ownerId" = $1`),
+      collect(`SELECT "s3Key" FROM audio_templates WHERE "ownerId" = $1`),
+      collect(
+        `SELECT t."s3Key" FROM thumbnails t
+           INNER JOIN videos v ON v.id = t."videoId"
+           WHERE v."ownerId" = $1`,
+      ),
+    ]);
+
+    await Promise.all(
+      [...keys].map((key) =>
+        this.s3.deleteObject(key).catch((err) => {
+          this.logger.warn(
+            `Failed to delete S3 object ${key} during purge of ${user.id}: ${(err as Error).message}`,
+          );
+        }),
+      ),
+    );
+
+    await this.users.delete({ id: user.id });
   }
 
   async signUp(input: {

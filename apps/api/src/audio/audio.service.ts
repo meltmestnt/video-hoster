@@ -193,6 +193,9 @@ export class AudioService {
       relations: ["video"],
     });
     if (!track) throw new NotFoundException("Audio track not found");
+    // The video FK is `onDelete: CASCADE` so this is rare, but a missing
+    // video still implies the track shouldn't be there — treat as 404.
+    if (!track.video) throw new NotFoundException("Audio track not found");
     if (track.video.ownerId !== ownerId) {
       throw new ForbiddenException("Not the owner of the video");
     }
@@ -206,17 +209,28 @@ export class AudioService {
       relations: ["video"],
     });
     if (!track) throw new NotFoundException("Audio track not found");
+    if (!track.video) throw new NotFoundException("Audio track not found");
     if (track.video.ownerId !== args.ownerId) {
       throw new ForbiddenException("Not the owner of the video");
     }
+    const patch: Partial<VideoAudioTrack> = {};
     if (args.startSeconds !== undefined) {
-      track.startSeconds = Math.max(0, args.startSeconds);
+      patch.startSeconds = Math.max(0, args.startSeconds);
     }
     if (args.volume !== undefined) {
-      track.volume = clampVolume(args.volume);
+      patch.volume = clampVolume(args.volume);
     }
-    await this.tracks.save(track);
-    return track;
+    if (Object.keys(patch).length > 0) {
+      await this.tracks.update({ id: args.trackId }, patch);
+    }
+    // Re-fetch so callers get the canonical row (including any defaults
+    // we didn't touch).
+    return (
+      (await this.tracks.findOne({
+        where: { id: args.trackId },
+        relations: ["audioTemplate"],
+      })) ?? track
+    );
   }
 
   async setMainMuted(videoId: string, ownerId: string, muted: boolean) {
@@ -225,9 +239,8 @@ export class AudioService {
     if (video.ownerId !== ownerId) {
       throw new ForbiddenException("Not the owner");
     }
-    video.mainAudioMuted = muted;
-    await this.videos.save(video);
-    return { mainAudioMuted: video.mainAudioMuted };
+    await this.videos.update({ id: videoId }, { mainAudioMuted: muted });
+    return { mainAudioMuted: muted };
   }
 
   /**
@@ -246,10 +259,12 @@ export class AudioService {
     });
 
     // Sign each distinct template URL once so a video with three copies of
-    // the same template doesn't cost three signing round-trips.
+    // the same template doesn't cost three signing round-trips. Skip rows
+    // whose template was deleted out from under them — the cascade should
+    // remove them but a stale read could still surface one.
     const idToUrl = new Map<string, Promise<string | null>>();
     for (const r of rows) {
-      const tplId = r.audioTemplate.id;
+      const tplId = r.audioTemplate?.id;
       if (tplId && !idToUrl.has(tplId)) {
         idToUrl.set(
           tplId,
@@ -260,6 +275,7 @@ export class AudioService {
 
     const result = new Map<string, AttachedTrack[]>();
     for (const r of rows) {
+      if (!r.audioTemplate) continue;
       const list = result.get(r.videoId) ?? [];
       const url = r.audioTemplate.id
         ? (await idToUrl.get(r.audioTemplate.id)!) ?? null

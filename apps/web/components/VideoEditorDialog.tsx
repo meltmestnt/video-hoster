@@ -126,6 +126,9 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
 
   // For GIFs the API caps duration at 20s — auto-clamp the trim window when
   // the user switches to gif mode so they can see the limit immediately.
+  // Include trim/duration in deps so a re-clamp also runs if the user
+  // adjusts the window after switching (otherwise stale closure values
+  // could push a too-long trim through to convert).
   useEffect(() => {
     if (outputKind !== "gif") return;
     if (trimEnd - trimStart > MAX_GIF_DURATION_SECONDS) {
@@ -133,8 +136,7 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
         Math.min(duration, trimStart + MAX_GIF_DURATION_SECONDS),
       );
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [outputKind]);
+  }, [outputKind, trimStart, trimEnd, duration]);
 
   // Cleanup object URL.
   useEffect(() => {

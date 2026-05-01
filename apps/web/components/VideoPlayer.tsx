@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { Slider } from "@radix-ui/themes";
 import {
@@ -113,7 +113,10 @@ export function VideoPlayer({
   // volume/muted directly rather than via React props so a 60Hz progress
   // tick doesn't trigger a state update per overlay.
   const overlayAudioRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
-  const tracks = audioTracks ?? [];
+  // Without memo, `audioTracks ?? []` constructs a new array on every render
+  // and any effect that depends on it would fire on every parent rerender —
+  // including the high-frequency ones from the mini-player progress tick.
+  const tracks = useMemo(() => audioTracks ?? [], [audioTracks]);
 
   const mini = useMiniPlayer();
   const restoredTimeRef = useRef<number | null>(null);
