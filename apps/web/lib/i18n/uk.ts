@@ -54,6 +54,8 @@ export const uk: EnDict = {
   // ─── Footer ───
   "footer.privacy": "Конфіденційність",
   "footer.cookieSettings": "Налаштування cookie",
+  "footer.createdBy": "Створено",
+  "footer.withHelpFrom": "за допомогою",
 
   // ─── Privacy page ───
   "privacy.title": "Конфіденційність",

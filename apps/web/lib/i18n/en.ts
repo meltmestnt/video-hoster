@@ -52,6 +52,8 @@ export const en = {
   // ─── Footer ───
   "footer.privacy": "Privacy",
   "footer.cookieSettings": "Cookie settings",
+  "footer.createdBy": "Created by",
+  "footer.withHelpFrom": "with the help from",
 
   // ─── Privacy page ───
   "privacy.title": "Privacy",
