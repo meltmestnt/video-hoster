@@ -12,6 +12,7 @@ import type { SubscriptionsService } from "../subscriptions/subscriptions.servic
 import type { AudioService } from "../audio/audio.service";
 import type { S3Service } from "../s3/s3.service";
 import type { AuthService } from "../auth/auth.service";
+import type { BillingService } from "../billing/billing.service";
 
 export interface Services {
   users: UsersService;
@@ -27,6 +28,7 @@ export interface Services {
   audio: AudioService;
   s3: S3Service;
   auth: AuthService;
+  billing: BillingService;
 }
 
 export interface Context {

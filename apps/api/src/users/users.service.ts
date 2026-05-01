@@ -342,14 +342,18 @@ export class UsersService {
     const expiresAt = new Date(Date.now() + CONFIRMATION_TTL_MS);
     const link = `${this.config.getOrThrow<string>("WEB_ORIGIN")}/confirm?token=${rawToken}`;
 
+    // Try to send a confirmation email, but don't block sign-up on it. When
+    // the mail provider is misconfigured (Resend in sandbox, missing API key,
+    // unverified domain, etc.) the user is created as already-verified so
+    // they can sign in immediately. The error is still logged so an operator
+    // can investigate.
+    let mailSent = false;
     try {
       await this.mail.sendConfirmation(email, link);
+      mailSent = true;
     } catch (err) {
       this.logger.error(
         `Failed to send confirmation email to ${email}: ${(err as Error).message}`,
-      );
-      throw new BadRequestException(
-        "Could not send confirmation email. Please try again in a moment.",
       );
     }
 
@@ -359,9 +363,9 @@ export class UsersService {
       googleId: null,
       avatarUrl: null,
       passwordHash,
-      status: "unverified",
-      confirmationTokenHash: tokenHash,
-      confirmationTokenExpiresAt: expiresAt,
+      status: mailSent ? "unverified" : "verified",
+      confirmationTokenHash: mailSent ? tokenHash : null,
+      confirmationTokenExpiresAt: mailSent ? expiresAt : null,
     });
     await this.users.save(user);
 
@@ -374,7 +378,10 @@ export class UsersService {
         ),
       );
 
-    return { status: "pending", email };
+    if (mailSent) {
+      return { status: "pending", email };
+    }
+    return { status: "confirmed", id: user.id, email, name: user.name };
   }
 
   async confirmSignUp(token: string): Promise<{

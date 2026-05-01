@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth";
 import { getServerTrpc } from "@/lib/trpc-server";
 import { TopBar } from "@/components/TopBar";
 import { MiniPlayer } from "@/components/MiniPlayer";
+import { UnverifiedBanner } from "@/components/UnverifiedBanner";
 import { Container } from "@radix-ui/themes";
 import { AuthRequiredProvider } from "@/lib/auth-required";
 
@@ -33,6 +34,7 @@ export default async function AppLayout({
         verified={me?.status === "verified"}
         miniPlayerEnabled={me?.miniPlayerEnabled ?? true}
       />
+      {signedIn && <UnverifiedBanner />}
       <Container size="4" px="4" py="6">
         {children}
       </Container>

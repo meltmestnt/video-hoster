@@ -203,6 +203,32 @@ export const adminListUsersInputSchema = z.object({
 });
 export type AdminListUsersInput = z.infer<typeof adminListUsersInputSchema>;
 
+export const SUBSCRIPTION_TIERS = ["free", "pro"] as const;
+export type SubscriptionTier = (typeof SUBSCRIPTION_TIERS)[number];
+
+export const billingCheckoutInputSchema = z.object({
+  // Where Stripe sends the user back. Both must be absolute URLs on the
+  // configured WEB_ORIGIN; the server enforces that to keep this from
+  // becoming an open redirect.
+  successPath: z.string().startsWith("/").max(200).default("/billing"),
+  cancelPath: z.string().startsWith("/").max(200).default("/billing"),
+});
+export type BillingCheckoutInput = z.infer<typeof billingCheckoutInputSchema>;
+
+export const billingPortalInputSchema = z.object({
+  returnPath: z.string().startsWith("/").max(200).default("/billing"),
+});
+export type BillingPortalInput = z.infer<typeof billingPortalInputSchema>;
+
+export const SUBSCRIPTION_STATUSES = [
+  "inactive",
+  "trialing",
+  "active",
+  "past_due",
+  "canceled",
+] as const;
+export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
+
 export const listSubscriptionsInputSchema = z.object({
   userId: z.string().uuid().optional(),
   cursor: z.string().uuid().optional(),

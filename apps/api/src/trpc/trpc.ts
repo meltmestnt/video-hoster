@@ -29,3 +29,19 @@ export const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
   }
   return next({ ctx });
 });
+
+/**
+ * Gates a route behind an active Pro subscription. Admins bypass — they get
+ * implicit access to everything. Use this for any feature you want to keep
+ * paid; the client-side `<RequiresPro>` is just UX, this is the real gate.
+ */
+export const proProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (ctx.user.role === "admin") return next({ ctx });
+  if (ctx.user.subscriptionTier !== "pro") {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "This feature requires a Pro subscription",
+    });
+  }
+  return next({ ctx });
+});

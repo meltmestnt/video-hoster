@@ -247,6 +247,11 @@ export const uk: EnDict = {
   "billing.upsell.title": "Функція Pro",
   "billing.upsell.body": "Підпишіться на Pro, щоб розблокувати.",
 
+  // ─── Unverified-account banner ───
+  "unverified.banner.title": "Підтвердьте пошту, щоб діяти на сайті.",
+  "unverified.banner.body":
+    "Ви можете переглядати, але завантаження, лайки, коментарі, обране, скачування й конвертація залишаться недоступними, доки ви не натиснете посилання з листа підтвердження.",
+
   // ─── Account deletion (self) ───
   "user.profile.deleteAccount": "Видалити акаунт",
   "deleteAccount.title": "Видалити ваш акаунт?",

@@ -15,6 +15,7 @@ import { TranscoderModule } from "./transcoder/transcoder.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { SubscriptionsModule } from "./subscriptions/subscriptions.module";
 import { AudioModule } from "./audio/audio.module";
+import { BillingModule } from "./billing/billing.module";
 import { TrpcModule } from "./trpc/trpc.module";
 
 @Module({
@@ -35,6 +36,7 @@ import { TrpcModule } from "./trpc/trpc.module";
     NotificationsModule,
     SubscriptionsModule,
     AudioModule,
+    BillingModule,
     TrpcModule,
   ],
 })

@@ -239,6 +239,11 @@ export const en = {
   "billing.upsell.title": "Pro feature",
   "billing.upsell.body": "Upgrade to Pro to unlock this.",
 
+  // ─── Unverified-account banner ───
+  "unverified.banner.title": "Verify your email to participate.",
+  "unverified.banner.body":
+    "You can browse, but uploads, reactions, comments, favorites, downloads, and conversions stay locked until you click the link in the confirmation email we sent you.",
+
   // ─── Account deletion (self) ───
   "user.profile.deleteAccount": "Delete account",
   "deleteAccount.title": "Delete your account?",

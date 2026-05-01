@@ -411,6 +411,9 @@ function ProfilePane({
             {t("user.profile.subscriptions")}
           </Link>
         </Button>
+        <Button asChild variant="soft" color="iris">
+          <Link href="/billing">{t("user.profile.billing")}</Link>
+        </Button>
         {me.data?.role === "admin" && (
           <Button asChild variant="soft" color="red">
             <Link href="/manage">{t("user.profile.manage")}</Link>

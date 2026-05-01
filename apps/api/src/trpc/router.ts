@@ -46,6 +46,7 @@ import {
   updateCommentInputSchema,
   videoIdInputSchema,
   adminListUsersInputSchema,
+  billingCheckoutInputSchema,
 } from "@repo/shared";
 import {
   router,
@@ -72,6 +73,9 @@ export const appRouter = router({
         miniPlayerEnabled: ctx.user.miniPlayerEnabled,
         miniPlayerPromptSeen: ctx.user.miniPlayerPromptSeen,
         notifySubscribersOnUpload: ctx.user.notifySubscribersOnUpload,
+        subscriptionTier: ctx.user.subscriptionTier,
+        subscriptionStatus: ctx.user.subscriptionStatus,
+        subscriptionPeriodEnd: ctx.user.subscriptionPeriodEnd,
       };
     }),
 
@@ -173,13 +177,13 @@ export const appRouter = router({
         }),
       ),
 
-    delete: protectedProcedure
+    delete: verifiedProcedure
       .input(videoIdInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.videos.deleteVideo(input.id, ctx.user.id),
       ),
 
-    react: protectedProcedure
+    react: verifiedProcedure
       .input(reactToVideoInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.reactions.setReaction(
@@ -189,6 +193,9 @@ export const appRouter = router({
         ),
       ),
 
+    // Listing your own favorites stays on the lighter gate — it's read-only
+    // and `favorites.toggle` already requires verified, so unverified users
+    // can't add to it anyway.
     favorites: protectedProcedure
       .input(listFavoritesInputSchema)
       .query(({ ctx, input }) =>
@@ -201,7 +208,7 @@ export const appRouter = router({
   }),
 
   favorites: router({
-    toggle: protectedProcedure
+    toggle: verifiedProcedure
       .input(toggleFavoriteInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.favorites.toggle(input.videoId, ctx.user.id),
@@ -264,13 +271,13 @@ export const appRouter = router({
         }),
       ),
 
-    delete: protectedProcedure
+    delete: verifiedProcedure
       .input(gifIdInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.gifs.deleteGif(input.id, ctx.user.id),
       ),
 
-    react: protectedProcedure
+    react: verifiedProcedure
       .input(reactToGifInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.reactions.setGifReaction(
@@ -303,7 +310,7 @@ export const appRouter = router({
         ctx.services.screenshots.byId(input.id, ctx.user?.id ?? null),
       ),
 
-    createUpload: protectedProcedure
+    createUpload: verifiedProcedure
       .input(createScreenshotUploadInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.screenshots.createUpload({
@@ -318,7 +325,7 @@ export const appRouter = router({
         }),
       ),
 
-    finalizeUpload: protectedProcedure
+    finalizeUpload: verifiedProcedure
       .input(finalizeScreenshotUploadInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.screenshots.finalizeUpload({
@@ -327,7 +334,7 @@ export const appRouter = router({
         }),
       ),
 
-    delete: protectedProcedure
+    delete: verifiedProcedure
       .input(screenshotIdInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.screenshots.deleteScreenshot(input.id, ctx.user.id),
@@ -359,7 +366,7 @@ export const appRouter = router({
         ),
       ),
 
-    createOnGif: protectedProcedure
+    createOnGif: verifiedProcedure
       .input(createGifCommentInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.comments.createOnGif(
@@ -370,7 +377,7 @@ export const appRouter = router({
         ),
       ),
 
-    react: protectedProcedure
+    react: verifiedProcedure
       .input(reactToCommentInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.reactions.setCommentReaction(
@@ -380,7 +387,7 @@ export const appRouter = router({
         ),
       ),
 
-    create: protectedProcedure
+    create: verifiedProcedure
       .input(createCommentInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.comments.create(
@@ -391,13 +398,13 @@ export const appRouter = router({
         ),
       ),
 
-    update: protectedProcedure
+    update: verifiedProcedure
       .input(updateCommentInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.comments.update(input.id, ctx.user.id, input.body),
       ),
 
-    delete: protectedProcedure
+    delete: verifiedProcedure
       .input(commentIdInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.comments.delete(input.id, ctx.user.id),
@@ -501,8 +508,33 @@ export const appRouter = router({
       ),
   }),
 
+  billing: router({
+    me: protectedProcedure.query(({ ctx }) => ({
+      tier: ctx.user.subscriptionTier,
+      status: ctx.user.subscriptionStatus,
+      periodEnd: ctx.user.subscriptionPeriodEnd,
+      hasSubscription: !!ctx.user.lemonSubscriptionId,
+    })),
+
+    createCheckoutSession: protectedProcedure
+      .input(billingCheckoutInputSchema)
+      .mutation(({ ctx, input }) => {
+        const origin = process.env.WEB_ORIGIN ?? "http://localhost:3000";
+        return ctx.services.billing.createCheckoutSession({
+          userId: ctx.user.id,
+          successUrl: `${origin}${input.successPath}?checkout=success`,
+        });
+      }),
+
+    // LemonSqueezy scopes the "manage subscription" portal per-subscription
+    // and the URL is short-lived, so we fetch a fresh one on every click.
+    getPortalUrl: protectedProcedure.mutation(({ ctx }) =>
+      ctx.services.billing.getPortalUrl({ userId: ctx.user.id }),
+    ),
+  }),
+
   subscriptions: router({
-    toggle: protectedProcedure
+    toggle: verifiedProcedure
       .input(userIdInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.subscriptions.toggle(ctx.user.id, input.userId),
@@ -552,7 +584,7 @@ export const appRouter = router({
       ctx.services.audio.listMine(ctx.user.id),
     ),
 
-    createUpload: protectedProcedure
+    createUpload: verifiedProcedure
       .input(createAudioUploadInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.audio.createUpload({
@@ -564,7 +596,7 @@ export const appRouter = router({
         }),
       ),
 
-    finalizeUpload: protectedProcedure
+    finalizeUpload: verifiedProcedure
       .input(finalizeAudioUploadInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.audio.finalizeUpload({
@@ -573,14 +605,14 @@ export const appRouter = router({
         }),
       ),
 
-    delete: protectedProcedure
+    delete: verifiedProcedure
       .input(audioTemplateIdInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.audio.deleteTemplate(input.id, ctx.user.id),
       ),
 
     // Attach an existing template as an overlay on one of your videos.
-    attach: protectedProcedure
+    attach: verifiedProcedure
       .input(attachAudioInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.audio.attachToVideo({
@@ -592,7 +624,7 @@ export const appRouter = router({
         }),
       ),
 
-    update: protectedProcedure
+    update: verifiedProcedure
       .input(updateAudioTrackInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.audio.updateAttachment({
@@ -603,13 +635,13 @@ export const appRouter = router({
         }),
       ),
 
-    detach: protectedProcedure
+    detach: verifiedProcedure
       .input(audioTrackIdInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.audio.detach(input.trackId, ctx.user.id),
       ),
 
-    setMainMuted: protectedProcedure
+    setMainMuted: verifiedProcedure
       .input(setMainAudioMutedInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.audio.setMainMuted(

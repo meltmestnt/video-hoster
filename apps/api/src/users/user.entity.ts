@@ -8,6 +8,15 @@ import {
 
 export type UserStatus = "verified" | "unverified";
 export type UserRole = "admin" | "user";
+export type SubscriptionTier = "free" | "pro";
+// LemonSqueezy ships richer states (paused, unpaid, expired, etc.) which all
+// collapse to "inactive" at sync time — we only care whether access is granted.
+export type SubscriptionStatus =
+  | "inactive"
+  | "trialing"
+  | "active"
+  | "past_due"
+  | "canceled";
 
 @Entity("users")
 export class User {
@@ -57,6 +66,32 @@ export class User {
 
   @Column({ type: "boolean", default: true })
   notifySubscribersOnUpload: boolean;
+
+  // ─── LemonSqueezy subscription state ───
+  // The LS customer attached to this user. We don't pre-create — LS makes
+  // one on the first checkout — so we just record the ID we see in webhooks.
+  @Index({ unique: true })
+  @Column({ type: "varchar", nullable: true })
+  lemonCustomerId: string | null;
+
+  // Latest active or recently-active subscription. Null when the user has
+  // never subscribed. Kept around after cancel so we can show "ends on …".
+  @Index()
+  @Column({ type: "varchar", nullable: true })
+  lemonSubscriptionId: string | null;
+
+  @Index()
+  @Column({ type: "varchar", length: 16, default: "free" })
+  subscriptionTier: SubscriptionTier;
+
+  @Column({ type: "varchar", length: 16, default: "inactive" })
+  subscriptionStatus: SubscriptionStatus;
+
+  // When the current paid period ends. For an active sub this is the next
+  // renewal date; for a canceled-but-still-paid sub this is when access
+  // actually expires.
+  @Column({ type: "timestamptz", nullable: true })
+  subscriptionPeriodEnd: Date | null;
 
   @CreateDateColumn()
   createdAt: Date;

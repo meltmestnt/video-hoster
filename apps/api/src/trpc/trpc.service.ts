@@ -13,6 +13,7 @@ import { SubscriptionsService } from "../subscriptions/subscriptions.service";
 import { AudioService } from "../audio/audio.service";
 import { S3Service } from "../s3/s3.service";
 import { AuthService } from "../auth/auth.service";
+import { BillingService } from "../billing/billing.service";
 import { appRouter, type AppRouter } from "./router";
 import type { Context } from "./context";
 
@@ -34,6 +35,7 @@ export class TrpcService {
     private readonly audio: AudioService,
     private readonly s3: S3Service,
     private readonly auth: AuthService,
+    private readonly billing: BillingService,
   ) {}
 
   createContext = async ({
@@ -53,6 +55,7 @@ export class TrpcService {
       audio: this.audio,
       s3: this.s3,
       auth: this.auth,
+      billing: this.billing,
     };
 
     const header = req.headers.authorization;
