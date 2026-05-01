@@ -21,6 +21,8 @@ import { absoluteUrl } from "@/lib/site";
 import { T } from "@/lib/i18n";
 import { parseAnonViewLimitError } from "@/lib/anon-view-limit";
 import { AnonViewLimitNotice } from "@/components/AnonViewLimitNotice";
+import { AnonPreviewLock } from "@/components/AnonPreviewLock";
+import { ANON_VIDEO_PREVIEW_SECONDS } from "@repo/shared";
 
 export const dynamic = "force-dynamic";
 
@@ -224,6 +226,18 @@ export default async function VideoPage({
               volume: t.volume,
             }))}
             mainAudioMuted={video.mainAudioMuted}
+            // Anon viewers get a 30s preview and no upfront byte fetch —
+            // the player won't request anything until they click play.
+            // Both props are no-ops once a real session is attached.
+            lazyLoad={!session?.user}
+            maxPlaybackSeconds={
+              session?.user ? undefined : ANON_VIDEO_PREVIEW_SECONDS
+            }
+            previewLockOverlay={
+              session?.user ? undefined : (
+                <AnonPreviewLock callbackPath={`/videos/${video.id}`} />
+              )
+            }
           />
         ) : (
           <Box className="player-frame">

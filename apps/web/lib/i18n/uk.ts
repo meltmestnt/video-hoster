@@ -392,6 +392,13 @@ export const uk: EnDict = {
   "anonViewLimit.signIn": "Увійти",
   "anonViewLimit.signUp": "Створити безкоштовний акаунт",
 
+  // ─── Anonymous preview cap (per-video, in-player) ───
+  "anonPreview.title": "Увійдіть, щоб дивитися далі",
+  "anonPreview.body":
+    "Анонімні відвідувачі можуть переглянути перші {seconds} секунд відео. Увійдіть, щоб розблокувати решту.",
+  "anonPreview.signIn": "Увійти",
+  "anonPreview.signUp": "Створити безкоштовний акаунт",
+
   // ─── Account deletion (self) ───
   "user.profile.deleteAccount": "Видалити акаунт",
   "deleteAccount.title": "Видалити ваш акаунт?",

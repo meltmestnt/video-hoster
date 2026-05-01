@@ -51,6 +51,11 @@ export const MEDIA_DAILY_BYTES_PER_IP = 5 * 1024 ** 3;
 // fires range requests on seek but cuts off any sustained loop attack.
 export const MEDIA_REQUESTS_PER_MINUTE_PER_IP = 200;
 
+// How many seconds an anonymous viewer can watch before the player
+// pauses and shows a sign-in CTA. They get a real preview, but the
+// expensive tail of a long video stays gated until they sign in.
+export const ANON_VIDEO_PREVIEW_SECONDS = 30;
+
 export const ALLOWED_VIDEO_MIME_TYPES = [
   "video/mp4",
   "video/quicktime",

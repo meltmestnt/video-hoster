@@ -108,3 +108,47 @@ export function enforceMediaThrottle(
     bytesLimit: MEDIA_DAILY_BYTES_PER_IP,
   };
 }
+
+// ─── Concurrent stream slots ───
+// Counts in-flight /media/ requests per IP. The streaming endpoint holds
+// the connection open for the entire payload, so a single IP opening many
+// tabs/sockets to one signed URL can sustain a large multiplier on egress.
+// 4 per IP covers normal multi-tab use (background tabs preload, mobile
+// hand-off, etc.) but kills the open-50-tabs trick.
+const MAX_CONCURRENT_STREAMS_PER_IP = 4;
+const liveSlots = new Map<string, number>();
+
+export interface StreamSlot {
+  release: () => void;
+}
+
+/**
+ * Reserves a concurrent-stream slot for `ip`. Throws when the IP already has
+ * MAX_CONCURRENT_STREAMS_PER_IP streams open. Caller MUST call `release()`
+ * when the response finishes (success, error, or client abort) so the
+ * counter reflects reality.
+ */
+export function acquireStreamSlot(ip: string): StreamSlot {
+  const inFlight = liveSlots.get(ip) ?? 0;
+  if (inFlight >= MAX_CONCURRENT_STREAMS_PER_IP) {
+    throw new MediaThrottleException(
+      "media-rate-limit",
+      `Too many concurrent streams from your IP (max ${MAX_CONCURRENT_STREAMS_PER_IP}). Close other tabs and try again.`,
+    );
+  }
+  liveSlots.set(ip, inFlight + 1);
+  let released = false;
+  return {
+    release: () => {
+      if (released) return;
+      released = true;
+      const next = (liveSlots.get(ip) ?? 1) - 1;
+      if (next <= 0) liveSlots.delete(ip);
+      else liveSlots.set(ip, next);
+    },
+  };
+}
+
+export function concurrentStreamsForIp(ip: string): number {
+  return liveSlots.get(ip) ?? 0;
+}

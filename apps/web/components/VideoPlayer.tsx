@@ -44,6 +44,18 @@ interface VideoPlayerProps {
   // When true, the video's built-in audio is silenced so only overlays
   // play. Independent from the user's session mute toggle.
   mainAudioMuted?: boolean;
+  // Hard cap on playback time before the player pauses and shows a CTA.
+  // Used for anonymous-viewer previews — the visitor watches the first
+  // N seconds and then has to sign in to continue. Undefined = no cap.
+  maxPlaybackSeconds?: number;
+  // Renders inside the player frame when the playback cap fires. Server
+  // pages pass a sign-in CTA; preview-less players leave it undefined.
+  previewLockOverlay?: React.ReactNode;
+  // When true, the underlying <video> element gets preload="none" so the
+  // browser doesn't fetch any bytes until the user clicks play. We use
+  // this for anon viewers — the byId trip costs nothing on its own,
+  // but the metadata range request the player fires on mount can.
+  lazyLoad?: boolean;
 }
 
 /**
@@ -104,6 +116,9 @@ export function VideoPlayer({
   title,
   audioTracks,
   mainAudioMuted,
+  maxPlaybackSeconds,
+  previewLockOverlay,
+  lazyLoad,
 }: VideoPlayerProps) {
   const playerRef = useRef<ReactPlayerType | null>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
@@ -132,6 +147,9 @@ export function VideoPlayer({
   const [buffering, setBuffering] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
+  // Latches once an anon viewer has watched their preview window. Stays
+  // sticky for the page's lifetime — a seek back wouldn't bypass the gate.
+  const [previewLocked, setPreviewLocked] = useState(false);
 
   // Adopt this video into the mini-player context. If the same video was
   // playing before (via mini), restore its time/playing/volume state.
@@ -160,7 +178,12 @@ export function VideoPlayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing, volume, muted, videoId]);
 
-  const togglePlay = () => setPlaying((p) => !p);
+  const togglePlay = () => {
+    // Once the preview window is exhausted there's nothing to toggle to —
+    // the only way out is the CTA overlay rendered over the frame.
+    if (previewLocked) return;
+    setPlaying((p) => !p);
+  };
   const toggleMute = () => setMuted((m) => !m);
 
   const seekBy = (deltaSec: number) => {
@@ -361,6 +384,18 @@ export function VideoPlayer({
           if (videoId && Number.isFinite(s.playedSeconds)) {
             mini.update({ currentTime: s.playedSeconds });
           }
+          // Hard pause once the anon-preview window is up. We snap the
+          // player to the cap rather than letting it drift past so the
+          // visible time matches the lock.
+          if (
+            maxPlaybackSeconds != null &&
+            s.playedSeconds >= maxPlaybackSeconds &&
+            !previewLocked
+          ) {
+            setPreviewLocked(true);
+            setPlaying(false);
+            playerRef.current?.seekTo(maxPlaybackSeconds, "seconds");
+          }
           // Drift-correct each overlay against the video's clock. Cheap when
           // already in sync (no DOM mutation), pulls back overlays that have
           // drifted >300ms — happens after seeks, network stalls, etc.
@@ -374,10 +409,40 @@ export function VideoPlayer({
         onDuration={(d) => setDuration(d)}
         config={{
           file: {
-            attributes: thumbnailUrl ? { poster: thumbnailUrl } : {},
+            attributes: {
+              ...(thumbnailUrl ? { poster: thumbnailUrl } : {}),
+              // preload="none" defers all byte fetches (including the
+              // metadata range request the browser fires on mount) until
+              // the user actually clicks play. Saves bandwidth on every
+              // browse-and-bounce.
+              preload: lazyLoad ? "none" : "metadata",
+            },
           },
         }}
       />
+      {previewLocked && previewLockOverlay && (
+        <div
+          className="player-preview-lock"
+          // The overlay sits above the controls so seek/play don't bypass
+          // it. onClick stops propagation so taps inside the CTA don't
+          // bubble back into the frame's togglePlay handler.
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(0, 0, 0, 0.78)",
+            backdropFilter: "blur(2px)",
+            zIndex: 5,
+            padding: "24px",
+            textAlign: "center",
+          }}
+        >
+          {previewLockOverlay}
+        </div>
+      )}
       {(!ready || buffering) && <div className="media-loader" aria-hidden />}
       <div
         className={`player-controls${controlsVisible ? " is-visible" : ""}`}

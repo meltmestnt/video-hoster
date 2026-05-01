@@ -36,11 +36,12 @@ export function isMediaKind(s: string): s is MediaKind {
   return KINDS.has(s as MediaKind);
 }
 
-// One hour of validity is plenty for a video session and matches what
-// presigned S3 URLs used to give us. Long enough that a viewer can pause
-// halfway through a movie and resume; short enough that a leaked URL
-// stops working before it spreads.
-const URL_TTL_MS = 60 * 60 * 1000;
+// 15 minutes is the smallest window that still lets a typical viewer
+// finish a clip without re-issuing — long videos transparently re-fetch
+// a fresh URL on the next page load (force-dynamic). Shorter is better
+// for wallet protection: a leaked URL stops working in 15 min instead
+// of an hour, cutting the share-and-loop attack surface 4×.
+const URL_TTL_MS = 15 * 60 * 1000;
 
 @Injectable()
 export class MediaService {

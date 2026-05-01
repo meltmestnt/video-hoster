@@ -383,6 +383,13 @@ export const en = {
   "anonViewLimit.signIn": "Sign in",
   "anonViewLimit.signUp": "Create a free account",
 
+  // ─── Anonymous preview cap (per-video, in-player) ───
+  "anonPreview.title": "Sign in to keep watching",
+  "anonPreview.body":
+    "Anonymous visitors can watch the first {seconds} seconds of any video. Sign in to unlock the rest.",
+  "anonPreview.signIn": "Sign in",
+  "anonPreview.signUp": "Create a free account",
+
   // ─── Account deletion (self) ───
   "user.profile.deleteAccount": "Delete account",
   "deleteAccount.title": "Delete your account?",
