@@ -147,8 +147,8 @@ export function VideoAudioControls({
   };
 
   return (
-    <Card mt="4">
-      <Flex direction="column" gap="3" p="3">
+    <Card my="5">
+      <Flex direction="column" gap="4" p="4">
         <Flex justify="between" align="center" gap="3" wrap="wrap">
           <Box>
             <Text size="3" weight="medium" as="div">
