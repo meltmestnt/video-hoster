@@ -94,8 +94,11 @@ export default function RootLayout({
       <body suppressHydrationWarning>
         <Theme appearance="dark" accentColor="iris" radius="large" scaling="100%">
           <Providers>{children}</Providers>
+          {/* Mounted inside <Theme> so the banner's Radix Buttons + CSS
+              tokens (--gray-*, --accent-*) resolve against the dark
+              palette instead of the unstyled default. */}
+          {GA_ID && <CookieConsent gaId={GA_ID} />}
         </Theme>
-        {GA_ID && <CookieConsent gaId={GA_ID} />}
       </body>
     </html>
   );

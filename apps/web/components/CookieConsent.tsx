@@ -55,9 +55,15 @@ export function CookieConsent({ gaId }: { gaId: string }) {
             left: 0,
             right: 0,
             zIndex: 50,
-            background: "var(--gray-2)",
-            borderTop: "1px solid var(--gray-5)",
-            padding: "16px",
+            // Hardcoded dark grays instead of var(--gray-*) so the banner
+            // looks correct even on first paint (before Theme CSS is
+            // applied) and on any future page that escapes the dark Theme
+            // scope. Matches the page chrome's neutral dark palette.
+            background: "#1a1a1a",
+            color: "#e4e4e7",
+            borderTop: "1px solid #2a2a2a",
+            boxShadow: "0 -4px 12px rgba(0, 0, 0, 0.4)",
+            padding: "14px 16px",
           }}
         >
           <Flex
@@ -67,7 +73,10 @@ export function CookieConsent({ gaId }: { gaId: string }) {
             wrap="wrap"
             style={{ maxWidth: 1200, margin: "0 auto" }}
           >
-            <Text size="2" style={{ flex: 1, minWidth: 280 }}>
+            <Text
+              size="2"
+              style={{ flex: 1, minWidth: 280, color: "#e4e4e7" }}
+            >
               {t("consent.message")}{" "}
               <Link
                 href="/privacy"
