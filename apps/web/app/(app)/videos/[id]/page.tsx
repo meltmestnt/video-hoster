@@ -84,13 +84,26 @@ export async function generateMetadata({
         : {}),
     },
     twitter: {
-      // summary_large_image gives the most reliable rich card across
-      // clients. summary_large_image + og:video is what makes Twitter
-      // show inline playback without a custom player iframe.
-      card: "summary_large_image",
+      // Player card with our own iframe so Twitter renders an inline
+      // player styled like the main /videos/[id] surface (black
+      // letterbox, native controls). Falls back to summary card for
+      // private items where the iframe would 404.
+      card: ogVideo ? "player" : "summary_large_image",
       title: video.title,
       description,
       images: ogImage ? [ogImage] : undefined,
+      ...(ogVideo
+        ? {
+            players: [
+              {
+                playerUrl: absoluteUrl(`/embed/v/${video.id}`),
+                streamUrl: ogVideo,
+                width: 1280,
+                height: 720,
+              },
+            ],
+          }
+        : {}),
     },
   };
 }

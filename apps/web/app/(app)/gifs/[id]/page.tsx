@@ -72,10 +72,24 @@ export async function generateMetadata({
         : {}),
     },
     twitter: {
-      card: "summary_large_image",
+      // Player card pointing at the embed iframe so the gif autoplays
+      // inline on Twitter, just like the main /gifs/[id] surface.
+      card: ogMedia ? "player" : "summary_large_image",
       title: gif.title,
       description,
       images: ogMedia ? [ogMedia] : undefined,
+      ...(ogMedia
+        ? {
+            players: [
+              {
+                playerUrl: absoluteUrl(`/embed/g/${gif.id}`),
+                streamUrl: ogMedia,
+                width: 480,
+                height: 480,
+              },
+            ],
+          }
+        : {}),
     },
   };
 }

@@ -12,9 +12,18 @@ const nextConfig = {
     ],
   },
   async rewrites() {
-    if (process.env.NODE_ENV !== "development") return [];
+    // /@:username is a friendlier public-profile URL than /u/:username,
+    // but Next.js doesn't allow `@` in folder names (it collides with
+    // the parallel-routes syntax). Rewrite at the edge so the file-system
+    // route lives at /u/[username] while users see /@handle in the bar.
+    const profileRewrite = {
+      source: "/@:username",
+      destination: "/u/:username",
+    };
+    if (process.env.NODE_ENV !== "development") return [profileRewrite];
     return [
       { source: "/trpc/:path*", destination: "http://localhost:4000/trpc/:path*" },
+      profileRewrite,
     ];
   },
   async headers() {
@@ -28,6 +37,23 @@ const nextConfig = {
         headers: [
           { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
           { key: "Service-Worker-Allowed", value: "/" },
+        ],
+      },
+      {
+        // Embed routes are explicitly designed to render inside iframes
+        // on Twitter, Discord, etc. Default Next.js doesn't set a frame
+        // policy, but some hosts (Railway proxy / Cloudflare) inject
+        // X-Frame-Options: SAMEORIGIN by default which would break the
+        // Twitter Player card. CSP frame-ancestors '*' is the modern
+        // equivalent of "anyone may iframe this" — narrower than
+        // wildcards we'd hand to a CSP for the rest of the app, since
+        // these pages contain only a single <video>/<img> element.
+        source: "/embed/:path*",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: "frame-ancestors *",
+          },
         ],
       },
     ];
