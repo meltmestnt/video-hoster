@@ -5,7 +5,6 @@ import {
   Injectable,
   Logger,
   NotFoundException,
-  type OnApplicationBootstrap,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { In, Repository, SelectQueryBuilder } from "typeorm";
@@ -55,7 +54,7 @@ const slugify = (s: string): string =>
     .slice(0, 60) || "gif";
 
 @Injectable()
-export class GifsService implements OnApplicationBootstrap {
+export class GifsService {
   private readonly logger = new Logger(GifsService.name);
 
   constructor(
@@ -74,46 +73,6 @@ export class GifsService implements OnApplicationBootstrap {
   // case two replicas race and the second upload wins; both end with a
   // valid mp4 in S3.
   private readonly mp4InFlight = new Set<string>();
-
-  /**
-   * One-shot startup migration: clear every populated `mp4S3Key` /
-   * `thumbS3Key` so the lazy backfill in `ensureMp4` re-runs the
-   * transcoder with the current settings + generates the new JPEG
-   * thumbnail. Earlier generations produced files Telegram silently
-   * dropped from inline previews.
-   *
-   * Idempotent: subsequent boots find no rows to clear and the update
-   * is a no-op. Remove this hook in a follow-up commit once
-   * production is confirmed back-filled with the new pipeline.
-   */
-  async onApplicationBootstrap(): Promise<void> {
-    // Raw SQL with explicitly quoted camelCase identifiers — Postgres
-    // lowercases unquoted identifiers, so `mp4S3Key` would silently
-    // become `mp4s3key` (which doesn't exist) and the migration would
-    // error out without a visible log. Idempotent UPDATE: rows that
-    // already have NULLs in both columns stay NULL.
-    try {
-      const rows = await this.gifs.query(
-        `UPDATE gifs SET "mp4S3Key" = NULL, "thumbS3Key" = NULL
-         WHERE "mp4S3Key" IS NOT NULL OR "thumbS3Key" IS NOT NULL
-         RETURNING id`,
-      );
-      const affected = Array.isArray(rows) ? rows.length : 0;
-      if (affected > 0) {
-        this.logger.log(
-          `gifs.onApplicationBootstrap cleared mp4/thumb keys on ${affected} rows for re-encode`,
-        );
-      } else {
-        this.logger.log(
-          `gifs.onApplicationBootstrap nothing to clear (mp4/thumb columns already null)`,
-        );
-      }
-    } catch (err) {
-      this.logger.warn(
-        `gifs.onApplicationBootstrap migration failed: ${(err as Error).message}`,
-      );
-    }
-  }
 
   async createUpload(args: CreateUploadArgs) {
     if (args.sizeBytes > MAX_GIF_BYTES) {

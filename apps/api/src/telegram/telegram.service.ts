@@ -65,37 +65,6 @@ export class TelegramService
       this.config.get<string>("TELEGRAM_BOT_USERNAME")?.replace(/^@/, "") ??
       null;
     this.bot = new Bot(token);
-    // Diagnostic transformer: log the exact answerInlineQuery payload
-    // we send and Telegram's response. Telegram silently drops
-    // individual results from a successful answerInlineQuery call when
-    // it can't render them, so the bot side sees ok=true while the
-    // user sees "No results". The response logging is the only way
-    // to tell whether the rejection happens here or after delivery
-    // to the client. Drop this transformer in cleanup once inline
-    // results are reliably displaying.
-    this.bot.api.config.use(async (prev, method, payload, signal) => {
-      if (method === "answerInlineQuery") {
-        try {
-          this.logger.log(
-            `telegram.api.answerInlineQuery payload: ${JSON.stringify(payload)}`,
-          );
-        } catch {
-          // payload should always be JSON-serializable, but never let
-          // a logging hiccup take the API call down.
-        }
-      }
-      const result = await prev(method, payload, signal);
-      if (method === "answerInlineQuery") {
-        try {
-          this.logger.log(
-            `telegram.api.answerInlineQuery result: ${JSON.stringify(result)}`,
-          );
-        } catch {
-          // ignore
-        }
-      }
-      return result;
-    });
     this.registerHandlers(this.bot);
     // Keep the description in sync with what we say in bot-strings — uk
     // is the default, en is registered with language_code so Telegram
@@ -583,10 +552,9 @@ export class TelegramService
             mpeg4_url: mpegUrl,
             // Some Telegram clients eagerly compute picker grid cell
             // sizes from mpeg4_width / mpeg4_height and silently drop
-            // results without dimensions. We don't ffprobe yet so use
-            // 320×240 as a plausible 4:3 default — Telegram doesn't
-            // validate that they match the actual file, they're hints
-            // for layout only.
+            // results without dimensions. 320×240 is a plausible 4:3
+            // default — Telegram treats these as layout hints, it
+            // doesn't validate them against the actual file.
             mpeg4_width: 320,
             mpeg4_height: 240,
             thumbnail_url: thumbUrl,
@@ -601,15 +569,6 @@ export class TelegramService
         this.logger.log(
           `telegram.inline_query from=${fromId} q="${q}" matched=${items.length} returned=${results.length} backfill=${pendingBackfill.length}`,
         );
-        // Debug aid while inline mpeg4_gif rendering is flaky: log the
-        // first signed URL we hand Telegram so we can curl it directly
-        // and confirm it's reachable + serves video/mp4. Drop this
-        // logger.log once inline results are reliably displaying.
-        if (results.length > 0) {
-          this.logger.log(
-            `telegram.inline_query sample mpeg4_url=${results[0].mpeg4_url}`,
-          );
-        }
         // Don't await — ffmpeg can take a couple of seconds per gif and
         // Telegram only gives us a short window to answer the query.
         for (const id of pendingBackfill) {
@@ -620,13 +579,10 @@ export class TelegramService
           );
         }
         await ctx.answerInlineQuery(results, {
-          // cache_time: 0 + is_personal: false while diagnosing why
-          // Telegram returns ok:true but the picker shows "No results"
-          // — this disables Telegram's per-user cache so a single
-          // earlier broken answer can't keep poisoning fresh queries
-          // for the cache TTL. Tighten back up once inline results
-          // display reliably.
-          cache_time: 0,
+          // Public-only filter at the SQL layer means every user sees
+          // the same answer for a given query, so a shared cache is
+          // safe and saves us a request per keystroke.
+          cache_time: INLINE_CACHE_SECONDS,
           is_personal: false,
         });
       } catch (err) {

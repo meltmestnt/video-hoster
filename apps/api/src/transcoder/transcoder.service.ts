@@ -242,16 +242,13 @@ export class TranscoderService {
         .format("mp4");
 
       // Capture ffmpeg's stderr — that's where it logs codec/container
-      // warnings that explain why an output won't play. We surface the
-      // tail on errors so the next run gives us something to debug.
+      // warnings that explain why an output won't play. We only
+      // surface the tail in the error log, so this is silent on the
+      // happy path.
       let stderrTail = "";
-      cmd
-        .on("start", (commandLine) => {
-          this.logger.log(`ffmpeg.gifToMp4 cmd: ${commandLine}`);
-        })
-        .on("stderr", (line) => {
-          stderrTail = `${stderrTail}${line}\n`.slice(-4096);
-        });
+      cmd.on("stderr", (line) => {
+        stderrTail = `${stderrTail}${line}\n`.slice(-4096);
+      });
 
       const timer = setTimeout(() => {
         try {
