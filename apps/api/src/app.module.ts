@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
+import { ScheduleModule } from "@nestjs/schedule";
 import { DatabaseModule } from "./database/database.module";
 import { AuthModule } from "./auth/auth.module";
 import { S3Module } from "./s3/s3.module";
@@ -17,11 +18,15 @@ import { SubscriptionsModule } from "./subscriptions/subscriptions.module";
 import { AudioModule } from "./audio/audio.module";
 import { BillingModule } from "./billing/billing.module";
 import { MediaModule } from "./media/media.module";
+import { RemindersModule } from "./reminders/reminders.module";
 import { TrpcModule } from "./trpc/trpc.module";
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    // Registers the @Cron decorator scanner. Has to be at app root so the
+    // RemindersService's daily job is picked up at startup.
+    ScheduleModule.forRoot(),
     DatabaseModule,
     AuthModule,
     S3Module,
@@ -39,6 +44,7 @@ import { TrpcModule } from "./trpc/trpc.module";
     AudioModule,
     BillingModule,
     MediaModule,
+    RemindersModule,
     TrpcModule,
   ],
 })

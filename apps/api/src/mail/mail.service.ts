@@ -72,6 +72,40 @@ export class MailService {
     this.logger.log(`Sent confirmation email to ${toEmail}`);
   }
 
+  /**
+   * Reminder version of sendConfirmation, sent by the daily cron when a
+   * user signed up but never clicked the link. Carries which attempt this
+   * is so the copy can escalate ("first reminder" vs "last reminder").
+   */
+  async sendConfirmationReminder(args: {
+    toEmail: string;
+    link: string;
+    attempt: number;
+    maxAttempts: number;
+  }): Promise<void> {
+    const isLast = args.attempt >= args.maxAttempts;
+    const subject = isLast
+      ? "Last reminder: confirm your vids&gifs account"
+      : "Reminder: confirm your vids&gifs account";
+    const intro = isLast
+      ? `<p>This is the last reminder we'll send. After this, your unverified account stays read-only — you can sign in and watch, but you won't be able to upload, comment, or react until you confirm.</p>`
+      : `<p>You signed up for vids&gifs but haven't confirmed your email yet. Until you do, your account is limited to watching content.</p>`;
+    const html = `${intro}
+<p>Confirm by clicking the link below:</p>
+<p><a href="${args.link}">${args.link}</a></p>
+<p style="color:#888;font-size:12px;">If you didn't sign up for vids&gifs, you can safely ignore these emails.</p>`;
+    const text = `${
+      isLast
+        ? "This is the last reminder we'll send. After this, your unverified account stays read-only — you can sign in and watch, but you won't be able to upload, comment, or react until you confirm."
+        : "You signed up for vids&gifs but haven't confirmed your email yet. Until you do, your account is limited to watching content."
+    }\n\nConfirm by visiting:\n${args.link}\n\nIf you didn't sign up for vids&gifs, you can safely ignore these emails.\n`;
+
+    await this.send([args.toEmail], subject, html, text);
+    this.logger.log(
+      `Sent confirmation reminder ${args.attempt}/${args.maxAttempts} to ${args.toEmail}`,
+    );
+  }
+
   /** Email every admin in ADMIN_EMAILS that a new user just signed up. */
   async notifyAdminsOfSignup(user: {
     name: string;

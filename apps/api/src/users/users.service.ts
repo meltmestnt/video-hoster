@@ -8,7 +8,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { IsNull, LessThan, Or, Repository } from "typeorm";
 import bcrypt from "bcryptjs";
 import { createHash, randomBytes } from "node:crypto";
 import {
@@ -523,6 +523,93 @@ export class UsersService {
     user.confirmationTokenExpiresAt = null;
     await this.users.save(user);
     return { id: user.id, email: user.email, name: user.name };
+  }
+
+  /**
+   * Daily-cron entry point. Finds unverified users who haven't been
+   * reminded recently and haven't hit the cap, mints a fresh
+   * confirmation token (the original almost certainly expired — TTL is
+   * 24h), and sends the reminder. Returns counters for the cron's log.
+   */
+  async sendConfirmationReminders(): Promise<{
+    considered: number;
+    sent: number;
+    failed: number;
+    capped: number;
+  }> {
+    const MAX_REMINDERS = 3;
+    // Hold off on the very first reminder for ~24h after signup so the
+    // welcome email + this one don't land back-to-back.
+    const FIRST_REMINDER_DELAY_MS = 24 * 60 * 60 * 1000;
+    // Spacing between reminders. 23h (not 24) so a slightly-late cron
+    // run doesn't accidentally skip a day.
+    const MIN_INTERVAL_MS = 23 * 60 * 60 * 1000;
+
+    const now = Date.now();
+    const signupCutoff = new Date(now - FIRST_REMINDER_DELAY_MS);
+    const lastSentCutoff = new Date(now - MIN_INTERVAL_MS);
+
+    const candidates = await this.users.find({
+      where: {
+        status: "unverified",
+        confirmationRemindersSent: LessThan(MAX_REMINDERS),
+        createdAt: LessThan(signupCutoff),
+        // Either the user has never been reminded, or the last reminder
+        // was long enough ago. Or() composes both into a single SQL OR.
+        lastConfirmationReminderAt: Or(IsNull(), LessThan(lastSentCutoff)),
+      },
+      select: ["id", "email", "name", "confirmationRemindersSent"],
+      // Cap per-run so a backlog (e.g., a long outage) doesn't spike
+      // egress on the mail provider all at once.
+      take: 200,
+    });
+
+    let sent = 0;
+    let failed = 0;
+    const webOrigin = this.config.getOrThrow<string>("WEB_ORIGIN");
+
+    for (const user of candidates) {
+      const rawToken = randomBytes(32).toString("base64url");
+      const tokenHash = sha256(rawToken);
+      const expiresAt = new Date(now + CONFIRMATION_TTL_MS);
+      const link = `${webOrigin}/confirm?token=${rawToken}`;
+      const nextAttempt = user.confirmationRemindersSent + 1;
+
+      try {
+        await this.mail.sendConfirmationReminder({
+          toEmail: user.email,
+          link,
+          attempt: nextAttempt,
+          maxAttempts: MAX_REMINDERS,
+        });
+        // Only persist the token + counter bump once the email is on the
+        // wire. If the send fails we leave the previous token in place
+        // (it's hashed so unusable, but the user might still hold the
+        // welcome-email link) and try again next run.
+        await this.users.update(
+          { id: user.id },
+          {
+            confirmationTokenHash: tokenHash,
+            confirmationTokenExpiresAt: expiresAt,
+            confirmationRemindersSent: nextAttempt,
+            lastConfirmationReminderAt: new Date(),
+          },
+        );
+        sent++;
+      } catch (err) {
+        failed++;
+        this.logger.warn(
+          `Reminder send failed for ${user.email}: ${(err as Error).message}`,
+        );
+      }
+    }
+
+    return {
+      considered: candidates.length,
+      sent,
+      failed,
+      capped: MAX_REMINDERS,
+    };
   }
 
   async verifyPassword(input: {

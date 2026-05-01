@@ -58,6 +58,18 @@ export class User {
   @Column({ type: "timestamptz", nullable: true })
   confirmationTokenExpiresAt: Date | null;
 
+  // How many reminder emails the daily cron has already sent to this
+  // user. Capped at 3 (see RemindersService) so we don't keep nagging
+  // someone who's clearly chosen to abandon the account.
+  @Column({ type: "int", default: 0 })
+  confirmationRemindersSent: number;
+
+  // When the last reminder went out. Used to enforce a one-per-day floor
+  // even if the cron is re-triggered, and to hold off on the very first
+  // reminder until the user has had ~24h to confirm naturally.
+  @Column({ type: "timestamptz", nullable: true })
+  lastConfirmationReminderAt: Date | null;
+
   @Column({ type: "boolean", default: true })
   miniPlayerEnabled: boolean;
 
