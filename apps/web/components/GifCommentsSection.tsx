@@ -12,6 +12,7 @@ import {
   TextArea,
 } from "@radix-ui/themes";
 import { useSession } from "next-auth/react";
+import Link from "next/link";
 import { trpc } from "@/lib/trpc";
 import { useEnsureVerified } from "@/lib/verify-action";
 import { useT } from "@/lib/i18n";
@@ -181,7 +182,21 @@ function CommentRow({
       />
       <Box style={{ flex: 1, minWidth: 0 }}>
         <Flex gap="2" align="center" mb="1" wrap="wrap">
-          <Text size="2" weight="medium">{comment.author.name}</Text>
+          {comment.author.username ? (
+            <Link
+              href={`/@${comment.author.username}`}
+              style={{
+                color: "var(--gray-12)",
+                fontSize: "var(--font-size-2)",
+                fontWeight: 500,
+                textDecoration: "none",
+              }}
+            >
+              {comment.author.name}
+            </Link>
+          ) : (
+            <Text size="2" weight="medium">{comment.author.name}</Text>
+          )}
           <Text size="1" color="gray">
             {new Date(comment.createdAt).toLocaleString()}
           </Text>

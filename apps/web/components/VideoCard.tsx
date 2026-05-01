@@ -12,7 +12,7 @@ interface VideoCardData {
   thumbnailUrl: string | null;
   videoUrl: string | null;
   visibility: "public" | "private";
-  owner: { name: string; avatarUrl: string | null };
+  owner: { name: string; username?: string | null; avatarUrl: string | null };
   tags: { id: string; name: string }[];
 }
 
@@ -316,7 +316,32 @@ export function VideoCard({
             )}
           </Flex>
           <Text as="div" size="2" color="gray" mb="2">
-            {video.owner.name}
+            {video.owner.username ? (
+              <span
+                role="button"
+                tabIndex={0}
+                // The whole card is wrapped in an <a>, so nested <a> would
+                // be invalid HTML. Use a span+stopPropagation instead and
+                // navigate manually to /@handle.
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  router.push(`/@${video.owner.username}`);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    router.push(`/@${video.owner.username}`);
+                  }
+                }}
+                style={{ cursor: "pointer", color: "var(--gray-12)" }}
+              >
+                {video.owner.name}
+              </span>
+            ) : (
+              video.owner.name
+            )}
           </Text>
           {video.tags.length > 0 && (
             <Flex gap="1" wrap="wrap">

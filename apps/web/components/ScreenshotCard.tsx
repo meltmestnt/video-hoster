@@ -13,6 +13,10 @@ interface ScreenshotCardData {
   width: number | null;
   height: number | null;
   createdAt: Date | string;
+  owner?: {
+    name: string;
+    username?: string | null;
+  };
 }
 
 export function ScreenshotCard({
@@ -68,6 +72,23 @@ export function ScreenshotCard({
               </Badge>
             )}
           </Flex>
+          {shot.owner?.name && (
+            <Text as="div" size="2" color="gray" mb="1">
+              {shot.owner.username ? (
+                <Link
+                  href={`/@${shot.owner.username}`}
+                  style={{
+                    color: "var(--gray-12)",
+                    textDecoration: "none",
+                  }}
+                >
+                  {shot.owner.name}
+                </Link>
+              ) : (
+                shot.owner.name
+              )}
+            </Text>
+          )}
           <Flex align="center" justify="between" gap="2">
             <Text as="div" size="1" color="gray">
               {shot.width && shot.height

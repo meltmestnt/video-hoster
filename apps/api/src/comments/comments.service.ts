@@ -88,6 +88,7 @@ export class CommentsService {
         author: {
           id: c.author.id,
           name: c.author.name,
+          username: c.author.username,
           avatarUrl: avatarByAuthor.get(c.author.id) ?? null,
         },
         likeCount: counts_.likes,

@@ -12,7 +12,7 @@ interface GifCardData {
   title: string;
   gifUrl: string | null;
   visibility: "public" | "private";
-  owner: { name: string; avatarUrl: string | null };
+  owner: { name: string; username?: string | null; avatarUrl: string | null };
   tags: { id: string; name: string }[];
 }
 
@@ -159,7 +159,32 @@ export function GifCard({
             )}
           </Flex>
           <Text as="div" size="2" color="gray" mb="2">
-            {gif.owner.name}
+            {gif.owner.username ? (
+              <span
+                role="button"
+                tabIndex={0}
+                // Card is wrapped in an outer <a> — span+stopPropagation
+                // is the only way to nest a clickable region without
+                // emitting invalid nested anchor markup.
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  router.push(`/@${gif.owner.username}`);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    router.push(`/@${gif.owner.username}`);
+                  }
+                }}
+                style={{ cursor: "pointer", color: "var(--gray-12)" }}
+              >
+                {gif.owner.name}
+              </span>
+            ) : (
+              gif.owner.name
+            )}
           </Text>
           {gif.tags.length > 0 && (
             <Flex gap="1" wrap="wrap">
