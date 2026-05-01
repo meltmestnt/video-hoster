@@ -27,6 +27,29 @@ export const en = {
   "footer.privacy": "Privacy",
   "footer.cookieSettings": "Cookie settings",
 
+  // ─── Privacy page ───
+  "privacy.title": "Privacy",
+  "privacy.lastUpdated": "Last updated: {date}",
+  "privacy.collect.heading": "What we collect",
+  "privacy.collect.account":
+    "Account information you provide when signing up: name, email address, and (if you sign in with Google) profile picture. The content you upload — videos, GIFs, screenshots — along with any titles, descriptions, and tags you attach to it.",
+  "privacy.collect.analytics":
+    "If you accept the cookie banner, Google Analytics 4 collects anonymized usage data (page views, time on page, device type, approximate location). If you decline, no analytics scripts load and nothing is sent to Google. Strictly necessary authentication cookies are always set so you can stay signed in — these are exempt from consent under GDPR.",
+  "privacy.use.heading": "How we use it",
+  "privacy.use.body":
+    "To run the service: storing and serving the content you upload, keeping private items visible only to their owner, and sending the occasional account email (sign-up confirmation, admin notifications about uploads). Aggregated analytics, if you consented, tell us which features are used so we can improve the site. We don't sell your data, share it with advertisers, or profile you for marketing.",
+  "privacy.rights.heading": "Your rights",
+  "privacy.rights.body":
+    "You can delete your account at any time from the profile menu. Deleting an account also deletes every video, GIF, and screenshot you uploaded, both in our database and in object storage. To withdraw or change your analytics consent, use the Cookie settings link in the footer.",
+  "privacy.thirdParties.heading": "Third parties",
+  "privacy.thirdParties.body":
+    "Hosting on Railway. Object storage on Amazon S3. Transactional email through Resend. Analytics — only if you consent — through Google Analytics 4. Each is bound by its own privacy policy; we only share data with them as needed to operate the service.",
+  "privacy.contact.heading": "Contact",
+  "privacy.contact.lead":
+    "For privacy questions, reach out at the email associated with this site's administrator. You can also revisit this page any time via the",
+  "privacy.contact.homeLink": "home page",
+  "privacy.contact.tail": " footer.",
+
   // ─── TopBar ───
   "topbar.search.placeholder.signedIn": "Search videos by title or tag",
   "topbar.search.placeholder.signedOut": "Sign in to search",

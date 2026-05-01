@@ -5,7 +5,7 @@ import { TopBar } from "@/components/TopBar";
 import { MiniPlayer } from "@/components/MiniPlayer";
 import { UnverifiedBanner } from "@/components/UnverifiedBanner";
 import { Footer } from "@/components/Footer";
-import { Container } from "@radix-ui/themes";
+import { Box, Container, Flex } from "@radix-ui/themes";
 import { AuthRequiredProvider } from "@/lib/auth-required";
 
 export default async function AppLayout({
@@ -26,20 +26,30 @@ export default async function AppLayout({
 
   return (
     <AuthRequiredProvider signedIn={signedIn}>
-      <TopBar
-        signedIn={signedIn}
-        userName={session?.user.name ?? null}
-        userEmail={session?.user.email ?? null}
-        avatarUrl={me?.avatarUrl ?? session?.user.image ?? null}
-        videoCount={me?.videoCount ?? 0}
-        verified={me?.status === "verified"}
-        miniPlayerEnabled={me?.miniPlayerEnabled ?? true}
-      />
-      {signedIn && <UnverifiedBanner />}
-      <Container size="4" px="4" py="6">
-        {children}
-      </Container>
-      <Footer />
+      <Flex
+        direction="column"
+        // Make the page a flex column at least as tall as the viewport so the
+        // footer drops to the bottom even on near-empty pages, while the
+        // <Box style={{ flex: 1 }}> below grows to fill the remaining space.
+        style={{ minHeight: "100vh" }}
+      >
+        <TopBar
+          signedIn={signedIn}
+          userName={session?.user.name ?? null}
+          userEmail={session?.user.email ?? null}
+          avatarUrl={me?.avatarUrl ?? session?.user.image ?? null}
+          videoCount={me?.videoCount ?? 0}
+          verified={me?.status === "verified"}
+          miniPlayerEnabled={me?.miniPlayerEnabled ?? true}
+        />
+        {signedIn && <UnverifiedBanner />}
+        <Box style={{ flex: 1 }}>
+          <Container size="4" px="4" py="6">
+            {children}
+          </Container>
+        </Box>
+        <Footer />
+      </Flex>
       {signedIn && <MiniPlayer />}
     </AuthRequiredProvider>
   );
