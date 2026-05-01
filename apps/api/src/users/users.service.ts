@@ -280,6 +280,22 @@ export class UsersService {
     return { ok: true };
   }
 
+  async deleteSelf(userId: string): Promise<{ ok: true }> {
+    const user = await this.users.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException("User not found");
+    // FK cascades wipe owned videos/gifs/comments. S3 media will leak — same
+    // tradeoff as adminDeleteUser; can be addressed by a sweeper later.
+    if (user.avatarS3Key) {
+      this.s3.deleteObject(user.avatarS3Key).catch((err) => {
+        this.logger.warn(
+          `Failed to delete avatar ${user.avatarS3Key} for self-deleted user ${user.id}: ${(err as Error).message}`,
+        );
+      });
+    }
+    await this.users.delete({ id: user.id });
+    return { ok: true };
+  }
+
   async adminDeleteUser(args: {
     actingUserId: string;
     targetUserId: string;

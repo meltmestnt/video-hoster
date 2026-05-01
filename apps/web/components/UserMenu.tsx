@@ -1,10 +1,12 @@
 "use client";
 
 import {
+  AlertDialog,
   Avatar,
   Badge,
   Box,
   Button,
+  Callout,
   Flex,
   Popover,
   SegmentedControl,
@@ -236,6 +238,22 @@ function ProfilePane({
   const setNotifyPref = trpc.users.setNotifySubscribersOnUpload.useMutation({
     onSuccess: () => utils.auth.me.invalidate(),
   });
+
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const deleteSelf = trpc.users.deleteSelf.useMutation();
+  const confirmDeleteSelf = async () => {
+    setDeleteError(null);
+    try {
+      await deleteSelf.mutateAsync();
+      // Sign out after the row is gone — the session token is now backed by
+      // a missing user, so any further requests would 401 anyway.
+      await signOut({ callbackUrl: "/" });
+    } catch (err) {
+      setDeleteError((err as Error).message);
+    }
+  };
+
   return (
     <Flex direction="column" gap="3" style={{ width: 280 }}>
       <Flex gap="3" align="center">
@@ -408,6 +426,50 @@ function ProfilePane({
         >
           {t("user.profile.signOut")}
         </Button>
+        <AlertDialog.Root
+          open={deleteOpen}
+          onOpenChange={(o) => {
+            setDeleteOpen(o);
+            if (!o) setDeleteError(null);
+          }}
+        >
+          <AlertDialog.Trigger>
+            <Button color="red" variant="ghost">
+              {t("user.profile.deleteAccount")}
+            </Button>
+          </AlertDialog.Trigger>
+          <AlertDialog.Content maxWidth="440px">
+            <AlertDialog.Title>{t("deleteAccount.title")}</AlertDialog.Title>
+            <AlertDialog.Description size="2">
+              {t("deleteAccount.body")}
+            </AlertDialog.Description>
+            {deleteError && (
+              <Callout.Root color="red" mt="3">
+                <Callout.Text>{deleteError}</Callout.Text>
+              </Callout.Root>
+            )}
+            <Flex gap="3" mt="4" justify="end">
+              <AlertDialog.Cancel>
+                <Button
+                  variant="soft"
+                  color="gray"
+                  disabled={deleteSelf.isPending}
+                >
+                  {t("common.cancel")}
+                </Button>
+              </AlertDialog.Cancel>
+              <Button
+                color="red"
+                onClick={confirmDeleteSelf}
+                disabled={deleteSelf.isPending}
+              >
+                {deleteSelf.isPending
+                  ? t("deleteAccount.deleting")
+                  : t("deleteAccount.confirm")}
+              </Button>
+            </Flex>
+          </AlertDialog.Content>
+        </AlertDialog.Root>
       </Flex>
     </Flex>
   );

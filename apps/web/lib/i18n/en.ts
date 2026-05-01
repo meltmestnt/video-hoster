@@ -178,6 +178,14 @@ export const en = {
   "share.button": "Share",
   "share.copied": "Copied!",
 
+  // ─── Account deletion (self) ───
+  "user.profile.deleteAccount": "Delete account",
+  "deleteAccount.title": "Delete your account?",
+  "deleteAccount.body":
+    "This permanently removes your account and every video, GIF, screenshot, and comment you've posted. This cannot be undone.",
+  "deleteAccount.confirm": "Yes, delete my account",
+  "deleteAccount.deleting": "Deleting...",
+
   // ─── Admin / manage ───
   "user.profile.manage": "Manage users",
   "manage.heading": "Manage users",

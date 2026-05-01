@@ -186,6 +186,14 @@ export const uk: EnDict = {
   "share.button": "Поділитися",
   "share.copied": "Скопійовано!",
 
+  // ─── Account deletion (self) ───
+  "user.profile.deleteAccount": "Видалити акаунт",
+  "deleteAccount.title": "Видалити ваш акаунт?",
+  "deleteAccount.body":
+    "Це остаточно видалить ваш акаунт і всі ваші відео, GIF, скріншоти та коментарі. Скасувати неможливо.",
+  "deleteAccount.confirm": "Так, видалити мій акаунт",
+  "deleteAccount.deleting": "Видалення...",
+
   // ─── Admin / manage ───
   "user.profile.manage": "Керування користувачами",
   "manage.heading": "Керування користувачами",

@@ -461,6 +461,10 @@ export const appRouter = router({
           input.enabled,
         ),
       ),
+
+    deleteSelf: protectedProcedure.mutation(({ ctx }) =>
+      ctx.services.users.deleteSelf(ctx.user.id),
+    ),
   }),
 
   admin: router({
