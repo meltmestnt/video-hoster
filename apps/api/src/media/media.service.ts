@@ -81,8 +81,12 @@ export function isCacheableKind(kind: MediaKind): boolean {
 // the signature itself stays kind+id+exp.
 const PATH_EXTENSIONS: Partial<Record<MediaKind, string>> = {
   mpeg4: ".mp4",
+  // Telegram rejects an InlineQueryResultMpeg4Gif whose thumbnail_url
+  // has no recognizable extension — the call still returns ok:true
+  // but the result silently never reaches the picker.
+  preview: ".jpg",
 };
-const PATH_EXTENSION_REGEX = /\.mp4$/i;
+const PATH_EXTENSION_REGEX = /\.(mp4|jpg)$/i;
 
 export function pathExtensionFor(kind: MediaKind): string {
   return PATH_EXTENSIONS[kind] ?? "";
