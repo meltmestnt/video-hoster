@@ -72,6 +72,23 @@ export function isCacheableKind(kind: MediaKind): boolean {
   return CACHEABLE_KINDS.has(kind);
 }
 
+// File extension to append to the URL path for kinds whose consumers
+// sniff the URL (Telegram is the noisy one — see signUrl). Strip the
+// matching suffix in the controller before signature verification so
+// the signature itself stays kind+id+exp.
+const PATH_EXTENSIONS: Partial<Record<MediaKind, string>> = {
+  mpeg4: ".mp4",
+};
+const PATH_EXTENSION_REGEX = /\.mp4$/i;
+
+export function pathExtensionFor(kind: MediaKind): string {
+  return PATH_EXTENSIONS[kind] ?? "";
+}
+
+export function stripPathExtension(id: string): string {
+  return id.replace(PATH_EXTENSION_REGEX, "");
+}
+
 @Injectable()
 export class MediaService {
   private readonly logger = new Logger(MediaService.name);
@@ -127,7 +144,13 @@ export class MediaService {
       : Date.now() + URL_TTL_MS;
     const sig = this.sign(args.kind, args.id, exp);
     const params = new URLSearchParams({ exp: String(exp), sig });
-    return `${this.publicBase}/media/${args.kind}/${args.id}?${params.toString()}`;
+    // Telegram's inline-query API does lightweight URL sniffing and
+    // silently drops mpeg4_gif results whose URL doesn't end in a
+    // recognizable video extension. The signature is still computed
+    // over the bare id — the controller strips the suffix before
+    // verifying so existing kinds keep working unchanged.
+    const ext = pathExtensionFor(args.kind);
+    return `${this.publicBase}/media/${args.kind}/${args.id}${ext}?${params.toString()}`;
   }
 
   /** Verify a signature; throws on failure. */

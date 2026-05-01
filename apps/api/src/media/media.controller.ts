@@ -18,6 +18,7 @@ import {
   isCacheableKind,
   MediaService,
   isMediaKind,
+  stripPathExtension,
 } from "./media.service";
 import {
   acquireStreamSlot,
@@ -154,7 +155,7 @@ export class MediaController {
   @Get(":kind/:id")
   async stream(
     @Param("kind") kindParam: string,
-    @Param("id") id: string,
+    @Param("id") rawId: string,
     @Query("exp") expRaw: string | undefined,
     @Query("sig") sig: string | undefined,
     @Headers("range") rangeHeader: string | undefined,
@@ -167,6 +168,11 @@ export class MediaController {
     if (!expRaw || !sig) {
       throw new BadRequestException("Missing signature");
     }
+    // mpeg4 URLs carry a `.mp4` suffix on the path so Telegram's inline
+    // URL sniffer treats them as videos (see MediaService.signUrl). The
+    // signature is computed over the bare id, so strip the suffix
+    // before verifying / resolving.
+    const id = stripPathExtension(rawId);
     const exp = Number(expRaw);
     this.media.verify({ kind: kindParam, id, exp, sig });
 

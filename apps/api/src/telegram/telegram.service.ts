@@ -423,6 +423,15 @@ export class TelegramService
         this.logger.log(
           `telegram.inline_query from=${fromId} q="${q}" matched=${items.length} returned=${results.length} backfill=${pendingBackfill.length}`,
         );
+        // Debug aid while inline mpeg4_gif rendering is flaky: log the
+        // first signed URL we hand Telegram so we can curl it directly
+        // and confirm it's reachable + serves video/mp4. Drop this
+        // logger.log once inline results are reliably displaying.
+        if (results.length > 0) {
+          this.logger.log(
+            `telegram.inline_query sample mpeg4_url=${results[0].mpeg4_url}`,
+          );
+        }
         // Don't await — ffmpeg can take a couple of seconds per gif and
         // Telegram only gives us a short window to answer the query.
         for (const id of pendingBackfill) {
