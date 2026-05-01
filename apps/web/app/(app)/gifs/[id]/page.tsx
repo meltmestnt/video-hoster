@@ -159,7 +159,7 @@ export default async function GifPage({
             )}
           </Flex>
         </Flex>
-        <Flex align="center" gap="3" mt="1" mb="3" wrap="wrap">
+        <Flex align="center" gap="3" mt="3" mb="3" wrap="wrap">
           <Text size="2" color="gray">{gif.owner.name}</Text>
           <SubscribeButton targetUserId={gif.owner.id} />
           <Text size="2" color="gray">·</Text>

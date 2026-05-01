@@ -245,7 +245,7 @@ export default async function VideoPage({
             )}
           </Flex>
         </Flex>
-        <Flex align="center" gap="3" mt="1" mb="3" wrap="wrap">
+        <Flex align="center" gap="3" mt="3" mb="3" wrap="wrap">
           <Text size="2" color="gray">
             {video.owner.name}
           </Text>
