@@ -32,23 +32,31 @@ export function UploadSuccessToast() {
         maxWidth: 380,
         padding: "12px 14px",
         borderRadius: 12,
-        border: "1px solid var(--gray-6)",
+        border: "1px solid var(--crimson-6)",
         boxShadow: "0 8px 24px rgba(0, 0, 0, 0.35)",
-        background:
-          "linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), linear-gradient(90deg, rgba(255,0,0,1), rgba(255,127,0,1), rgba(255,255,0,1), rgba(0,255,0,1), rgba(0,0,255,1), rgba(75,0,130,1), rgba(148,0,211,1))",
-        color: "#fff",
+        background: "var(--crimson-3)",
+        color: "var(--crimson-12)",
       }}
     >
       <Flex align="start" gap="3" justify="between">
         <Box style={{ minWidth: 0 }}>
-          <Text as="div" size="2" weight="bold" style={{ color: "#fff" }}>
+          <Text
+            as="div"
+            size="2"
+            weight="bold"
+            style={{ color: "var(--crimson-12)" }}
+          >
             Upload complete
           </Text>
-          <Text as="div" size="2" style={{ marginTop: 2, color: "#eee" }}>
+          <Text
+            as="div"
+            size="2"
+            style={{ marginTop: 2, color: "var(--crimson-11)" }}
+          >
             <Link
               href={`/videos/${lastSuccess.videoId}`}
               onClick={dismissSuccess}
-              style={{ color: "#a8d4ff", textDecoration: "underline" }}
+              style={{ color: "var(--crimson-12)", textDecoration: "underline" }}
             >
               {lastSuccess.title}
             </Link>{" "}
@@ -60,7 +68,7 @@ export function UploadSuccessToast() {
           variant="ghost"
           aria-label="Dismiss"
           onClick={dismissSuccess}
-          style={{ color: "#fff" }}
+          style={{ color: "var(--crimson-11)" }}
         >
           <Cross1Icon />
         </IconButton>
