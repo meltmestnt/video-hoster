@@ -507,6 +507,14 @@ export class TelegramService
             type: "mpeg4_gif",
             id: g.id,
             mpeg4_url: mpegUrl,
+            // Some Telegram clients eagerly compute picker grid cell
+            // sizes from mpeg4_width / mpeg4_height and silently drop
+            // results without dimensions. We don't ffprobe yet so use
+            // 320×240 as a plausible 4:3 default — Telegram doesn't
+            // validate that they match the actual file, they're hints
+            // for layout only.
+            mpeg4_width: 320,
+            mpeg4_height: 240,
             thumbnail_url: thumbUrl,
             thumbnail_mime_type: "image/jpeg",
             title: g.title,
@@ -538,12 +546,14 @@ export class TelegramService
           );
         }
         await ctx.answerInlineQuery(results, {
-          // Personal cache: results are gated on visibility filters that
-          // could differ per user once we add private-to-followers, and
-          // in the meantime keeps Telegram from caching empty results
-          // across users while backfill is filling in.
-          cache_time: INLINE_CACHE_SECONDS,
-          is_personal: true,
+          // cache_time: 0 + is_personal: false while diagnosing why
+          // Telegram returns ok:true but the picker shows "No results"
+          // — this disables Telegram's per-user cache so a single
+          // earlier broken answer can't keep poisoning fresh queries
+          // for the cache TTL. Tighten back up once inline results
+          // display reliably.
+          cache_time: 0,
+          is_personal: false,
         });
       } catch (err) {
         this.logger.warn(
