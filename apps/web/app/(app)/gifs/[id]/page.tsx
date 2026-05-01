@@ -177,26 +177,31 @@ export default async function GifPage({
           )}
         </Box>
         <Flex
-          // Always stacked — title on top, action row underneath. Matches
-          // the video detail page; the row layout never had enough room
-          // for the action set without collapsing the heading.
+          // Always stacked — title (with the small GIF label inline) on
+          // top, action row underneath. Matches the video detail page;
+          // the row layout never had enough room for the action set
+          // without collapsing the heading.
           direction="column"
           align="start"
           gap="3"
           mt="4"
         >
-          <Heading size="6" style={{ wordBreak: "break-word" }}>
-            {gif.title}
-          </Heading>
           <Flex align="center" gap="2" wrap="wrap">
-            <Badge variant="solid" color="iris">
+            <Heading size="6" style={{ wordBreak: "break-word" }}>
+              {gif.title}
+            </Heading>
+            {/* Small kind label sits next to the title so the action row
+                below isn't visually crowded by a non-action pill. */}
+            <Badge variant="soft" color="iris" size="2">
               GIF
             </Badge>
             {gif.visibility === "private" && (
-              <Badge variant="soft" color="gray">
+              <Badge variant="soft" color="gray" size="2">
                 <T k="card.private" />
               </Badge>
             )}
+          </Flex>
+          <Flex align="center" gap="2" wrap="wrap">
             <GifReactions
               gifId={gif.id}
               initialLikes={gif.likeCount}
