@@ -27,11 +27,18 @@ function TrpcProviders({ children }: { children: React.ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            // Trust SSR-provided data for a few seconds so the first
-            // refetch-on-mount (which fires before useSession resolves and
-            // would otherwise hit the API anonymously) doesn't clobber
-            // server-rendered, authenticated results.
-            staleTime: 10_000,
+            // Trust cached data for 60s by default — quick back-and-forth
+            // navigations between pages reuse already-fetched queries
+            // instead of re-hitting the API. Per-query staleTime overrides
+            // still apply: notifications.unreadCount uses 10s, byId uses 0
+            // for the auth bootstrap gap, etc.
+            staleTime: 60_000,
+            // Don't refetch every time the tab refocuses — saves a flurry
+            // of API calls every time the user alt-tabs back. Mutations
+            // already invalidate the relevant queries, so this only
+            // affects passive timeline drift, which 60s of staleness
+            // covers anyway.
+            refetchOnWindowFocus: false,
           },
         },
       }),

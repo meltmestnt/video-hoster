@@ -48,11 +48,56 @@ const nextConfig = {
         // equivalent of "anyone may iframe this" — narrower than
         // wildcards we'd hand to a CSP for the rest of the app, since
         // these pages contain only a single <video>/<img> element.
+        //
+        // Cache-Control: a CDN in front of Railway (Cloudflare, etc.)
+        // can cache the SSR output for a minute. Discord, Twitter, and
+        // other unfurlers re-fetch the same /embed URL many times when
+        // a link spreads — caching even briefly shaves real Railway
+        // requests. stale-while-revalidate keeps clients fast across
+        // the 1-min TTL boundary.
         source: "/embed/:path*",
         headers: [
           {
             key: "Content-Security-Policy",
             value: "frame-ancestors *",
+          },
+          {
+            key: "Cache-Control",
+            value: "public, s-maxage=60, stale-while-revalidate=300",
+          },
+        ],
+      },
+      {
+        // Sitemap response itself can be cached at the CDN for an hour;
+        // Google fetches it daily but bots and link-validators hit it
+        // far more often. The page-level `revalidate = 3600` controls
+        // SSR; this header makes the CDN respect the same window.
+        source: "/sitemap.xml",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, s-maxage=3600, stale-while-revalidate=86400",
+          },
+        ],
+      },
+      {
+        // Static — never changes between deploys.
+        source: "/robots.txt",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=86400",
+          },
+        ],
+      },
+      {
+        // Favicon. Next emits it via app/icon.tsx; the redirect at
+        // /favicon.ico already lands here. Safe to pin for a week.
+        source: "/icon",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=604800, immutable",
           },
         ],
       },

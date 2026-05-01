@@ -2,8 +2,10 @@ import type { MetadataRoute } from "next";
 import { getServerTrpc } from "@/lib/trpc-server";
 import { absoluteUrl } from "@/lib/site";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 3600; // refresh hourly
+// Static + ISR. Without this, Next ignores `revalidate` and SSRs the
+// sitemap on every fetch — Google retrieves /sitemap.xml frequently
+// enough that this was hitting the API once every visit.
+export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const trpc = await getServerTrpc();
