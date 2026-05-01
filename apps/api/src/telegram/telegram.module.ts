@@ -1,7 +1,9 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { TelegramLink } from "./telegram-link.entity";
+import { TelegramPref } from "./telegram-pref.entity";
 import { TelegramLinkService } from "./telegram-link.service";
+import { TelegramPrefService } from "./telegram-pref.service";
 import { TelegramService } from "./telegram.service";
 import { GifsModule } from "../gifs/gifs.module";
 import { MediaModule } from "../media/media.module";
@@ -10,13 +12,13 @@ import { UsersModule } from "../users/users.module";
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([TelegramLink]),
+    TypeOrmModule.forFeature([TelegramLink, TelegramPref]),
     GifsModule,
     MediaModule,
     S3Module,
     UsersModule,
   ],
-  providers: [TelegramLinkService, TelegramService],
-  exports: [TelegramLinkService, TelegramService],
+  providers: [TelegramLinkService, TelegramPrefService, TelegramService],
+  exports: [TelegramLinkService, TelegramPrefService, TelegramService],
 })
 export class TelegramModule {}

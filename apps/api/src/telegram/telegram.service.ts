@@ -5,13 +5,16 @@ import {
   OnApplicationShutdown,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { Bot } from "grammy";
+import { Bot, InlineKeyboard } from "grammy";
 import type { InlineQueryResultGif } from "grammy/types";
 import { GifsService } from "../gifs/gifs.service";
 import { MediaService } from "../media/media.service";
 import { S3Service } from "../s3/s3.service";
 import { UsersService } from "../users/users.service";
 import { TelegramLinkService } from "./telegram-link.service";
+import { TelegramPrefService } from "./telegram-pref.service";
+import type { BotLocale } from "./telegram-pref.entity";
+import { STRINGS, t } from "./bot-strings";
 
 const INLINE_RESULTS_MAX = 50;
 const INLINE_CACHE_SECONDS = 60;
@@ -34,6 +37,7 @@ export class TelegramService
     private readonly s3: S3Service,
     private readonly users: UsersService,
     private readonly links: TelegramLinkService,
+    private readonly prefs: TelegramPrefService,
   ) {}
 
   /**
@@ -52,6 +56,15 @@ export class TelegramService
       null;
     this.bot = new Bot(token);
     this.registerHandlers(this.bot);
+    // Keep the description in sync with what we say in bot-strings — uk
+    // is the default, en is registered with language_code so Telegram
+    // shows it to clients running in English. Best-effort: a network
+    // hiccup here shouldn't block the bot from booting.
+    void this.applyMetadata(this.bot).catch((err) =>
+      this.logger.warn(
+        `telegram.applyMetadata failed: ${(err as Error).message}`,
+      ),
+    );
     // Fire-and-forget: grammY's bot.start() is a long-running poll loop.
     // Don't await — that would block app shutdown signals from Nest.
     this.bot.start({
@@ -90,37 +103,77 @@ export class TelegramService
     };
   }
 
+  /**
+   * Push the localized long + short descriptions, plus the display name,
+   * to Telegram. Idempotent — Telegram only updates when the value
+   * actually differs, so this is safe to run on every boot. The display
+   * name doubles as Telegram's search index for the bot — setting it to
+   * "vids&gifs" makes the bot turn up when users type that brand name in
+   * Telegram's search bar (the username `@vidsandgifsbot` is searched
+   * separately).
+   *
+   * Bot avatar (`/setuserpic` in BotFather) is *not* exposed via the Bot
+   * API and must be set manually once.
+   */
+  private async applyMetadata(bot: Bot): Promise<void> {
+    const name = "vids&gifs";
+    const long = STRINGS.uk["bot.description.long"];
+    const short = STRINGS.uk["bot.description.short"];
+    const longEn = STRINGS.en["bot.description.long"];
+    const shortEn = STRINGS.en["bot.description.short"];
+    await Promise.all([
+      // Display name is the same in both locales — it's a brand. The two
+      // calls register the same value as both the language-agnostic
+      // default and the explicit `en` override. grammY's signature is
+      // (positional, { language_code? }) — the rest of the named
+      // params live in the second arg.
+      bot.api.setMyName(name),
+      bot.api.setMyName(name, { language_code: "en" }),
+      bot.api.setMyDescription(long),
+      bot.api.setMyDescription(longEn, { language_code: "en" }),
+      bot.api.setMyShortDescription(short),
+      bot.api.setMyShortDescription(shortEn, { language_code: "en" }),
+    ]);
+    this.logger.log(`telegram.applyMetadata ok name="${name}"`);
+  }
+
+  private async resolveLocale(
+    telegramUserId: number | undefined,
+  ): Promise<BotLocale> {
+    if (!telegramUserId) return "uk";
+    return this.prefs.getLocale(String(telegramUserId));
+  }
+
+  private langKeyboard(active: BotLocale): InlineKeyboard {
+    const mark = (l: BotLocale, key: string): string =>
+      `${STRINGS[active][key]}${active === l ? " ✓" : ""}`;
+    return new InlineKeyboard()
+      .text(mark("uk", "lang.button.uk"), "lang:uk")
+      .text(mark("en", "lang.button.en"), "lang:en");
+  }
+
   private registerHandlers(bot: Bot): void {
     // ─── /start [token] ───
-    // Plain /start: friendly hello. /start <token>: redeem the link token
-    // issued by the website and bind this Telegram user to that account.
     bot.command("start", async (ctx) => {
-      const payload = ctx.match?.trim();
       const tgUser = ctx.from;
       if (!tgUser) return;
+      const locale = await this.resolveLocale(tgUser.id);
+      const payload = ctx.match?.trim();
+      const botName = this.botUsername ?? "vidsandgifsbot";
 
       if (!payload) {
-        await ctx.reply(
-          "Hi! Type @" +
-            (this.botUsername ?? "vidsandgifsbot") +
-            " <query> in any chat to search GIFs.\n\n" +
-            "To upload your own GIFs through me, link your account at vidsandgifs.xyz/settings.",
-        );
+        await ctx.reply(t(locale, "start.hello", { bot: botName }));
         return;
       }
 
       const userId = this.links.redeemLinkToken(payload);
       if (!userId) {
-        await ctx.reply(
-          "That link is expired or invalid. Open vidsandgifs.xyz/settings and click \"Connect Telegram\" again.",
-        );
+        await ctx.reply(t(locale, "start.invalidToken"));
         return;
       }
       const account = await this.users.findById(userId);
       if (!account) {
-        await ctx.reply(
-          "The account this link points to no longer exists. Generate a new link from the website.",
-        );
+        await ctx.reply(t(locale, "start.accountGone"));
         return;
       }
       await this.links.link({
@@ -128,31 +181,54 @@ export class TelegramService
         userId,
         telegramUsername: tgUser.username ?? null,
       });
-      await ctx.reply(
-        `Linked to ${account.name}. Send me a GIF file (as a Document, not as Animation) and I'll upload it to vids&gifs.`,
-      );
+      await ctx.reply(t(locale, "start.linked", { name: account.name }));
     });
 
     bot.command("help", async (ctx) => {
-      await ctx.reply(
-        "Inline search: @" +
-          (this.botUsername ?? "vidsandgifsbot") +
-          " <query> — find GIFs to send in any chat.\n" +
-          "Upload: send me a .gif file (as Document) in this chat after linking your account at vidsandgifs.xyz/settings.\n" +
-          "/unlink — detach this Telegram from your account.",
-      );
+      const locale = await this.resolveLocale(ctx.from?.id);
+      const botName = this.botUsername ?? "vidsandgifsbot";
+      await ctx.reply(t(locale, "help", { bot: botName }));
     });
 
     bot.command("unlink", async (ctx) => {
       const tgId = ctx.from?.id;
       if (!tgId) return;
+      const locale = await this.resolveLocale(tgId);
       const link = await this.links.findByTelegramUserId(String(tgId));
       if (!link) {
-        await ctx.reply("This Telegram isn't linked to any account.");
+        await ctx.reply(t(locale, "unlink.notLinked"));
         return;
       }
       await this.links.unlinkByUserId(link.userId);
-      await ctx.reply("Unlinked. Inline search still works without an account.");
+      await ctx.reply(t(locale, "unlink.success"));
+    });
+
+    // ─── /lang ───
+    bot.command("lang", async (ctx) => {
+      const tgId = ctx.from?.id;
+      if (!tgId) return;
+      const locale = await this.resolveLocale(tgId);
+      await ctx.reply(t(locale, "lang.choose"), {
+        reply_markup: this.langKeyboard(locale),
+      });
+    });
+
+    bot.callbackQuery(/^lang:(uk|en)$/, async (ctx) => {
+      const tgId = ctx.from?.id;
+      if (!tgId) return;
+      const next = ctx.match[1] as BotLocale;
+      await this.prefs.setLocale(String(tgId), next);
+      await ctx.answerCallbackQuery({ text: t(next, "lang.set") });
+      // Edit the picker message in place so the checkmark moves to the
+      // newly-selected button without spamming a fresh message.
+      try {
+        await ctx.editMessageText(t(next, "lang.choose"), {
+          reply_markup: this.langKeyboard(next),
+        });
+      } catch {
+        // Editing fails when Telegram thinks the message hasn't changed
+        // (e.g. user clicked the already-active button) — harmless.
+      }
     });
 
     // ─── Inline mode ───
@@ -179,47 +255,34 @@ export class TelegramService
         const filtered = results.filter((r) => r.gif_url.length > 0);
         await ctx.answerInlineQuery(filtered, {
           cache_time: INLINE_CACHE_SECONDS,
-          // Per-user cache — different users see results scoped to their
-          // own typing speed without one user's stale list bleeding into
-          // the next person searching the same term.
           is_personal: true,
         });
       } catch (err) {
         this.logger.warn(
           `telegram.inline_query failed q="${q}": ${(err as Error).message}`,
         );
-        // Reply with an empty list so the Telegram client doesn't show the
-        // user a stuck spinner.
         await ctx.answerInlineQuery([], { cache_time: 5 }).catch(() => {});
       }
     });
 
     // ─── Document upload ───
-    // Telegram's "GIF tab" delivers MP4s as `animation`; the existing GIF
-    // pipeline only handles real .gif bytes (the magic-byte check rejects
-    // anything else). To keep v1 simple we only accept Documents with
-    // mime image/gif. Animations get a friendly "send as file" reply.
     bot.on("message:document", async (ctx) => {
       const tgUser = ctx.from;
       if (!tgUser) return;
+      const locale = await this.resolveLocale(tgUser.id);
       const link = await this.links.findByTelegramUserId(String(tgUser.id));
+      const botName = this.botUsername ?? "vidsandgifsbot";
       if (!link) {
-        const me =
-          this.botUsername ?? "the bot";
-        await ctx.reply(
-          `You need to link your vids&gifs account first. Open vidsandgifs.xyz/settings, click "Connect Telegram", and follow the link back to ${me}.`,
-        );
+        await ctx.reply(t(locale, "upload.notLinked", { bot: botName }));
         return;
       }
       const doc = ctx.message.document;
       if (doc.mime_type !== "image/gif") {
-        await ctx.reply(
-          "Only .gif files are supported right now. Send the GIF as a File (Document), not as Animation.",
-        );
+        await ctx.reply(t(locale, "upload.notGif"));
         return;
       }
       if ((doc.file_size ?? 0) > MAX_TELEGRAM_FILE_BYTES) {
-        await ctx.reply("That GIF is over 20 MB — too big to upload.");
+        await ctx.reply(t(locale, "upload.tooBig"));
         return;
       }
       try {
@@ -236,9 +299,7 @@ export class TelegramService
 
         const account = await this.users.findById(link.userId);
         if (!account) {
-          await ctx.reply(
-            "Your linked account doesn't exist anymore. Run /unlink and re-link from the website.",
-          );
+          await ctx.reply(t(locale, "upload.linkedAccountGone"));
           return;
         }
 
@@ -257,7 +318,10 @@ export class TelegramService
         const webOrigin =
           this.config.get<string>("WEB_ORIGIN") ?? "https://vidsandgifs.xyz";
         await ctx.reply(
-          `Uploaded as "${title}".\n${webOrigin}/gifs/${gif.id}`,
+          t(locale, "upload.success", {
+            title,
+            url: `${webOrigin}/gifs/${gif.id}`,
+          }),
           { link_preview_options: { is_disabled: false } },
         );
       } catch (err) {
@@ -265,27 +329,23 @@ export class TelegramService
           `telegram.upload failed userId=${link.userId}: ${(err as Error).message}`,
         );
         await ctx.reply(
-          `Upload failed: ${(err as Error).message ?? "unknown error"}`,
+          t(locale, "upload.failed", {
+            message: (err as Error).message ?? "unknown error",
+          }),
         );
       }
     });
 
-    // Animations come through as a separate event — give a clear hint
-    // instead of silence.
     bot.on("message:animation", async (ctx) => {
-      await ctx.reply(
-        "That came through as an Animation. To upload, please send the GIF as a File (Document) — long-press the GIF in Telegram and pick \"Send as File\".",
-      );
+      const locale = await this.resolveLocale(ctx.from?.id);
+      await ctx.reply(t(locale, "animation.hint"));
     });
 
-    // Catch-all for failures inside any handler so a bug in one update
-    // doesn't crash the polling loop.
     bot.catch((err) => {
       this.logger.error(
         `telegram.bot handler error: ${err.error}`,
         err.stack,
       );
     });
-
   }
 }
