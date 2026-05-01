@@ -456,22 +456,28 @@ export class TelegramService
         for (const g of items) {
           // Telegram silently drops InlineQueryResultGif > 1 MB, so we
           // hand it the H.264 MP4 transcode as mpeg4_gif (Telegram stores
-          // every "gif" as MP4 internally anyway). Rows without mp4S3Key
-          // are pre-backfill — kick off the transcode in the background
-          // and skip them this time round; the next query will pick
-          // them up once the column is populated.
-          if (!g.mp4S3Key) {
+          // every "gif" as MP4 internally anyway). The static JPEG
+          // first-frame is the thumbnail — Telegram's inline previewer
+          // drops results whose thumbnail it can't render, and pointing
+          // thumbnail_url at the MP4 itself (per-spec but unreliable in
+          // practice) is what was tripping us. Rows missing either
+          // asset are pre-backfill: kick off the transcode in the
+          // background and skip them this round.
+          if (!g.mp4S3Key || !g.thumbS3Key) {
             pendingBackfill.push(g.id);
             continue;
           }
-          const url = await this.media.signUrl({ kind: "mpeg4", id: g.id });
-          if (!url) continue;
+          const [mpegUrl, thumbUrl] = await Promise.all([
+            this.media.signUrl({ kind: "mpeg4", id: g.id }),
+            this.media.signUrl({ kind: "preview", id: g.id }),
+          ]);
+          if (!mpegUrl || !thumbUrl) continue;
           results.push({
             type: "mpeg4_gif",
             id: g.id,
-            mpeg4_url: url,
-            thumbnail_url: url,
-            thumbnail_mime_type: "video/mp4",
+            mpeg4_url: mpegUrl,
+            thumbnail_url: thumbUrl,
+            thumbnail_mime_type: "image/jpeg",
             title: g.title,
           });
         }

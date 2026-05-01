@@ -55,6 +55,15 @@ export class Gif {
   @Column({ type: "text", nullable: true })
   mp4S3Key: string | null;
 
+  // First-frame JPEG used as `thumbnail_url` on the inline result.
+  // Telegram's previewer silently drops mpeg4_gif results whose
+  // thumbnail it can't render — `thumbnail_mime_type: "video/mp4"`
+  // is technically allowed but unreliable, so every shipping GIF bot
+  // (Gif, Tenor, …) serves a static JPEG here. Generated alongside
+  // the MP4 in the same lazy transcode.
+  @Column({ type: "text", nullable: true })
+  thumbS3Key: string | null;
+
   @Column({ type: "bigint", nullable: true, transformer: bigintToNumber })
   sizeBytes: number | null;
 

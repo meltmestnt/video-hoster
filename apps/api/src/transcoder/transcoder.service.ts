@@ -288,6 +288,50 @@ export class TranscoderService {
     return dir ? `${dir}/animation.mp4` : "animation.mp4";
   }
 
+  /**
+   * Extract the first frame of a GIF as a small JPEG, uploaded next to
+   * the source. This is what the Telegram inline-query handler hands
+   * Telegram as `thumbnail_url` — the mpeg4_gif result is rendered with
+   * a static JPEG preview, the way every working GIF bot does it. The
+   * MP4 itself is fine as a thumbnail per Telegram's spec but Telegram's
+   * inline previewer drops results when it can't render the thumbnail,
+   * so we don't take chances.
+   *
+   * Width is clamped to 240 px which is a comfortable size for the
+   * inline picker; quality 5 keeps the file in the tens-of-KB range.
+   */
+  async gifFirstFrameJpeg(
+    sourceKey: string,
+    outputKey?: string,
+  ): Promise<{ key: string; sizeBytes: number } | null> {
+    if (!ffmpegStatic) {
+      this.logger.warn("ffmpeg unavailable; skipping gif thumbnail");
+      return null;
+    }
+    const workDir = await mkdtemp(join(tmpdir(), "gif-thumb-"));
+    const inputPath = join(workDir, "input.gif");
+    const outputPath = join(workDir, "thumb.jpg");
+    try {
+      await this.s3.downloadToFile(sourceKey, inputPath);
+      await this.extractFrame(inputPath, outputPath, 0);
+      const outKey = outputKey ?? this.deriveThumbKey(sourceKey);
+      const stats = await stat(outputPath);
+      this.logger.log(
+        `transcoder.gifFirstFrameJpeg src=${sourceKey} → ${outKey} (${stats.size} bytes)`,
+      );
+      await this.s3.uploadFile(outKey, outputPath, "image/jpeg");
+      return { key: outKey, sizeBytes: stats.size };
+    } finally {
+      await rm(workDir, { recursive: true, force: true }).catch(() => {});
+    }
+  }
+
+  private deriveThumbKey(sourceKey: string): string {
+    const lastSlash = sourceKey.lastIndexOf("/");
+    const dir = lastSlash >= 0 ? sourceKey.slice(0, lastSlash) : "";
+    return dir ? `${dir}/thumb.jpg` : "thumb.jpg";
+  }
+
   async compressTo480p(sourceKey: string): Promise<TranscodeResult> {
     if (!ffmpegStatic) {
       throw new Error(

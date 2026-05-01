@@ -8,7 +8,7 @@ import {
   type OnApplicationBootstrap,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { In, Not, IsNull, Repository, SelectQueryBuilder } from "typeorm";
+import { In, Repository, SelectQueryBuilder } from "typeorm";
 import {
   MAX_GIF_BYTES,
   UNAPPROVED_DAILY_GIF_LIMIT,
@@ -76,24 +76,26 @@ export class GifsService implements OnApplicationBootstrap {
   private readonly mp4InFlight = new Set<string>();
 
   /**
-   * One-shot startup migration: clear every populated `mp4S3Key` so
-   * the lazy backfill in `ensureMp4` re-transcodes with the current
-   * (post-fix) ffmpeg settings. The first generation produced files
-   * Telegram silently dropped from inline_query results because they
-   * had broken timestamps / wrong H.264 profile.
+   * One-shot startup migration: clear every populated `mp4S3Key` /
+   * `thumbS3Key` so the lazy backfill in `ensureMp4` re-runs the
+   * transcoder with the current settings + generates the new JPEG
+   * thumbnail. Earlier generations produced files Telegram silently
+   * dropped from inline previews.
    *
-   * Idempotent: subsequent boots find no rows to clear and are a
-   * no-op. Remove this hook in a follow-up commit once production is
-   * confirmed back-filled with the new encoder.
+   * Idempotent: subsequent boots find no rows to clear and the update
+   * is a no-op. Remove this hook in a follow-up commit once
+   * production is confirmed back-filled with the new pipeline.
    */
   async onApplicationBootstrap(): Promise<void> {
-    const result = await this.gifs.update(
-      { mp4S3Key: Not(IsNull()) },
-      { mp4S3Key: null },
-    );
-    if (result.affected && result.affected > 0) {
+    const cleared = await this.gifs
+      .createQueryBuilder()
+      .update()
+      .set({ mp4S3Key: null, thumbS3Key: null })
+      .where("mp4S3Key IS NOT NULL OR thumbS3Key IS NOT NULL")
+      .execute();
+    if (cleared.affected && cleared.affected > 0) {
       this.logger.log(
-        `gifs.onApplicationBootstrap cleared mp4S3Key on ${result.affected} rows for re-encode`,
+        `gifs.onApplicationBootstrap cleared mp4/thumb keys on ${cleared.affected} rows for re-encode`,
       );
     }
   }
@@ -384,17 +386,33 @@ export class GifsService implements OnApplicationBootstrap {
     if (this.mp4InFlight.has(gifId)) return null;
     const gif = await this.gifs.findOne({
       where: { id: gifId },
-      select: ["id", "s3Key", "mp4S3Key", "status"],
+      select: ["id", "s3Key", "mp4S3Key", "thumbS3Key", "status"],
     });
     if (!gif || gif.status !== "ready" || !gif.s3Key) return null;
-    if (gif.mp4S3Key) return gif.mp4S3Key;
+    if (gif.mp4S3Key && gif.thumbS3Key) return gif.mp4S3Key;
 
     this.mp4InFlight.add(gifId);
     try {
-      const result = await this.transcoder.gifToMp4(gif.s3Key);
-      if (!result) return null;
-      await this.gifs.update({ id: gifId }, { mp4S3Key: result.key });
-      return result.key;
+      // Generate whichever asset(s) are missing. Telegram needs both
+      // the MP4 (mpeg4_url) and the JPEG (thumbnail_url) to render the
+      // inline result — the picker silently drops a result whose
+      // thumbnail can't load. Run them in parallel since they each
+      // ffmpeg the same source independently.
+      const [mp4, thumb] = await Promise.all([
+        gif.mp4S3Key
+          ? Promise.resolve({ key: gif.mp4S3Key })
+          : this.transcoder.gifToMp4(gif.s3Key),
+        gif.thumbS3Key
+          ? Promise.resolve({ key: gif.thumbS3Key })
+          : this.transcoder.gifFirstFrameJpeg(gif.s3Key),
+      ]);
+      const updates: Partial<Gif> = {};
+      if (mp4 && !gif.mp4S3Key) updates.mp4S3Key = mp4.key;
+      if (thumb && !gif.thumbS3Key) updates.thumbS3Key = thumb.key;
+      if (Object.keys(updates).length > 0) {
+        await this.gifs.update({ id: gifId }, updates);
+      }
+      return mp4?.key ?? null;
     } finally {
       this.mp4InFlight.delete(gifId);
     }
@@ -408,10 +426,17 @@ export class GifsService implements OnApplicationBootstrap {
   async searchInlineForBot(args: {
     q: string;
     limit: number;
-  }): Promise<Array<{ id: string; title: string; mp4S3Key: string | null }>> {
+  }): Promise<
+    Array<{
+      id: string;
+      title: string;
+      mp4S3Key: string | null;
+      thumbS3Key: string | null;
+    }>
+  > {
     const qb = this.gifs
       .createQueryBuilder("g")
-      .select(["g.id", "g.title", "g.mp4S3Key"])
+      .select(["g.id", "g.title", "g.mp4S3Key", "g.thumbS3Key"])
       .where("g.status = :s", { s: "ready" })
       .andWhere("g.visibility = :pub", { pub: "public" })
       .orderBy("g.createdAt", "DESC")
@@ -450,6 +475,13 @@ export class GifsService implements OnApplicationBootstrap {
       await this.s3.deleteObject(gif.mp4S3Key).catch((err) => {
         this.logger.warn(
           `Failed to delete gif mp4 ${gif.mp4S3Key}: ${(err as Error).message}`,
+        );
+      });
+    }
+    if (gif.thumbS3Key) {
+      await this.s3.deleteObject(gif.thumbS3Key).catch((err) => {
+        this.logger.warn(
+          `Failed to delete gif thumb ${gif.thumbS3Key}: ${(err as Error).message}`,
         );
       });
     }
