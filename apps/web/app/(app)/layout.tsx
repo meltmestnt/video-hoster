@@ -7,8 +7,6 @@ import { UnverifiedBanner } from "@/components/UnverifiedBanner";
 import { UnapprovedBanner } from "@/components/UnapprovedBanner";
 import { DropZoneOverlay } from "@/components/DropZoneOverlay";
 import { PendingUploadResumer } from "@/components/PendingUploadResumer";
-import { GoogleOneTap } from "@/components/GoogleOneTap";
-import { PushPromptBanner } from "@/components/PushPromptBanner";
 import { Footer } from "@/components/Footer";
 import { Box, Container, Flex } from "@radix-ui/themes";
 import { AuthRequiredProvider } from "@/lib/auth-required";
@@ -70,10 +68,6 @@ export default async function AppLayout({
         {signedIn && <MiniPlayer />}
         <DropZoneOverlay signedIn={signedIn} />
         {signedIn && <PendingUploadResumer />}
-        {signedIn && <PushPromptBanner />}
-        {!signedIn && (
-          <GoogleOneTap clientId={process.env.GOOGLE_CLIENT_ID ?? ""} />
-        )}
       </UploadDialogProvider>
     </AuthRequiredProvider>
   );
