@@ -110,12 +110,14 @@ export function enforceMediaThrottle(
 }
 
 // ─── Concurrent stream slots ───
-// Counts in-flight /media/ requests per IP. The streaming endpoint holds
-// the connection open for the entire payload, so a single IP opening many
-// tabs/sockets to one signed URL can sustain a large multiplier on egress.
-// 4 per IP covers normal multi-tab use (background tabs preload, mobile
-// hand-off, etc.) but kills the open-50-tabs trick.
-const MAX_CONCURRENT_STREAMS_PER_IP = 4;
+// Counts in-flight /media/video/* requests per IP. The streaming endpoint
+// holds the connection open for the entire payload, so a single IP opening
+// many tabs/sockets to one signed URL can sustain a large multiplier on
+// egress. Applied only to videos by the controller — GIF/audio listing
+// pages render many tiles in parallel and we don't want to 429 a normal
+// grid view. 6 per IP covers tab-juggling + picture-in-picture but kills
+// the open-50-tabs trick.
+const MAX_CONCURRENT_STREAMS_PER_IP = 6;
 const liveSlots = new Map<string, number>();
 
 export interface StreamSlot {

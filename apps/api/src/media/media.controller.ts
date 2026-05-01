@@ -202,10 +202,16 @@ export class MediaController {
     // the client could abort. Conservative on purpose.
     const advertisedBytes = obj.contentLength ?? 0;
     let throttleState: ReturnType<typeof enforceMediaThrottle>;
-    let slot: ReturnType<typeof acquireStreamSlot>;
+    // Concurrent-stream cap is video-only: a long video held open is the
+    // real cost-per-connection multiplier. GIFs and audio finish quickly,
+    // and listing pages render many GIF tiles in parallel — applying the
+    // cap there would 429 the legitimate grid view.
+    let slot: ReturnType<typeof acquireStreamSlot> | null = null;
     try {
       throttleState = enforceMediaThrottle(ip, advertisedBytes);
-      slot = acquireStreamSlot(ip);
+      if (kindParam === "video") {
+        slot = acquireStreamSlot(ip);
+      }
     } catch (err) {
       // Make sure we close the upstream S3 stream — otherwise we'd hold
       // the socket open while sending a 429 to the client.
@@ -248,8 +254,11 @@ export class MediaController {
     // Release the concurrent-stream slot once the response is no longer
     // active. Hooking both "close" (client disconnected mid-stream, or
     // response completed normally) and the body's "end"/"error" handlers
-    // covers every termination path. release() is idempotent.
-    const releaseSlot = () => slot.release();
+    // covers every termination path. release() is idempotent and a no-op
+    // when no slot was acquired (gif/audio/etc).
+    const releaseSlot = () => {
+      if (slot) slot.release();
+    };
     req.on("close", () => {
       obj.body.destroy();
       releaseSlot();
