@@ -5,9 +5,10 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  type OnApplicationBootstrap,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { In, Repository, SelectQueryBuilder } from "typeorm";
+import { In, Not, IsNull, Repository, SelectQueryBuilder } from "typeorm";
 import {
   MAX_GIF_BYTES,
   UNAPPROVED_DAILY_GIF_LIMIT,
@@ -54,7 +55,7 @@ const slugify = (s: string): string =>
     .slice(0, 60) || "gif";
 
 @Injectable()
-export class GifsService {
+export class GifsService implements OnApplicationBootstrap {
   private readonly logger = new Logger(GifsService.name);
 
   constructor(
@@ -73,6 +74,29 @@ export class GifsService {
   // case two replicas race and the second upload wins; both end with a
   // valid mp4 in S3.
   private readonly mp4InFlight = new Set<string>();
+
+  /**
+   * One-shot startup migration: clear every populated `mp4S3Key` so
+   * the lazy backfill in `ensureMp4` re-transcodes with the current
+   * (post-fix) ffmpeg settings. The first generation produced files
+   * Telegram silently dropped from inline_query results because they
+   * had broken timestamps / wrong H.264 profile.
+   *
+   * Idempotent: subsequent boots find no rows to clear and are a
+   * no-op. Remove this hook in a follow-up commit once production is
+   * confirmed back-filled with the new encoder.
+   */
+  async onApplicationBootstrap(): Promise<void> {
+    const result = await this.gifs.update(
+      { mp4S3Key: Not(IsNull()) },
+      { mp4S3Key: null },
+    );
+    if (result.affected && result.affected > 0) {
+      this.logger.log(
+        `gifs.onApplicationBootstrap cleared mp4S3Key on ${result.affected} rows for re-encode`,
+      );
+    }
+  }
 
   async createUpload(args: CreateUploadArgs) {
     if (args.sizeBytes > MAX_GIF_BYTES) {
