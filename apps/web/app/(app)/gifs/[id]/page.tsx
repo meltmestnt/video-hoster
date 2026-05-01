@@ -216,7 +216,11 @@ export default async function GifPage({
         </Flex>
         <Flex align="center" gap="3" mt="3" mb="3" wrap="wrap">
           <Text size="2" color="gray">{gif.owner.name}</Text>
-          <SubscribeButton targetUserId={gif.owner.id} />
+          {/* Hide subscribe-to-self entirely; the API rejects it but the
+              button shouldn't show up in the first place. */}
+          {!!session?.user && session.user.id !== gif.owner.id && (
+            <SubscribeButton targetUserId={gif.owner.id} />
+          )}
           <Text size="2" color="gray">·</Text>
           <Text size="2" color="gray">
             {new Date(gif.createdAt).toLocaleDateString()}

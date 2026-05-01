@@ -282,8 +282,10 @@ export default async function VideoPage({
             {video.owner.name}
           </Text>
           {/* Subscribe is account-only; hide for anon to keep the page
-              free of auth-gated UI that would 401 on click. */}
-          {!!session?.user && (
+              free of auth-gated UI that would 401 on click. Also hide
+              when viewing your own video — subscribe-to-self is rejected
+              upstream and shouldn't even be a clickable affordance. */}
+          {!!session?.user && session.user.id !== video.owner.id && (
             <SubscribeButton targetUserId={video.owner.id} />
           )}
           <Text size="2" color="gray">
