@@ -219,7 +219,11 @@ export const appRouter = router({
         }),
       ),
 
-    delete: verifiedProcedure
+    // Delete is protected, not verified: a user who uploaded under the
+    // unverified 1-of-each allowance must still be able to clean up their
+    // own row. Ownership check inside the service is the real gate, with
+    // admins bypassing it.
+    delete: protectedProcedure
       .input(videoIdInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.videos.deleteVideo(
@@ -326,7 +330,7 @@ export const appRouter = router({
         }),
       ),
 
-    delete: verifiedProcedure
+    delete: protectedProcedure
       .input(gifIdInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.gifs.deleteGif(
@@ -402,7 +406,7 @@ export const appRouter = router({
         }),
       ),
 
-    delete: verifiedProcedure
+    delete: protectedProcedure
       .input(screenshotIdInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.screenshots.deleteScreenshot(
