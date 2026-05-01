@@ -37,7 +37,7 @@ const BCRYPT_ROUNDS = 12;
 const CONFIRMATION_TTL_MS = 24 * 60 * 60 * 1000;
 
 export type SignUpResult =
-  | { status: "pending"; email: string }
+  | { status: "pending"; email: string; mailSent: boolean }
   | {
       status: "confirmed";
       id: string;
@@ -362,11 +362,12 @@ export class UsersService {
     const expiresAt = new Date(Date.now() + CONFIRMATION_TTL_MS);
     const link = `${this.config.getOrThrow<string>("WEB_ORIGIN")}/confirm?token=${rawToken}`;
 
-    // Try to send a confirmation email, but don't block sign-up on it. When
-    // the mail provider is misconfigured (Resend in sandbox, missing API key,
-    // unverified domain, etc.) the user is created as already-verified so
-    // they can sign in immediately. The error is still logged so an operator
-    // can investigate.
+    // Always create the account as unverified with a stored token. If the
+    // mail provider is broken (Resend rejecting the from-address, missing
+    // API key, etc.) we still keep the token around so a "resend
+    // confirmation" flow or admin manual-verify works later. The previous
+    // version auto-verified on mail failure, which silently bypassed every
+    // verification gate downstream — exactly the wrong fallback.
     let mailSent = false;
     try {
       await this.mail.sendConfirmation(email, link);
@@ -383,9 +384,9 @@ export class UsersService {
       googleId: null,
       avatarUrl: null,
       passwordHash,
-      status: mailSent ? "unverified" : "verified",
-      confirmationTokenHash: mailSent ? tokenHash : null,
-      confirmationTokenExpiresAt: mailSent ? expiresAt : null,
+      status: "unverified",
+      confirmationTokenHash: tokenHash,
+      confirmationTokenExpiresAt: expiresAt,
     });
     await this.users.save(user);
 
@@ -398,10 +399,38 @@ export class UsersService {
         ),
       );
 
-    if (mailSent) {
-      return { status: "pending", email };
+    return { status: "pending", email, mailSent };
+  }
+
+  /**
+   * Mints a fresh confirmation token and re-sends the email. Useful when the
+   * first attempt was rejected by the provider or got buried in spam. Safe
+   * to call repeatedly — each call invalidates the previous token.
+   */
+  async resendConfirmation(email: string): Promise<{ ok: true; mailSent: boolean }> {
+    const lower = email.toLowerCase();
+    const user = await this.users.findOne({ where: { email: lower } });
+    // Don't leak whether an account exists — pretend success either way.
+    if (!user || user.status === "verified") {
+      return { ok: true, mailSent: true };
     }
-    return { status: "confirmed", id: user.id, email, name: user.name };
+    const rawToken = randomBytes(32).toString("base64url");
+    const tokenHash = sha256(rawToken);
+    const expiresAt = new Date(Date.now() + CONFIRMATION_TTL_MS);
+    user.confirmationTokenHash = tokenHash;
+    user.confirmationTokenExpiresAt = expiresAt;
+    await this.users.save(user);
+    const link = `${this.config.getOrThrow<string>("WEB_ORIGIN")}/confirm?token=${rawToken}`;
+    let mailSent = false;
+    try {
+      await this.mail.sendConfirmation(lower, link);
+      mailSent = true;
+    } catch (err) {
+      this.logger.error(
+        `Failed to re-send confirmation email to ${lower}: ${(err as Error).message}`,
+      );
+    }
+    return { ok: true, mailSent };
   }
 
   async confirmSignUp(token: string): Promise<{

@@ -23,7 +23,12 @@ export function SignUpForm() {
   const [emailTaken, setEmailTaken] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const [mailSent, setMailSent] = useState(true);
+  const [resendStatus, setResendStatus] = useState<
+    "idle" | "sending" | "ok" | "err"
+  >("idle");
   const signUp = trpc.auth.signUp.useMutation();
+  const resend = trpc.auth.resendConfirmation.useMutation();
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,6 +39,7 @@ export function SignUpForm() {
       const result = await signUp.mutateAsync({ email, name, password });
       if (result.status === "pending") {
         setPendingEmail(result.email);
+        setMailSent(result.mailSent);
         return;
       }
       const res = await signIn("credentials", {
@@ -60,6 +66,15 @@ export function SignUpForm() {
   };
 
   if (pendingEmail) {
+    const tryResend = async () => {
+      setResendStatus("sending");
+      try {
+        const r = await resend.mutateAsync({ email: pendingEmail });
+        setResendStatus(r.mailSent ? "ok" : "err");
+      } catch {
+        setResendStatus("err");
+      }
+    };
     return (
       <Box
         style={{
@@ -70,14 +85,43 @@ export function SignUpForm() {
         }}
       >
         <Heading size="6" mb="2">
-          {t("auth.signup.checkEmailHeading")}
+          {mailSent
+            ? t("auth.signup.checkEmailHeading")
+            : t("auth.signup.mailFailedHeading")}
         </Heading>
         <Text as="p" color="gray" size="2" mb="3">
-          {t("auth.signup.checkEmailBody", { email: pendingEmail })}
+          {mailSent
+            ? t("auth.signup.checkEmailBody", { email: pendingEmail })
+            : t("auth.signup.mailFailedBody", { email: pendingEmail })}
         </Text>
-        <Text as="p" size="2" color="gray">
-          {t("auth.signup.linkExpires")}
-        </Text>
+        {mailSent && (
+          <Text as="p" size="2" color="gray">
+            {t("auth.signup.linkExpires")}
+          </Text>
+        )}
+        <Flex direction="column" gap="2" mt="4">
+          <Button
+            size="2"
+            variant="soft"
+            color="iris"
+            onClick={tryResend}
+            disabled={resendStatus === "sending"}
+          >
+            {resendStatus === "sending"
+              ? t("auth.signup.resending")
+              : t("auth.signup.resend")}
+          </Button>
+          {resendStatus === "ok" && (
+            <Text size="2" color="green">
+              {t("auth.signup.resendOk")}
+            </Text>
+          )}
+          {resendStatus === "err" && (
+            <Text size="2" color="red">
+              {t("auth.signup.resendErr")}
+            </Text>
+          )}
+        </Flex>
         <Text as="p" size="2" color="gray" mt="4" align="center">
           <Link href="/login" style={{ color: "var(--accent-9)" }}>
             {t("auth.signup.backToSignIn")}

@@ -23,6 +23,11 @@ export const uk: EnDict = {
     "Ми використовуємо файли cookie для аналітики, щоб зрозуміти, як використовується сайт. Натисніть «Прийняти», щоб дозволити, або «Відхилити», щоб відмовитися.",
   "consent.accept": "Прийняти",
   "consent.decline": "Відхилити",
+  "consent.learnMore": "Дізнатися більше",
+
+  // ─── Footer ───
+  "footer.privacy": "Конфіденційність",
+  "footer.cookieSettings": "Налаштування cookie",
 
   // ─── TopBar ───
   "topbar.search.placeholder.signedIn": "Пошук відео за назвою або тегом",
@@ -115,6 +120,14 @@ export const uk: EnDict = {
   "auth.signup.linkExpires": "Посилання дійсне 24 години.",
   "auth.signup.backToSignIn": "Повернутися до входу",
   "auth.signup.failed": "Не вдалося зареєструватися",
+  "auth.signup.mailFailedHeading": "Не вдалося надіслати лист",
+  "auth.signup.mailFailedBody":
+    "Обліковий запис для {email} створено, але поштовий сервіс відхилив листа з підтвердженням. Спробуйте надіслати знову нижче або зверніться до адміна, щоб підтвердити вручну.",
+  "auth.signup.resend": "Надіслати лист ще раз",
+  "auth.signup.resending": "Надсилаємо…",
+  "auth.signup.resendOk": "Лист надіслано. Перевірте поштову скриньку.",
+  "auth.signup.resendErr":
+    "Знову не вдалося надіслати. Зверніться до адміна.",
 
   "confirm.missing.heading": "Немає токена",
   "confirm.missing.body":

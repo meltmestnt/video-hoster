@@ -290,6 +290,13 @@ export const confirmSignUpInputSchema = z.object({
 });
 export type ConfirmSignUpInput = z.infer<typeof confirmSignUpInputSchema>;
 
+export const resendConfirmationInputSchema = z.object({
+  email: z.string().trim().toLowerCase().email().max(254),
+});
+export type ResendConfirmationInput = z.infer<
+  typeof resendConfirmationInputSchema
+>;
+
 export const createAvatarUploadInputSchema = z.object({
   mimeType: z.enum(ALLOWED_AVATAR_MIME_TYPES),
   sizeBytes: z.number().int().positive().max(MAX_AVATAR_BYTES, {

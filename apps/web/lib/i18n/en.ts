@@ -21,6 +21,11 @@ export const en = {
     "We use cookies for analytics to understand how the site is used. Click Accept to allow, or Decline to opt out.",
   "consent.accept": "Accept",
   "consent.decline": "Decline",
+  "consent.learnMore": "Learn more",
+
+  // ─── Footer ───
+  "footer.privacy": "Privacy",
+  "footer.cookieSettings": "Cookie settings",
 
   // ─── TopBar ───
   "topbar.search.placeholder.signedIn": "Search videos by title or tag",
@@ -110,6 +115,14 @@ export const en = {
   "auth.signup.linkExpires": "The link expires in 24 hours.",
   "auth.signup.backToSignIn": "Back to sign in",
   "auth.signup.failed": "Sign-up failed",
+  "auth.signup.mailFailedHeading": "We couldn't send the email",
+  "auth.signup.mailFailedBody":
+    "Your account for {email} was created, but our mail provider rejected the confirmation message. Try resending below, or ask an admin to verify your account manually.",
+  "auth.signup.resend": "Resend confirmation email",
+  "auth.signup.resending": "Sending…",
+  "auth.signup.resendOk": "Email sent. Check your inbox.",
+  "auth.signup.resendErr":
+    "Still couldn't send. Please contact an admin.",
 
   "confirm.missing.heading": "Missing token",
   "confirm.missing.body":

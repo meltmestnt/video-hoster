@@ -124,41 +124,60 @@ export class MailService {
     text: string,
   ): Promise<void> {
     if (to.length === 0) return;
-    if (this.transport.kind === "smtp") {
-      await this.transport.mailer.sendMail({
-        from: this.fromAddress,
-        to,
-        subject,
-        html,
-        text,
-      });
-    } else if (this.transport.kind === "ses") {
-      await this.transport.client.send(
-        new SendEmailCommand({
-          FromEmailAddress: this.fromAddress,
-          Destination: { ToAddresses: to },
-          Content: {
-            Simple: {
-              Subject: { Data: subject, Charset: "UTF-8" },
-              Body: {
-                Html: { Data: html, Charset: "UTF-8" },
-                Text: { Data: text, Charset: "UTF-8" },
+    const recipients = to.join(", ");
+    this.logger.log(
+      `→ mail send via ${this.transport.kind} from=${this.fromAddress} to=[${recipients}] subject="${subject}"`,
+    );
+    const startedAt = Date.now();
+    try {
+      if (this.transport.kind === "smtp") {
+        await this.transport.mailer.sendMail({
+          from: this.fromAddress,
+          to,
+          subject,
+          html,
+          text,
+        });
+      } else if (this.transport.kind === "ses") {
+        await this.transport.client.send(
+          new SendEmailCommand({
+            FromEmailAddress: this.fromAddress,
+            Destination: { ToAddresses: to },
+            Content: {
+              Simple: {
+                Subject: { Data: subject, Charset: "UTF-8" },
+                Body: {
+                  Html: { Data: html, Charset: "UTF-8" },
+                  Text: { Data: text, Charset: "UTF-8" },
+                },
               },
             },
-          },
-        }),
-      );
-    } else {
-      const { error } = await this.transport.client.emails.send({
-        from: this.fromAddress,
-        to,
-        subject,
-        html,
-        text,
-      });
-      if (error) {
-        throw new Error(`Resend send failed: ${error.message}`);
+          }),
+        );
+      } else {
+        const { error } = await this.transport.client.emails.send({
+          from: this.fromAddress,
+          to,
+          subject,
+          html,
+          text,
+        });
+        if (error) {
+          throw new Error(`Resend send failed: ${error.message}`);
+        }
       }
+      const ms = Date.now() - startedAt;
+      this.logger.log(
+        `✓ mail sent to=[${recipients}] subject="${subject}" (${ms}ms)`,
+      );
+    } catch (err) {
+      const ms = Date.now() - startedAt;
+      this.logger.error(
+        `✗ mail send to=[${recipients}] subject="${subject}" failed after ${ms}ms: ${
+          (err as Error).message
+        }`,
+      );
+      throw err;
     }
   }
 }

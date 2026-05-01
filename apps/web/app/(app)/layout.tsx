@@ -4,6 +4,7 @@ import { getServerTrpc } from "@/lib/trpc-server";
 import { TopBar } from "@/components/TopBar";
 import { MiniPlayer } from "@/components/MiniPlayer";
 import { UnverifiedBanner } from "@/components/UnverifiedBanner";
+import { Footer } from "@/components/Footer";
 import { Container } from "@radix-ui/themes";
 import { AuthRequiredProvider } from "@/lib/auth-required";
 
@@ -38,6 +39,7 @@ export default async function AppLayout({
       <Container size="4" px="4" py="6">
         {children}
       </Container>
+      <Footer />
       {signedIn && <MiniPlayer />}
     </AuthRequiredProvider>
   );

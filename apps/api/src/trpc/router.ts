@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import {
   commentIdInputSchema,
   confirmSignUpInputSchema,
+  resendConfirmationInputSchema,
   createAvatarUploadInputSchema,
   createCommentInputSchema,
   createUploadInputSchema,
@@ -102,6 +103,20 @@ export const appRouter = router({
       .input(confirmSignUpInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.users.confirmSignUp(input.token),
+      ),
+
+    resendConfirmation: publicProcedure
+      .use(
+        rateLimit({
+          name: "resendConfirmation",
+          keyBy: "ip",
+          max: 5,
+          windowMs: HOUR,
+        }),
+      )
+      .input(resendConfirmationInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.users.resendConfirmation(input.email),
       ),
 
     signIn: publicProcedure

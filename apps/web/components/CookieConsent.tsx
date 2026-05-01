@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { Box, Button, Flex, Text } from "@radix-ui/themes";
 import { useT } from "@/lib/i18n";
+import { CONSENT_RESET_EVENT } from "./Footer";
 
 const STORAGE_KEY = "cookie-consent";
 type Consent = "accepted" | "declined";
@@ -27,6 +29,12 @@ export function CookieConsent({ gaId }: { gaId: string }) {
       setConsent(stored);
     }
     setHydrated(true);
+
+    // The footer's "Cookie settings" link clears the stored choice and
+    // fires this event so the banner reappears without a page reload.
+    const onReset = () => setConsent(null);
+    window.addEventListener(CONSENT_RESET_EVENT, onReset);
+    return () => window.removeEventListener(CONSENT_RESET_EVENT, onReset);
   }, []);
 
   const choose = (next: Consent) => {
@@ -60,7 +68,16 @@ export function CookieConsent({ gaId }: { gaId: string }) {
             style={{ maxWidth: 1200, margin: "0 auto" }}
           >
             <Text size="2" style={{ flex: 1, minWidth: 280 }}>
-              {t("consent.message")}
+              {t("consent.message")}{" "}
+              <Link
+                href="/privacy"
+                style={{
+                  color: "var(--accent-9)",
+                  textDecoration: "underline",
+                }}
+              >
+                {t("consent.learnMore")}
+              </Link>
             </Text>
             <Flex gap="2">
               <Button
