@@ -206,37 +206,47 @@ export class TranscoderService {
     // the job than hold a worker forever.
     const TIMEOUT_MS = 2 * 60 * 1000;
     return new Promise((resolve, reject) => {
-      // Settings tuned for InlineQueryResultMpeg4Gif. Telegram's preview
-      // pipeline is stricter than a plain <video> tag — output that
-      // Chrome shows as "0:00 with no duration" gets silently dropped
-      // there. Three things matter:
+      // Animated-GIF demuxer treats per-frame "delay" centiseconds as
+      // timestamps, which produces an MP4 with broken mvhd.duration
+      // (Chrome shows 0:00, Telegram drops the inline preview). Three
+      // counter-measures, all needed:
       //
-      //   • Baseline profile, level 3.0 — broadest decoder support;
-      //     High profile sometimes fails to render in inline previews.
-      //   • fps filter normalizes the wonky per-frame durations GIFs
-      //     carry into a clean constant frame rate, so mvhd.duration
-      //     ends up as a sensible number instead of 0.
-      //   • format=yuv420p inside the same filter chain as scale so
-      //     the pixel format doesn't get reverted by the scaler.
+      //   • -ignore_loop 0 on the input so the loop count isn't
+      //     interpreted as a duration cap.
+      //   • -vsync cfr on the output forces a constant-rate timeline
+      //     instead of preserving the GIF's variable per-frame timing.
+      //   • -r 25 pins that timeline to 25 fps; combined with vsync cfr
+      //     ffmpeg dupes/drops frames as needed and the output gets a
+      //     real duration.
       //
-      // Even-pixel scale is still required (H.264 hard rule); faststart
-      // moves moov to the top so Telegram and browsers can begin
-      // playback before fully downloading.
+      // Even-pixel scale stays (H.264 hard rule); faststart moves moov
+      // to the top so previews start without the full download.
       const cmd = ffmpeg(inputPath)
+        .inputOptions(["-ignore_loop 0"])
         .noAudio()
         .videoCodec("libx264")
-        .videoFilter(
-          "scale=trunc(iw/2)*2:trunc(ih/2)*2,fps=24,format=yuv420p",
-        )
+        .videoFilter("scale=trunc(iw/2)*2:trunc(ih/2)*2")
         .outputOptions([
+          "-r 25",
+          "-vsync cfr",
+          "-pix_fmt yuv420p",
           "-preset veryfast",
           "-crf 23",
-          "-profile:v baseline",
-          "-level 3.0",
-          "-pix_fmt yuv420p",
           "-movflags +faststart",
         ])
         .format("mp4");
+
+      // Capture ffmpeg's stderr — that's where it logs codec/container
+      // warnings that explain why an output won't play. We surface the
+      // tail on errors so the next run gives us something to debug.
+      let stderrTail = "";
+      cmd
+        .on("start", (commandLine) => {
+          this.logger.log(`ffmpeg.gifToMp4 cmd: ${commandLine}`);
+        })
+        .on("stderr", (line) => {
+          stderrTail = `${stderrTail}${line}\n`.slice(-4096);
+        });
 
       const timer = setTimeout(() => {
         try {
@@ -258,6 +268,9 @@ export class TranscoderService {
         })
         .on("error", (err) => {
           clearTimeout(timer);
+          this.logger.warn(
+            `ffmpeg.gifToMp4 stderr tail: ${stderrTail || "<empty>"}`,
+          );
           reject(new Error(`gif→mp4 failed: ${err.message}`));
         })
         .save(outputPath);
