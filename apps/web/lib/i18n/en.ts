@@ -192,6 +192,25 @@ export const en = {
   "audio.mix.volume": "Volume",
   "audio.mix.removeOverlay": "Remove overlay",
 
+  // ─── Audio templates library (/audio) ───
+  "audio.lib.heading": "Audio templates",
+  "audio.lib.subtitle":
+    "Upload audio you can layer on top of your videos. Each template stays in your library until you delete it.",
+  "audio.lib.add.title": "Add a new template",
+  "audio.lib.add.titleField": "Title",
+  "audio.lib.add.titlePlaceholder": "Background music",
+  "audio.lib.add.fileLabel": "File ({mb} MB max)",
+  "audio.lib.add.upload": "Upload",
+  "audio.lib.add.uploading": "Uploading…",
+  "audio.lib.add.errorMissingTitle": "Give the template a title.",
+  "audio.lib.add.errorType":
+    "Unsupported audio type: {type}. Use MP3, M4A, WAV, OGG, or WebM.",
+  "audio.lib.add.errorSize":
+    "File is {actual} MB. Max allowed is {max} MB.",
+  "audio.lib.empty":
+    "No audio templates yet. Upload an MP3 or M4A above to get started.",
+  "audio.lib.delete": "Delete audio template",
+
   // ─── Account deletion (self) ───
   "user.profile.deleteAccount": "Delete account",
   "deleteAccount.title": "Delete your account?",

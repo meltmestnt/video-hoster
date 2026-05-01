@@ -21,6 +21,7 @@ import {
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@repo/api";
 import { trpc } from "@/lib/trpc";
+import { useT } from "@/lib/i18n";
 import {
   formatDuration,
   isAllowedAudioMime,
@@ -35,6 +36,7 @@ interface Props {
 
 export function AudioLibrary({ initial }: Props) {
   const utils = trpc.useUtils();
+  const t = useT();
   const list = trpc.audio.listMine.useQuery(undefined, {
     initialData: initial,
     staleTime: 5_000,
@@ -60,13 +62,16 @@ export function AudioLibrary({ initial }: Props) {
     }
     if (!isAllowedAudioMime(f.type)) {
       setError(
-        `Unsupported audio type: ${f.type || "unknown"}. Use MP3, M4A, WAV, OGG, or WebM.`,
+        t("audio.lib.add.errorType", { type: f.type || "unknown" }),
       );
       return;
     }
     if (f.size > MAX_AUDIO_BYTES) {
       setError(
-        `File is ${(f.size / 1024 ** 2).toFixed(1)} MB. Max allowed is ${MAX_AUDIO_MB} MB.`,
+        t("audio.lib.add.errorSize", {
+          actual: (f.size / 1024 ** 2).toFixed(1),
+          max: MAX_AUDIO_MB,
+        }),
       );
       return;
     }
@@ -80,7 +85,7 @@ export function AudioLibrary({ initial }: Props) {
   const upload = async () => {
     if (!pickedFile) return;
     if (!title.trim()) {
-      setError("Give the template a title.");
+      setError(t("audio.lib.add.errorMissingTitle"));
       return;
     }
     setBusy(true);
@@ -120,24 +125,24 @@ export function AudioLibrary({ initial }: Props) {
       <Card>
         <Flex direction="column" gap="2" p="3">
           <Text size="3" weight="medium">
-            Add a new template
+            {t("audio.lib.add.title")}
           </Text>
           <Flex gap="2" align="end" wrap="wrap">
             <Box style={{ flex: 1, minWidth: 200 }}>
               <Text size="1" color="gray" as="div" mb="1">
-                Title
+                {t("audio.lib.add.titleField")}
               </Text>
               <TextField.Root
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Background music"
+                placeholder={t("audio.lib.add.titlePlaceholder")}
                 maxLength={120}
                 disabled={busy}
               />
             </Box>
             <Box style={{ flex: 1, minWidth: 200 }}>
               <Text size="1" color="gray" as="div" mb="1">
-                File ({MAX_AUDIO_MB} MB max)
+                {t("audio.lib.add.fileLabel", { mb: MAX_AUDIO_MB })}
               </Text>
               <input
                 ref={fileInputRef}
@@ -152,7 +157,7 @@ export function AudioLibrary({ initial }: Props) {
               onClick={upload}
               disabled={busy || !pickedFile || !title.trim()}
             >
-              {busy ? "Uploading…" : "Upload"}
+              {busy ? t("audio.lib.add.uploading") : t("audio.lib.add.upload")}
             </Button>
           </Flex>
           {error && (
@@ -165,7 +170,7 @@ export function AudioLibrary({ initial }: Props) {
 
       {items.length === 0 ? (
         <Text size="2" color="gray">
-          No audio templates yet. Upload an MP3 or M4A above to get started.
+          {t("audio.lib.empty")}
         </Text>
       ) : (
         <Flex direction="column" gap="2">
@@ -191,7 +196,7 @@ export function AudioLibrary({ initial }: Props) {
                   color="red"
                   onClick={() => deleteTemplate.mutate({ id: tpl.id })}
                   disabled={deleteTemplate.isPending}
-                  aria-label="Delete audio template"
+                  aria-label={t("audio.lib.delete")}
                 >
                   <TrashIcon />
                 </IconButton>

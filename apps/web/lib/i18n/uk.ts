@@ -200,6 +200,25 @@ export const uk: EnDict = {
   "audio.mix.volume": "Гучність",
   "audio.mix.removeOverlay": "Видалити накладку",
 
+  // ─── Audio templates library (/audio) ───
+  "audio.lib.heading": "Аудіошаблони",
+  "audio.lib.subtitle":
+    "Завантажуйте аудіо, яке можна накладати на ваші відео. Кожен шаблон зберігається у бібліотеці, поки ви його не видалите.",
+  "audio.lib.add.title": "Додати новий шаблон",
+  "audio.lib.add.titleField": "Назва",
+  "audio.lib.add.titlePlaceholder": "Фонова музика",
+  "audio.lib.add.fileLabel": "Файл (макс. {mb} МБ)",
+  "audio.lib.add.upload": "Завантажити",
+  "audio.lib.add.uploading": "Завантаження…",
+  "audio.lib.add.errorMissingTitle": "Вкажіть назву шаблону.",
+  "audio.lib.add.errorType":
+    "Непідтримуваний формат аудіо: {type}. Використовуйте MP3, M4A, WAV, OGG або WebM.",
+  "audio.lib.add.errorSize":
+    "Розмір файлу — {actual} МБ. Дозволено максимум {max} МБ.",
+  "audio.lib.empty":
+    "Поки немає аудіошаблонів. Завантажте MP3 або M4A вище, щоб почати.",
+  "audio.lib.delete": "Видалити аудіошаблон",
+
   // ─── Account deletion (self) ───
   "user.profile.deleteAccount": "Видалити акаунт",
   "deleteAccount.title": "Видалити ваш акаунт?",

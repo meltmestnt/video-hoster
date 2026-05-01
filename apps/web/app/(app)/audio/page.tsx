@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getServerTrpc } from "@/lib/trpc-server";
 import { AudioLibrary } from "@/components/AudioLibrary";
+import { T } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -18,11 +19,10 @@ export default async function AudioPage() {
     <>
       <div className="page-header">
         <Heading size="6" mb="1">
-          Audio templates
+          <T k="audio.lib.heading" />
         </Heading>
         <Text as="p" color="gray" size="2" mb="5">
-          Upload audio you can layer on top of your videos. Each template stays
-          in your library until you delete it.
+          <T k="audio.lib.subtitle" />
         </Text>
       </div>
       <AudioLibrary initial={initial} />
