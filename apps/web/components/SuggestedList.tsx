@@ -1,9 +1,10 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Box, Card, Flex, Text } from "@radix-ui/themes";
 import { useT } from "@/lib/i18n";
+import { morphToPlayer } from "@/lib/morph-to-player";
 
 interface Item {
   id: string;
@@ -58,36 +59,71 @@ export function SuggestedList({ items }: { items: Item[] }) {
   return (
     <Flex direction="column" gap="2">
       {items.map((it) => (
-        <Link key={it.id} href={`/videos/${it.id}`}>
-          <Card style={{ padding: 8 }}>
-            <Flex gap="3" align="center">
-              <Box
-                style={{
-                  position: "relative",
-                  width: 120,
-                  aspectRatio: "16 / 9",
-                  flexShrink: 0,
-                  borderRadius: "var(--radius-2)",
-                  overflow: "hidden",
-                  background: "var(--gray-3)",
-                }}
-              >
-                {it.thumbnailUrl && (
-                  <SuggestedThumb src={it.thumbnailUrl} alt={it.title} />
-                )}
-              </Box>
-              <Box style={{ minWidth: 0, flex: 1 }}>
-                <Text as="div" size="2" weight="medium" truncate>
-                  {it.title}
-                </Text>
-                <Text as="div" size="1" color="gray">
-                  {it.owner.name}
-                </Text>
-              </Box>
-            </Flex>
-          </Card>
-        </Link>
+        <SuggestedRow key={it.id} item={it} />
       ))}
     </Flex>
+  );
+}
+
+function SuggestedRow({ item }: { item: Item }) {
+  const router = useRouter();
+  const thumbRef = useRef<HTMLDivElement | null>(null);
+  const href = `/videos/${item.id}`;
+
+  useEffect(() => {
+    router.prefetch(href);
+  }, [router, href]);
+
+  const navigate = (e: React.MouseEvent) => {
+    if (e.metaKey || e.ctrlKey || e.button === 1) return;
+    const thumb = thumbRef.current;
+    if (!thumb) return;
+    e.preventDefault();
+    const ok = morphToPlayer({
+      thumbEl: thumb,
+      imageUrl: item.thumbnailUrl,
+      backgroundColor: item.thumbnailUrl ? "var(--gray-3)" : "black",
+      objectFit: "cover",
+      onMorphStart: () => router.push(href),
+    });
+    if (!ok) router.push(href);
+  };
+
+  return (
+    <a
+      href={href}
+      onClick={navigate}
+      style={{ color: "inherit", textDecoration: "none" }}
+      aria-label={item.title}
+    >
+      <Card style={{ padding: 8 }}>
+        <Flex gap="3" align="center">
+          <Box
+            ref={thumbRef}
+            style={{
+              position: "relative",
+              width: 120,
+              aspectRatio: "16 / 9",
+              flexShrink: 0,
+              borderRadius: "var(--radius-2)",
+              overflow: "hidden",
+              background: "var(--gray-3)",
+            }}
+          >
+            {item.thumbnailUrl && (
+              <SuggestedThumb src={item.thumbnailUrl} alt={item.title} />
+            )}
+          </Box>
+          <Box style={{ minWidth: 0, flex: 1 }}>
+            <Text as="div" size="2" weight="medium" truncate>
+              {item.title}
+            </Text>
+            <Text as="div" size="1" color="gray">
+              {item.owner.name}
+            </Text>
+          </Box>
+        </Flex>
+      </Card>
+    </a>
   );
 }
