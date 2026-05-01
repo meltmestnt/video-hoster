@@ -70,6 +70,7 @@ export function TopBar({
 
   return (
     <Box
+      className="app-header"
       style={{
         position: "sticky",
         top: 0,
