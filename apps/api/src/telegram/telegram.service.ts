@@ -184,26 +184,71 @@ export class TelegramService
       const payload = ctx.match?.trim();
       const botName = this.botUsername ?? "vidsandgifsbot";
 
+      // Verbose log per /start — without this we can't tell whether
+      // Telegram is even forwarding the payload. Common failure modes:
+      //  • payload empty → user reopened the chat without re-clicking
+      //    the deep link, so Telegram dropped the original `?start=` arg.
+      //  • payload present but invalidToken → token expired (15 min TTL)
+      //    or copy-pasted between devices and got mangled.
+      this.logger.log(
+        `telegram./start from=${tgUser.id} username=${tgUser.username ?? "—"} payload=${payload ? `<${payload.length}ch>` : "<empty>"}`,
+      );
+
       if (!payload) {
+        // Already-linked path: show the user their current binding rather
+        // than the generic onboarding message — saves them from clicking
+        // "Connect" again on /settings when nothing actually broke.
+        const existingLink = await this.links.findByTelegramUserId(
+          String(tgUser.id),
+        );
+        if (existingLink) {
+          const account = await this.users.findById(existingLink.userId);
+          await ctx.reply(
+            t(locale, "start.alreadyLinked", {
+              name: account?.name ?? "vids&gifs",
+            }),
+          );
+          return;
+        }
+        // Bare /start with no payload AND no existing link — most likely
+        // the deep-link payload was stripped. Tell them how to fix it.
         await ctx.reply(t(locale, "start.hello", { bot: botName }));
         return;
       }
 
       const userId = this.links.redeemLinkToken(payload);
       if (!userId) {
+        this.logger.warn(
+          `telegram./start invalidToken from=${tgUser.id} payloadLen=${payload.length}`,
+        );
         await ctx.reply(t(locale, "start.invalidToken"));
         return;
       }
       const account = await this.users.findById(userId);
       if (!account) {
+        this.logger.warn(
+          `telegram./start accountGone from=${tgUser.id} userId=${userId}`,
+        );
         await ctx.reply(t(locale, "start.accountGone"));
         return;
       }
-      await this.links.link({
-        telegramUserId: String(tgUser.id),
-        userId,
-        telegramUsername: tgUser.username ?? null,
-      });
+      try {
+        await this.links.link({
+          telegramUserId: String(tgUser.id),
+          userId,
+          telegramUsername: tgUser.username ?? null,
+        });
+        this.logger.log(
+          `telegram./start linked ok from=${tgUser.id} userId=${userId} name="${account.name}"`,
+        );
+      } catch (err) {
+        this.logger.error(
+          `telegram./start link save failed from=${tgUser.id} userId=${userId}: ${(err as Error).message}`,
+          (err as Error).stack,
+        );
+        await ctx.reply(t(locale, "start.linkSaveFailed"));
+        return;
+      }
       await ctx.reply(t(locale, "start.linked", { name: account.name }));
     });
 

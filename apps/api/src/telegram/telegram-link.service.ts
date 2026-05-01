@@ -30,15 +30,28 @@ export class TelegramLinkService {
    * <token>`, is acting on behalf of the userId baked into the token". No
    * DB roundtrip needed for issuance or redemption — the signature is the
    * proof, the embedded expiry is the TTL.
+   *
+   * Token packing fits inside Telegram's 64-character `start=<param>` cap:
+   *   • 16 bytes — userId UUID, parsed to its raw bytes
+   *   • 4 bytes  — Unix seconds expiry (good through 2106)
+   *   • 8 bytes  — HMAC-SHA-256 truncated to 8 bytes (2^64 second-preimage
+   *                resistance; for a 15-min one-time token, plenty)
+   * Total 28 bytes → 38 chars base64url. The previous text-encoded form
+   * (uuid.exp.fullSig → ~154 chars base64url) overflowed Telegram's
+   * limit, which silently dropped the payload on the deep-link
+   * round-trip — the bot kept seeing /start with no args.
    */
   issueLinkToken(userId: string): string {
-    const exp = Date.now() + LINK_TOKEN_TTL_MS;
-    const payload = `${userId}.${exp}`;
-    const sig = this.sign(payload);
-    // base64url so it survives Telegram's deep-link query encoding without
-    // any percent-mangling — `t.me/bot?start=<token>` only allows
-    // [A-Za-z0-9_-].
-    return Buffer.from(`${payload}.${sig}`, "utf8").toString("base64url");
+    const userBytes = uuidToBytes(userId);
+    const exp = Math.floor((Date.now() + LINK_TOKEN_TTL_MS) / 1000);
+    const expBuf = Buffer.alloc(4);
+    expBuf.writeUInt32BE(exp);
+    const head = Buffer.concat([userBytes, expBuf]);
+    const sig = createHmac("sha256", this.secret)
+      .update(head)
+      .digest()
+      .subarray(0, 8);
+    return Buffer.concat([head, sig]).toString("base64url");
   }
 
   /**
@@ -47,22 +60,25 @@ export class TelegramLinkService {
    * caller surfaces a generic "expired or invalid" message either way.
    */
   redeemLinkToken(token: string): string | null {
-    let raw: string;
+    let buf: Buffer;
     try {
-      raw = Buffer.from(token, "base64url").toString("utf8");
+      buf = Buffer.from(token, "base64url");
     } catch {
       return null;
     }
-    const parts = raw.split(".");
-    if (parts.length !== 3) return null;
-    const [userId, expRaw, sig] = parts;
-    const exp = Number(expRaw);
-    if (!Number.isFinite(exp) || exp < Date.now()) return null;
-    const expected = Buffer.from(this.sign(`${userId}.${expRaw}`), "utf8");
-    const got = Buffer.from(sig, "utf8");
-    if (expected.length !== got.length) return null;
-    if (!timingSafeEqual(expected, got)) return null;
-    return userId;
+    if (buf.length !== 28) return null;
+    const head = buf.subarray(0, 20);
+    const userBytes = head.subarray(0, 16);
+    const expSeconds = head.readUInt32BE(16);
+    if (expSeconds * 1000 < Date.now()) return null;
+    const expectedSig = createHmac("sha256", this.secret)
+      .update(head)
+      .digest()
+      .subarray(0, 8);
+    const gotSig = buf.subarray(20);
+    if (expectedSig.length !== gotSig.length) return null;
+    if (!timingSafeEqual(expectedSig, gotSig)) return null;
+    return bytesToUuid(userBytes);
   }
 
   async link(args: {
@@ -101,4 +117,23 @@ export class TelegramLinkService {
       .update(payload)
       .digest("hex");
   }
+}
+
+/** Parse a UUID into its 16 raw bytes — TypeORM hands us UUIDs as the
+ *  canonical hyphenated string. Strips the hyphens and decodes the
+ *  resulting 32 hex chars. Throws on a malformed UUID, which would only
+ *  ever come from a corrupted DB row. */
+function uuidToBytes(uuid: string): Buffer {
+  const hex = uuid.replace(/-/g, "");
+  if (hex.length !== 32 || !/^[0-9a-fA-F]+$/.test(hex)) {
+    throw new Error(`uuidToBytes: invalid UUID "${uuid}"`);
+  }
+  return Buffer.from(hex, "hex");
+}
+
+/** Inverse of uuidToBytes — formats 16 bytes back into the canonical
+ *  8-4-4-4-12 hex layout. */
+function bytesToUuid(buf: Buffer): string {
+  const hex = buf.toString("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
 }

@@ -10,13 +10,17 @@ export type BotStringKey = keyof typeof STRINGS.en;
 export const STRINGS: Record<BotLocale, Record<string, string>> = {
   uk: {
     "start.hello":
-      "Привіт! Напишіть @{bot} <запит> у будь-якому чаті, щоб знайти GIF.\n\nЩоб завантажувати власні GIF через мене, підʼєднайте акаунт на vidsandgifs.xyz/settings.",
+      "Привіт! Якщо ви прийшли з vidsandgifs.xyz/settings, щоб підʼєднати акаунт — Telegram міг не передати посилання-токен. Поверніться на /settings і натисніть «Підʼєднати Telegram» ще раз; коли цей чат відкриється — натисніть кнопку START, якщо вона зʼявиться.\n\nІнакше: напишіть @{bot} <запит> у будь-якому чаті, щоб знайти GIF.",
     "start.invalidToken":
-      "Це посилання застаріле або недійсне. Відкрийте vidsandgifs.xyz/settings і натисніть «Підʼєднати Telegram» ще раз.",
+      "Це посилання застаріле або недійсне (термін дії 15 хв). Відкрийте vidsandgifs.xyz/settings і натисніть «Підʼєднати Telegram» ще раз.",
     "start.accountGone":
       "Акаунт, на який вказувало це посилання, більше не існує. Створіть нове посилання на сайті.",
     "start.linked":
       "Підʼєднано до {name}. Надішліть мені GIF як файл (Документ, не Анімацію) — і я завантажу його на vids&gifs.",
+    "start.alreadyLinked":
+      "Цей Telegram уже підʼєднано до {name}. Можете надсилати мені GIF як файли або шукати через інлайн у будь-якому чаті.",
+    "start.linkSaveFailed":
+      "Не вдалося зберегти підʼєднання. Спробуйте /unlink, потім підʼєднайте знову з /settings.",
     help:
       "/search <запит> — знайти GIF на vids&gifs прямо тут.\n/upload — як додати власний GIF на сайт.\nІнлайн-пошук: @{bot} <запит> — у будь-якому чаті.\n/lang — змінити мову.\n/unlink — відʼєднати Telegram від акаунту.",
     "search.usage":
@@ -60,13 +64,17 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
   },
   en: {
     "start.hello":
-      "Hi! Type @{bot} <query> in any chat to search GIFs.\n\nTo upload your own GIFs through me, link your account at vidsandgifs.xyz/settings.",
+      'Hi! If you came from vidsandgifs.xyz/settings to link your account — Telegram may not have forwarded the link token. Go back to /settings and click "Connect Telegram" again; when this chat opens, tap the START button if it shows up.\n\nOtherwise: type @{bot} <query> in any chat to search GIFs.',
     "start.invalidToken":
-      'That link is expired or invalid. Open vidsandgifs.xyz/settings and click "Connect Telegram" again.',
+      'That link is expired or invalid (15-min TTL). Open vidsandgifs.xyz/settings and click "Connect Telegram" again.',
     "start.accountGone":
       "The account this link points to no longer exists. Generate a new link from the website.",
     "start.linked":
       "Linked to {name}. Send me a GIF file (as a Document, not as Animation) and I'll upload it to vids&gifs.",
+    "start.alreadyLinked":
+      "This Telegram is already linked to {name}. You can send me GIFs as files, or search inline from any chat.",
+    "start.linkSaveFailed":
+      "Couldn't save the link. Try /unlink, then connect again from /settings.",
     help:
       "/search <query> — find GIFs on vids&gifs right here.\n/upload — how to add your own GIF to the site.\nInline search: @{bot} <query> — works in any chat.\n/lang — change language.\n/unlink — detach this Telegram from your account.",
     "search.usage":
