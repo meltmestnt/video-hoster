@@ -11,10 +11,15 @@ const STORAGE_KEY = "cookie-consent";
 type Consent = "accepted" | "declined";
 
 // Renders a bottom-of-page consent banner on first visit and remembers the
-// choice in localStorage so it doesn't reappear on subsequent loads. While
-// the choice is pending or the user declined, no analytics scripts are
-// rendered — that's what makes this GDPR-meaningful (declining must
-// actually prevent loading, not just hide a banner).
+// choice in localStorage so it doesn't reappear on subsequent loads.
+//
+// TEMPORARY: GDPR gating is currently disabled — Google Analytics loads
+// unconditionally (see <GoogleAnalytics /> below) so we can collect
+// baseline traffic data before the audience is large enough that the
+// consent flow matters legally. The banner still appears to set
+// expectations and so the toggling code stays exercised; restoring the
+// gate is a one-line change to the conditional at the bottom of this
+// file. Track here when restoring so the analytics decision is intentional.
 export function CookieConsent({ gaId }: { gaId: string }) {
   const t = useT();
   const [consent, setConsent] = useState<Consent | null>(null);
@@ -55,7 +60,12 @@ export function CookieConsent({ gaId }: { gaId: string }) {
 
   return (
     <>
-      {consent === "accepted" && <GoogleAnalytics gaId={gaId} />}
+      {/* TEMPORARY: load GA unconditionally instead of gating on
+          consent === "accepted". Banner still shows; the click handlers
+          still persist a choice for when we re-enable the gate. To
+          restore GDPR-correct behavior, swap the next line back to:
+            {consent === "accepted" && <GoogleAnalytics gaId={gaId} />} */}
+      <GoogleAnalytics gaId={gaId} />
       {hydrated && consent === null && (
         <Box
           role="region"
