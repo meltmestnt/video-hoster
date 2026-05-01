@@ -23,6 +23,11 @@ import {
   listGifsInputSchema,
   createGifCommentInputSchema,
   listGifCommentsInputSchema,
+  listNotificationsInputSchema,
+  listSubscriptionsInputSchema,
+  notificationIdInputSchema,
+  setNotifySubscribersOnUploadInputSchema,
+  userIdInputSchema,
   signInInputSchema,
   signUpInputSchema,
   tagSearchInputSchema,
@@ -52,6 +57,7 @@ export const appRouter = router({
         videoCount,
         miniPlayerEnabled: ctx.user.miniPlayerEnabled,
         miniPlayerPromptSeen: ctx.user.miniPlayerPromptSeen,
+        notifySubscribersOnUpload: ctx.user.notifySubscribersOnUpload,
       };
     }),
 
@@ -121,6 +127,10 @@ export const appRouter = router({
 
     sitemap: publicProcedure.query(({ ctx }) =>
       ctx.services.videos.listPublicForSitemap(),
+    ),
+
+    uploadQuota: protectedProcedure.query(({ ctx }) =>
+      ctx.services.videos.getUploadQuota(ctx.user.id),
     ),
 
     createUpload: verifiedProcedure
@@ -334,6 +344,32 @@ export const appRouter = router({
       ),
   }),
 
+  notifications: router({
+    list: protectedProcedure
+      .input(listNotificationsInputSchema)
+      .query(({ ctx, input }) =>
+        ctx.services.notifications.list(
+          ctx.user.id,
+          input.cursor,
+          input.limit,
+        ),
+      ),
+
+    unreadCount: protectedProcedure.query(({ ctx }) =>
+      ctx.services.notifications.unreadCount(ctx.user.id),
+    ),
+
+    markRead: protectedProcedure
+      .input(notificationIdInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.notifications.markRead(input.id, ctx.user.id),
+      ),
+
+    markAllRead: protectedProcedure.mutation(({ ctx }) =>
+      ctx.services.notifications.markAllRead(ctx.user.id),
+    ),
+  }),
+
   users: router({
     createAvatarUpload: protectedProcedure
       .input(createAvatarUploadInputSchema)
@@ -351,6 +387,60 @@ export const appRouter = router({
       .input(setMiniPlayerPreferenceInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.users.setMiniPlayerPreference(ctx.user.id, input.enabled),
+      ),
+
+    setNotifySubscribersOnUpload: protectedProcedure
+      .input(setNotifySubscribersOnUploadInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.users.setNotifySubscribersOnUpload(
+          ctx.user.id,
+          input.enabled,
+        ),
+      ),
+  }),
+
+  subscriptions: router({
+    toggle: protectedProcedure
+      .input(userIdInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.subscriptions.toggle(ctx.user.id, input.userId),
+      ),
+
+    isSubscribed: publicProcedure
+      .input(userIdInputSchema)
+      .query(({ ctx, input }) =>
+        ctx.user
+          ? ctx.services.subscriptions.isSubscribed(ctx.user.id, input.userId)
+          : Promise.resolve(false),
+      ),
+
+    followerCount: publicProcedure
+      .input(userIdInputSchema)
+      .query(({ ctx, input }) =>
+        ctx.services.subscriptions.followerCount(input.userId),
+      ),
+
+    // Users you subscribe to. Defaults to the signed-in user when no userId
+    // is supplied, so the /subscriptions page can call without args.
+    following: protectedProcedure
+      .input(listSubscriptionsInputSchema)
+      .query(({ ctx, input }) =>
+        ctx.services.subscriptions.listFollowing(
+          input.userId ?? ctx.user.id,
+          input.cursor,
+          input.limit,
+        ),
+      ),
+
+    // Users who subscribe to you (or to a given userId).
+    followers: protectedProcedure
+      .input(listSubscriptionsInputSchema)
+      .query(({ ctx, input }) =>
+        ctx.services.subscriptions.listFollowers(
+          input.userId ?? ctx.user.id,
+          input.cursor,
+          input.limit,
+        ),
       ),
   }),
 });

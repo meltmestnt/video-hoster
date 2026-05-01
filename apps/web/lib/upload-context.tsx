@@ -243,6 +243,41 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
           "Another tab is already uploading. Wait for that one to finish.",
         );
       }
+
+      // Preflight quota check so we don't spend minutes compressing only to
+      // be rejected by the server. We reject early when the count cap is
+      // already hit or there's literally no room left in the byte budget;
+      // for in-between cases we let the server make the precise call after
+      // compression (since we don't yet know the post-compression size).
+      // A network failure on the preflight shouldn't block the user — the
+      // server-side createUpload check is the source of truth.
+      let quota: Awaited<
+        ReturnType<typeof utils.videos.uploadQuota.fetch>
+      > | null = null;
+      try {
+        quota = await utils.videos.uploadQuota.fetch();
+      } catch {
+        quota = null;
+      }
+      if (quota) {
+        let quotaError: string | null = null;
+        if (quota.count >= quota.videoLimit) {
+          quotaError = `Daily upload limit reached (${quota.videoLimit} videos in 24h). Try again later.`;
+        } else if (quota.usedBytes >= quota.bytesLimit) {
+          const limitGb = Math.round(quota.bytesLimit / 1024 ** 3);
+          quotaError = `Daily upload size limit reached (${limitGb} GB in 24h). Try again later.`;
+        }
+        if (quotaError) {
+          setState((s) => ({
+            ...s,
+            status: "error",
+            errorMessage: quotaError,
+            fileName: file.name,
+          }));
+          throw new Error(quotaError);
+        }
+      }
+
       setState((s) => ({
         status: options?.skipCompression ? "preparing" : "compressing",
         fileName: file.name,

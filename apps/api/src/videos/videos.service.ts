@@ -251,6 +251,24 @@ export class VideosService {
     return { ok: true };
   }
 
+  async getUploadQuota(ownerId: string) {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recent = await this.videos.find({
+      where: { ownerId, createdAt: MoreThanOrEqual(since) },
+      select: ["id", "sizeBytes"],
+    });
+    const usedBytes = recent.reduce(
+      (sum, v) => sum + Number(v.sizeBytes ?? 0),
+      0,
+    );
+    return {
+      count: recent.length,
+      usedBytes,
+      videoLimit: DAILY_VIDEO_UPLOAD_LIMIT,
+      bytesLimit: DAILY_VIDEO_BYTES_LIMIT,
+    };
+  }
+
   async deleteVideo(videoId: string, ownerId: string) {
     const video = await this.videos.findOne({ where: { id: videoId } });
     if (!video) throw new NotFoundException("Video not found");
