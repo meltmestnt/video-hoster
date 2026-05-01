@@ -16,6 +16,8 @@ import {
   MAX_VIDEO_OUTPUT_BYTES,
   MAX_VIDEO_OUTPUT_MB,
 } from "@repo/shared";
+import { parseUnverifiedLimitError } from "@/lib/unverified-limit";
+import { useVerifyRequired } from "@/components/VerifyRequiredDialog";
 
 // Cross-tab coordination: while one tab is uploading, every ~HEARTBEAT_MS it
 // broadcasts its activity. Receiving tabs treat any heartbeat seen within
@@ -127,6 +129,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
   const xhrRef = useRef<XMLHttpRequest | null>(null);
   const router = useRouter();
   const utils = trpc.useUtils();
+  const verifyRequired = useVerifyRequired();
   const createUpload = trpc.videos.createUpload.useMutation();
   const finalizeUpload = trpc.videos.finalizeUpload.useMutation();
   const createGifUpload = trpc.gifs.createUpload.useMutation();
@@ -409,11 +412,17 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
           lastSuccess: { videoId: created.videoId, title: meta.title },
         });
       } catch (err) {
-        setState((s) => ({
-          ...s,
-          status: "error",
-          errorMessage: (err as Error).message,
-        }));
+        const limitKind = parseUnverifiedLimitError(err);
+        if (limitKind) {
+          verifyRequired.show(limitKind);
+          setState((s) => ({ ...initialState, lastSuccess: s.lastSuccess }));
+        } else {
+          setState((s) => ({
+            ...s,
+            status: "error",
+            errorMessage: (err as Error).message,
+          }));
+        }
       } finally {
         xhrRef.current = null;
         stopHeartbeat();
@@ -428,6 +437,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       otherTabUploading,
       startHeartbeat,
       stopHeartbeat,
+      verifyRequired,
     ],
   );
 
@@ -485,11 +495,17 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
           lastSuccess: { videoId: created.gifId, title: meta.title },
         });
       } catch (err) {
-        setState((s) => ({
-          ...s,
-          status: "error",
-          errorMessage: (err as Error).message,
-        }));
+        const limitKind = parseUnverifiedLimitError(err);
+        if (limitKind) {
+          verifyRequired.show(limitKind);
+          setState((s) => ({ ...initialState, lastSuccess: s.lastSuccess }));
+        } else {
+          setState((s) => ({
+            ...s,
+            status: "error",
+            errorMessage: (err as Error).message,
+          }));
+        }
       } finally {
         xhrRef.current = null;
         stopHeartbeat();
@@ -505,6 +521,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       otherTabUploading,
       startHeartbeat,
       stopHeartbeat,
+      verifyRequired,
     ],
   );
 
@@ -520,27 +537,36 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
             ? "image/webp"
             : "image/jpeg"
       ) as "image/jpeg" | "image/png" | "image/webp";
-      const created = await createScreenshotUpload.mutateAsync({
-        title: meta.title,
-        mimeType,
-        sizeBytes: blob.size,
-        width: Math.max(1, Math.round(meta.width)),
-        height: Math.max(1, Math.round(meta.height)),
-        visibility: meta.visibility,
-        source: meta.source,
-      });
-      await putToS3(created.uploadUrl, blob, mimeType);
-      await finalizeScreenshotUpload.mutateAsync({
-        screenshotId: created.screenshotId,
-      });
-      await utils.screenshots.list.invalidate().catch(() => {});
-      return { screenshotId: created.screenshotId, title: meta.title };
+      try {
+        const created = await createScreenshotUpload.mutateAsync({
+          title: meta.title,
+          mimeType,
+          sizeBytes: blob.size,
+          width: Math.max(1, Math.round(meta.width)),
+          height: Math.max(1, Math.round(meta.height)),
+          visibility: meta.visibility,
+          source: meta.source,
+        });
+        await putToS3(created.uploadUrl, blob, mimeType);
+        await finalizeScreenshotUpload.mutateAsync({
+          screenshotId: created.screenshotId,
+        });
+        await utils.screenshots.list.invalidate().catch(() => {});
+        return { screenshotId: created.screenshotId, title: meta.title };
+      } catch (err) {
+        const limitKind = parseUnverifiedLimitError(err);
+        if (limitKind) {
+          verifyRequired.show(limitKind);
+        }
+        throw err;
+      }
     },
     [
       createScreenshotUpload,
       finalizeScreenshotUpload,
       putToS3,
       utils.screenshots.list,
+      verifyRequired,
     ],
   );
 

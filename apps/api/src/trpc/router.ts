@@ -169,7 +169,7 @@ export const appRouter = router({
       ctx.services.videos.getUploadQuota(ctx.user.id),
     ),
 
-    createUpload: verifiedProcedure
+    createUpload: protectedProcedure
       .use(
         rateLimit({
           name: "videos.createUpload",
@@ -182,6 +182,7 @@ export const appRouter = router({
       .mutation(({ ctx, input }) =>
         ctx.services.videos.createUpload({
           ownerId: ctx.user.id,
+          ownerStatus: ctx.user.status,
           title: input.title,
           description: input.description,
           mimeType: input.mimeType,
@@ -274,7 +275,7 @@ export const appRouter = router({
         ),
       ),
 
-    createUpload: verifiedProcedure
+    createUpload: protectedProcedure
       .use(
         rateLimit({
           name: "gifs.createUpload",
@@ -287,6 +288,7 @@ export const appRouter = router({
       .mutation(({ ctx, input }) =>
         ctx.services.gifs.createUpload({
           ownerId: ctx.user.id,
+          ownerStatus: ctx.user.status,
           title: input.title,
           description: input.description,
           sizeBytes: input.sizeBytes,
@@ -344,7 +346,7 @@ export const appRouter = router({
         ctx.services.screenshots.byId(input.id, ctx.user?.id ?? null),
       ),
 
-    createUpload: verifiedProcedure
+    createUpload: protectedProcedure
       .use(
         rateLimit({
           name: "screenshots.createUpload",
@@ -357,6 +359,7 @@ export const appRouter = router({
       .mutation(({ ctx, input }) =>
         ctx.services.screenshots.createUpload({
           ownerId: ctx.user.id,
+          ownerStatus: ctx.user.status,
           title: input.title,
           mimeType: input.mimeType,
           sizeBytes: input.sizeBytes,

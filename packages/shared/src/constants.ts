@@ -13,6 +13,15 @@ export const DAILY_VIDEO_UPLOAD_LIMIT = 10;
 export const DAILY_VIDEO_BYTES_LIMIT = 1024 ** 3; // 1 GiB
 export const DAILY_VIDEO_BYTES_LIMIT_GB = 1;
 
+// Cap on how many of each media kind an *unverified* user can upload before
+// they must confirm their email. The server emits an error whose message
+// starts with this prefix so the client can detect it and pop a "verify
+// your email" dialog instead of showing a generic toast.
+export const UNVERIFIED_VIDEO_LIMIT = 1;
+export const UNVERIFIED_GIF_LIMIT = 1;
+export const UNVERIFIED_SCREENSHOT_LIMIT = 1;
+export const UNVERIFIED_LIMIT_ERROR_PREFIX = "UNVERIFIED_LIMIT:";
+
 export const ALLOWED_VIDEO_MIME_TYPES = [
   "video/mp4",
   "video/quicktime",

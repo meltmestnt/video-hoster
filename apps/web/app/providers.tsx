@@ -8,6 +8,7 @@ import { trpc } from "@/lib/trpc";
 import { UploadProvider } from "@/lib/upload-context";
 import { MiniPlayerProvider } from "@/lib/mini-player-context";
 import { I18nProvider } from "@/lib/i18n";
+import { VerifyRequiredProvider } from "@/components/VerifyRequiredDialog";
 
 const apiUrl =
   (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000") + "/trpc";
@@ -63,9 +64,11 @@ function TrpcProviders({ children }: { children: React.ReactNode }) {
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
-        <UploadProvider>
-          <MiniPlayerProvider>{children}</MiniPlayerProvider>
-        </UploadProvider>
+        <VerifyRequiredProvider>
+          <UploadProvider>
+            <MiniPlayerProvider>{children}</MiniPlayerProvider>
+          </UploadProvider>
+        </VerifyRequiredProvider>
       </QueryClientProvider>
     </trpc.Provider>
   );

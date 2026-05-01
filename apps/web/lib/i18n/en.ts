@@ -459,6 +459,20 @@ export const en = {
   "upload.video.download.hint.none":
     "No download button is shown.",
 
+  // ─── Verify-required popup ───
+  "verify.popup.title": "Verify your email to keep uploading",
+  "verify.popup.body.video":
+    "Unverified accounts can upload up to 1 video. Confirm your email to upload more.",
+  "verify.popup.body.gif":
+    "Unverified accounts can upload up to 1 GIF. Confirm your email to upload more.",
+  "verify.popup.body.screenshot":
+    "Unverified accounts can save up to 1 screenshot. Confirm your email to save more.",
+  "verify.popup.checkInbox":
+    "Check your inbox (and the spam folder) for the confirmation link we sent when you signed up.",
+  "verify.popup.contact":
+    "Lost the email? Sign out and sign up again, or ask an admin to manually verify your account.",
+  "verify.popup.gotIt": "Got it",
+
   // ─── Convert dialog ───
   "convert.title": "Convert media",
   "convert.subtitle":
