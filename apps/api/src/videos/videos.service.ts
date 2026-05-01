@@ -337,10 +337,10 @@ export class VideosService {
     };
   }
 
-  async deleteVideo(videoId: string, ownerId: string) {
+  async deleteVideo(videoId: string, ownerId: string, isAdmin = false) {
     const video = await this.videos.findOne({ where: { id: videoId } });
     if (!video) throw new NotFoundException("Video not found");
-    if (video.ownerId !== ownerId) {
+    if (!isAdmin && video.ownerId !== ownerId) {
       throw new ForbiddenException("Not the owner");
     }
 

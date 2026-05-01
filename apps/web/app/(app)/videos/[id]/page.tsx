@@ -88,17 +88,23 @@ export default async function VideoPage({
   let video;
   let comments;
   let suggested;
+  let me: Awaited<
+    ReturnType<Awaited<ReturnType<typeof getServerTrpc>>["auth"]["me"]["query"]>
+  > = null;
   try {
-    [video, comments, suggested] = await Promise.all([
+    [video, comments, suggested, me] = await Promise.all([
       trpc.videos.byId.query({ id }),
       trpc.comments.listByVideo.query({ id }),
       trpc.videos.suggested.query({ id, limit: 10 }),
+      session?.user ? trpc.auth.me.query() : Promise.resolve(null),
     ]);
   } catch {
     notFound();
   }
 
   const isOwner = !!session?.user?.id && session.user.id === video.owner.id;
+  const isAdmin = me?.role === "admin";
+  const canDelete = isOwner || isAdmin;
 
   const jsonLd =
     video.visibility === "private"
@@ -240,7 +246,7 @@ export default async function VideoPage({
                 policy={video.downloadPolicy}
               />
             )}
-            {isOwner && (
+            {canDelete && (
               <DeleteVideoButton videoId={video.id} title={video.title} />
             )}
           </Flex>

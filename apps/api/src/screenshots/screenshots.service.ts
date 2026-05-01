@@ -145,10 +145,10 @@ export class ScreenshotsService {
     return { ok: true };
   }
 
-  async deleteScreenshot(id: string, ownerId: string) {
+  async deleteScreenshot(id: string, ownerId: string, isAdmin = false) {
     const shot = await this.screenshots.findOne({ where: { id } });
     if (!shot) throw new NotFoundException("Screenshot not found");
-    if (shot.ownerId !== ownerId) {
+    if (!isAdmin && shot.ownerId !== ownerId) {
       throw new ForbiddenException("Not the owner");
     }
     if (shot.s3Key) {

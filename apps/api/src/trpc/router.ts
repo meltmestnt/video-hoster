@@ -222,7 +222,11 @@ export const appRouter = router({
     delete: verifiedProcedure
       .input(videoIdInputSchema)
       .mutation(({ ctx, input }) =>
-        ctx.services.videos.deleteVideo(input.id, ctx.user.id),
+        ctx.services.videos.deleteVideo(
+          input.id,
+          ctx.user.id,
+          ctx.user.role === "admin",
+        ),
       ),
 
     react: verifiedProcedure
@@ -325,7 +329,11 @@ export const appRouter = router({
     delete: verifiedProcedure
       .input(gifIdInputSchema)
       .mutation(({ ctx, input }) =>
-        ctx.services.gifs.deleteGif(input.id, ctx.user.id),
+        ctx.services.gifs.deleteGif(
+          input.id,
+          ctx.user.id,
+          ctx.user.role === "admin",
+        ),
       ),
 
     react: verifiedProcedure
@@ -397,7 +405,11 @@ export const appRouter = router({
     delete: verifiedProcedure
       .input(screenshotIdInputSchema)
       .mutation(({ ctx, input }) =>
-        ctx.services.screenshots.deleteScreenshot(input.id, ctx.user.id),
+        ctx.services.screenshots.deleteScreenshot(
+          input.id,
+          ctx.user.id,
+          ctx.user.role === "admin",
+        ),
       ),
 
     sitemap: publicProcedure.query(({ ctx }) =>

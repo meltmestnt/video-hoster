@@ -156,10 +156,10 @@ export class GifsService {
     return { ok: true };
   }
 
-  async deleteGif(gifId: string, ownerId: string) {
+  async deleteGif(gifId: string, ownerId: string, isAdmin = false) {
     const gif = await this.gifs.findOne({ where: { id: gifId } });
     if (!gif) throw new NotFoundException("Gif not found");
-    if (gif.ownerId !== ownerId) {
+    if (!isAdmin && gif.ownerId !== ownerId) {
       throw new ForbiddenException("Not the owner");
     }
     if (gif.s3Key) {

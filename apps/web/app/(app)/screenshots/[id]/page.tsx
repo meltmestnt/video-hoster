@@ -54,13 +54,21 @@ export default async function ScreenshotPage({
   const trpc = await getServerTrpc();
 
   let shot;
+  let me: Awaited<
+    ReturnType<Awaited<ReturnType<typeof getServerTrpc>>["auth"]["me"]["query"]>
+  > = null;
   try {
-    shot = await trpc.screenshots.byId.query({ id });
+    [shot, me] = await Promise.all([
+      trpc.screenshots.byId.query({ id }),
+      trpc.auth.me.query(),
+    ]);
   } catch {
     notFound();
   }
 
   const isOwner = !!session?.user?.id && session.user.id === shot.owner.id;
+  const isAdmin = me?.role === "admin";
+  const canDelete = isOwner || isAdmin;
 
   const downloadName = `${shot.title || "screenshot"}.${
     shot.mimeType === "image/png"
@@ -94,7 +102,7 @@ export default async function ScreenshotPage({
             </a>
           </Button>
         )}
-        {isOwner && (
+        {canDelete && (
           <DeleteScreenshotButton
             screenshotId={shot.id}
             title={shot.title}

@@ -80,17 +80,23 @@ export default async function GifPage({
   let gif;
   let comments;
   let suggested;
+  let me: Awaited<
+    ReturnType<Awaited<ReturnType<typeof getServerTrpc>>["auth"]["me"]["query"]>
+  > = null;
   try {
-    [gif, comments, suggested] = await Promise.all([
+    [gif, comments, suggested, me] = await Promise.all([
       trpc.gifs.byId.query({ id }),
       trpc.comments.listByGif.query({ id, sort: "newest" }),
       trpc.gifs.suggested.query({ id, limit: 10 }),
+      trpc.auth.me.query(),
     ]);
   } catch {
     notFound();
   }
 
   const isOwner = !!session?.user?.id && session.user.id === gif.owner.id;
+  const isAdmin = me?.role === "admin";
+  const canDelete = isOwner || isAdmin;
 
   const jsonLd =
     gif.visibility === "private"
@@ -180,7 +186,7 @@ export default async function GifPage({
               initialReaction={gif.viewerReaction}
             />
             <ShareButton path={`/gifs/${gif.id}`} title={gif.title} />
-            {isOwner && (
+            {canDelete && (
               <DeleteGifButton gifId={gif.id} title={gif.title} />
             )}
           </Flex>
