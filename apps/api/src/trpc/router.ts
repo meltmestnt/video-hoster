@@ -55,6 +55,10 @@ import {
   verifiedProcedure,
   adminProcedure,
 } from "./trpc";
+import { rateLimit } from "./rate-limit";
+
+const MIN = 60 * 1000;
+const HOUR = 60 * MIN;
 
 export const appRouter = router({
   auth: router({
@@ -80,16 +84,30 @@ export const appRouter = router({
     }),
 
     signUp: publicProcedure
+      .use(
+        rateLimit({ name: "signUp", keyBy: "ip", max: 3, windowMs: HOUR }),
+      )
       .input(signUpInputSchema)
       .mutation(({ ctx, input }) => ctx.services.users.signUp(input)),
 
     confirmSignUp: publicProcedure
+      .use(
+        rateLimit({
+          name: "confirmSignUp",
+          keyBy: "ip",
+          max: 10,
+          windowMs: HOUR,
+        }),
+      )
       .input(confirmSignUpInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.users.confirmSignUp(input.token),
       ),
 
     signIn: publicProcedure
+      .use(
+        rateLimit({ name: "signIn", keyBy: "ip", max: 5, windowMs: MIN }),
+      )
       .input(signInInputSchema)
       .mutation(async ({ ctx, input }) => {
         const user = await ctx.services.users.verifyPassword(input);
@@ -152,6 +170,14 @@ export const appRouter = router({
     ),
 
     createUpload: verifiedProcedure
+      .use(
+        rateLimit({
+          name: "videos.createUpload",
+          keyBy: "userId",
+          max: 20,
+          windowMs: HOUR,
+        }),
+      )
       .input(createUploadInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.videos.createUpload({
@@ -249,6 +275,14 @@ export const appRouter = router({
       ),
 
     createUpload: verifiedProcedure
+      .use(
+        rateLimit({
+          name: "gifs.createUpload",
+          keyBy: "userId",
+          max: 20,
+          windowMs: HOUR,
+        }),
+      )
       .input(createGifUploadInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.gifs.createUpload({
@@ -311,6 +345,14 @@ export const appRouter = router({
       ),
 
     createUpload: verifiedProcedure
+      .use(
+        rateLimit({
+          name: "screenshots.createUpload",
+          keyBy: "userId",
+          max: 20,
+          windowMs: HOUR,
+        }),
+      )
       .input(createScreenshotUploadInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.screenshots.createUpload({

@@ -14,7 +14,10 @@ import { pipeline } from "node:stream/promises";
 import type { Readable } from "node:stream";
 
 const PUT_TTL = 60 * 15;
-const GET_TTL = 60 * 60;
+// Short GET TTL caps egress damage if a presigned URL leaks or gets scraped:
+// any redistributed link expires in 10 minutes. Public videos still work
+// because the page is force-dynamic and re-issues a fresh URL on every load.
+const GET_TTL = 60 * 10;
 
 @Injectable()
 export class S3Service {

@@ -58,12 +58,19 @@ export class TrpcService {
       billing: this.billing,
     };
 
+    // Cloudflare's CF-Connecting-IP is a spoofing-resistant source for the
+    // original client IP — prefer it when present, fall back to the
+    // X-Forwarded-For-derived `req.ip`.
+    const cfIp = req.headers["cf-connecting-ip"];
+    const ip =
+      (Array.isArray(cfIp) ? cfIp[0] : cfIp) || req.ip || "unknown";
+
     const header = req.headers.authorization;
     if (!header || !header.startsWith("Bearer ")) {
-      return { user: null, services };
+      return { user: null, services, ip };
     }
     const token = header.slice(7).trim();
-    if (!token) return { user: null, services };
+    if (!token) return { user: null, services, ip };
 
     try {
       const payload = await this.auth.verifyToken(token);
@@ -71,10 +78,10 @@ export class TrpcService {
         payload.provider === "credentials"
           ? await this.users.findById(payload.sub)
           : await this.users.upsertFromAuthPayload(payload);
-      if (!user) return { user: null, services };
-      return { user, services };
+      if (!user) return { user: null, services, ip };
+      return { user, services, ip };
     } catch {
-      return { user: null, services };
+      return { user: null, services, ip };
     }
   };
 }

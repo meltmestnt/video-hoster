@@ -12,6 +12,10 @@ async function bootstrap() {
   // check needs the unmodified bytes; everywhere else still gets JSON.
   const app = await NestFactory.create(AppModule, { bodyParser: false });
   const expressApp = app.getHttpAdapter().getInstance() as express.Express;
+  // We sit behind Cloudflare → Railway, so the socket peer is always a proxy.
+  // Trusting the chain lets `req.ip` resolve to the real client address that
+  // rate limiting buckets on.
+  expressApp.set("trust proxy", true);
 
   expressApp.use(
     "/webhook/lemonsqueezy",

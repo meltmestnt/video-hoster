@@ -34,4 +34,8 @@ export interface Services {
 export interface Context {
   user: User | null;
   services: Services;
+  // Client IP, resolved through the trust-proxy chain (Cloudflare →
+  // Railway → Express). Used as the bucket key for rate limiting on
+  // unauthenticated procedures.
+  ip: string;
 }
