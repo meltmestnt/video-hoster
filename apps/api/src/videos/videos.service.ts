@@ -32,6 +32,7 @@ interface FinalizeArgs {
   videoId: string;
   ownerId: string;
   compressServerSide: boolean;
+  thumbnailS3Key?: string;
 }
 
 const extensionForMime = (mime: string): string => {
@@ -102,12 +103,19 @@ export class VideosService {
     await this.videos.update({ id: saved.id }, { s3Key });
     saved.s3Key = s3Key;
 
-    const uploadUrl = await this.s3.presignPut(s3Key, args.mimeType);
+    const thumbnailS3Key = `videos/${saved.id}/thumb-${Date.now()}.jpg`;
+
+    const [uploadUrl, thumbnailUploadUrl] = await Promise.all([
+      this.s3.presignPut(s3Key, args.mimeType),
+      this.s3.presignPut(thumbnailS3Key, "image/jpeg"),
+    ]);
 
     return {
       videoId: saved.id,
       s3Key,
       uploadUrl,
+      thumbnailS3Key,
+      thumbnailUploadUrl,
     };
   }
 
@@ -155,6 +163,28 @@ export class VideosService {
 
     video.status = "ready";
     await this.videos.save(video);
+
+    if (args.thumbnailS3Key) {
+      const expectedPrefix = `videos/${video.id}/thumb-`;
+      if (!args.thumbnailS3Key.startsWith(expectedPrefix)) {
+        this.logger.warn(
+          `Rejecting thumbnail key ${args.thumbnailS3Key} — does not match video ${video.id}`,
+        );
+      } else {
+        const head = await this.s3.headObject(args.thumbnailS3Key);
+        if (head) {
+          const row = this.thumbnails.create({
+            videoId: video.id,
+            s3Key: args.thumbnailS3Key,
+          });
+          await this.thumbnails.save(row);
+          return { ok: true };
+        }
+        this.logger.warn(
+          `Client-supplied thumbnail ${args.thumbnailS3Key} not found in S3; falling back`,
+        );
+      }
+    }
 
     try {
       const thumb = await this.transcoder.generateThumbnail(video.id);

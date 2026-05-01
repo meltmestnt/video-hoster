@@ -62,6 +62,10 @@ interface StartOptions {
   // a final-quality mp4 (e.g. converting a GIF to mp4 in a separate step) and
   // re-running compress would be wasted work.
   skipCompression?: boolean;
+  // Optional client-captured thumbnail (JPEG). When supplied, we PUT it to the
+  // presigned thumbnail URL the API returned, and pass the key into finalize so
+  // the server skips its ffmpeg fallback.
+  thumbnailBlob?: Blob;
 }
 
 interface UploadContextValue extends UploadState {
@@ -297,10 +301,30 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
           setState((s) => ({ ...s, progress: p })),
         );
 
+        // Push the client-captured thumbnail in parallel with finalize prep.
+        // We swallow failures — the server has its own fallback path.
+        let thumbnailS3Key: string | undefined;
+        if (options?.thumbnailBlob) {
+          try {
+            await putToS3(
+              created.thumbnailUploadUrl,
+              options.thumbnailBlob,
+              "image/jpeg",
+            );
+            thumbnailS3Key = created.thumbnailS3Key;
+          } catch (thumbErr) {
+            console.warn(
+              "Thumbnail upload failed; server will generate one:",
+              thumbErr,
+            );
+          }
+        }
+
         setState((s) => ({ ...s, status: "finalizing", progress: 1 }));
         await finalizeUpload.mutateAsync({
           videoId: created.videoId,
           compressServerSide,
+          thumbnailS3Key,
         });
 
         await utils.videos.list.invalidate();

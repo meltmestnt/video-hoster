@@ -144,6 +144,7 @@ export const appRouter = router({
           videoId: input.videoId,
           ownerId: ctx.user.id,
           compressServerSide: input.compressServerSide,
+          thumbnailS3Key: input.thumbnailS3Key,
         }),
       ),
 

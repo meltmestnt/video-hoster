@@ -44,22 +44,23 @@ export class TranscoderService {
     if (!video) throw new NotFoundException("Video not found");
 
     const workDir = await mkdtemp(join(tmpdir(), "vidly-thumb-"));
+    const inputPath = join(workDir, "input");
     const outputPath = join(workDir, "thumb.jpg");
 
     try {
-      // Stream directly from S3 via a presigned URL. ffmpeg with `-ss` before
-      // `-i` performs a fast HTTP range seek, so we don't pull the whole file.
-      const inputUrl = await this.s3.presignGet(video.s3Key);
+      // Download the source first instead of streaming through a presigned URL.
+      // The static ffmpeg binary on some hosts is missing HTTPS support or
+      // misbehaves with range-seek over signed URLs, which silently produces
+      // no thumbnail.
+      await this.s3.downloadToFile(video.s3Key, inputPath);
 
-      // Skip ffprobe entirely — no second full pass over the file. Try a small
-      // offset first, fall back to frame 0 for very short clips.
       try {
-        await this.extractFrame(inputUrl, outputPath, 1);
+        await this.extractFrame(inputPath, outputPath, 1);
       } catch (err) {
         this.logger.warn(
           `Thumbnail seek to 1s failed (${(err as Error).message}); retrying at 0s`,
         );
-        await this.extractFrame(inputUrl, outputPath, 0);
+        await this.extractFrame(inputPath, outputPath, 0);
       }
 
       const thumbKey = `videos/${video.id}/thumb-${Date.now()}.jpg`;

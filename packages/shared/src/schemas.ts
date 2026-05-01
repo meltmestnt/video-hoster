@@ -33,6 +33,10 @@ export const finalizeUploadInputSchema = z.object({
   // Set when the client couldn't transcode in-browser (ffmpeg.wasm failure or
   // OOM) and uploaded the original file instead — the server will re-encode.
   compressServerSide: z.boolean().default(false),
+  // Optional client-supplied thumbnail. The S3 key was returned by createUpload
+  // and the client PUT a JPEG to it. If absent, the server falls back to
+  // generating a thumbnail from the video itself.
+  thumbnailS3Key: z.string().min(1).max(256).optional(),
 });
 export type FinalizeUploadInput = z.infer<typeof finalizeUploadInputSchema>;
 

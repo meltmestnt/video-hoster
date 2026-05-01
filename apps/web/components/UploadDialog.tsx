@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Box,
   Button,
   Callout,
   Dialog,
   Flex,
   SegmentedControl,
+  Slider,
   Text,
   TextArea,
   TextField,
@@ -17,10 +19,14 @@ import {
   MAX_VIDEO_GB,
 } from "@repo/shared";
 import { isUploadBusy, useUpload } from "@/lib/upload-context";
+import { extractFrame } from "@/lib/extract-frame";
 import {
   VideoEditorDialog,
   type EditorOutput,
 } from "./VideoEditorDialog";
+
+const MAX_CUSTOM_THUMB_BYTES = 4 * 1024 * 1024;
+const ALLOWED_THUMB_MIME = ["image/jpeg", "image/png", "image/webp"];
 
 interface Props {
   open: boolean;
@@ -40,6 +46,16 @@ export function UploadDialog({ open, onOpenChange }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
 
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [videoDuration, setVideoDuration] = useState(0);
+  const [scrubTime, setScrubTime] = useState(1);
+  const [thumbBlob, setThumbBlob] = useState<Blob | null>(null);
+  const [thumbUrl, setThumbUrl] = useState<string | null>(null);
+  const [thumbBusy, setThumbBusy] = useState(false);
+  const [thumbError, setThumbError] = useState<string | null>(null);
+  const customThumbInputRef = useRef<HTMLInputElement | null>(null);
+
   useEffect(() => {
     if (!open) {
       setTitle("");
@@ -49,8 +65,95 @@ export function UploadDialog({ open, onOpenChange }: Props) {
       setFile(null);
       setError(null);
       setEditorOpen(false);
+      setThumbBlob(null);
+      setThumbError(null);
+      setVideoDuration(0);
+      setScrubTime(1);
     }
   }, [open]);
+
+  // Manage the object URL for the file's <video> source. Revoked when the
+  // file changes or the dialog closes so we don't leak blobs across uploads.
+  useEffect(() => {
+    if (!file) {
+      setVideoUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setVideoUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  // Same for the thumbnail preview URL.
+  useEffect(() => {
+    if (!thumbBlob) {
+      setThumbUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(thumbBlob);
+    setThumbUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [thumbBlob]);
+
+  // Auto-capture a default thumbnail at ~1s when a new video file is picked.
+  useEffect(() => {
+    if (!file || !ALLOWED_VIDEO_MIME_TYPES.includes(
+      file.type as (typeof ALLOWED_VIDEO_MIME_TYPES)[number],
+    )) {
+      return;
+    }
+    let cancelled = false;
+    setThumbBusy(true);
+    setThumbError(null);
+    extractFrame(file, { atSeconds: 1 })
+      .then(({ blob }) => {
+        if (!cancelled) setThumbBlob(blob);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.warn("Default thumbnail capture failed:", err);
+          setThumbError(
+            "Couldn't auto-generate a thumbnail. Pick a frame or upload a custom image.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setThumbBusy(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [file]);
+
+  const captureCurrentFrame = async () => {
+    if (!file) return;
+    setThumbBusy(true);
+    setThumbError(null);
+    try {
+      const { blob } = await extractFrame(file, { atSeconds: scrubTime });
+      setThumbBlob(blob);
+    } catch (err) {
+      setThumbError((err as Error).message);
+    } finally {
+      setThumbBusy(false);
+    }
+  };
+
+  const onCustomThumbSelected = (f: File | null) => {
+    if (!f) return;
+    if (!ALLOWED_THUMB_MIME.includes(f.type)) {
+      setThumbError("Thumbnail must be a JPEG, PNG, or WebP image.");
+      return;
+    }
+    if (f.size > MAX_CUSTOM_THUMB_BYTES) {
+      setThumbError(
+        `Image is ${(f.size / 1024 ** 2).toFixed(1)} MB. Max allowed is ${MAX_CUSTOM_THUMB_BYTES / 1024 ** 2} MB.`,
+      );
+      return;
+    }
+    setThumbError(null);
+    setThumbBlob(f);
+  };
 
   const tags = useMemo(
     () =>
@@ -106,7 +209,7 @@ export function UploadDialog({ open, onOpenChange }: Props) {
             mimeType: file.type,
             visibility,
           },
-          { edit: output.edit },
+          { edit: output.edit, thumbnailBlob: thumbBlob ?? undefined },
         );
       } else {
         await upload.startGif(
@@ -131,8 +234,8 @@ export function UploadDialog({ open, onOpenChange }: Props) {
       <Dialog.Content maxWidth="520px">
         <Dialog.Title>Upload a video</Dialog.Title>
         <Dialog.Description size="2" color="gray" mb="4">
-          Up to {MAX_VIDEO_GB} GiB. A thumbnail is generated from a random
-          frame after upload.
+          Up to {MAX_VIDEO_GB} GiB. Pick a frame for the thumbnail or upload
+          your own image.
         </Dialog.Description>
 
         <Flex direction="column" gap="3">
@@ -205,6 +308,136 @@ export function UploadDialog({ open, onOpenChange }: Props) {
               disabled={busy}
             />
           </Flex>
+
+          {file && !fileError && (
+            <Flex direction="column" gap="2">
+              <Text size="2" weight="medium">
+                Thumbnail
+              </Text>
+              <Flex gap="3" align="start" wrap="wrap">
+                <Box
+                  style={{
+                    width: 192,
+                    aspectRatio: "16 / 9",
+                    background: "var(--gray-3)",
+                    borderRadius: "var(--radius-2)",
+                    overflow: "hidden",
+                    flexShrink: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {thumbUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={thumbUrl}
+                      alt="Thumbnail preview"
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                      }}
+                    />
+                  ) : (
+                    <Text size="1" color="gray">
+                      {thumbBusy ? "Capturing..." : "No thumbnail"}
+                    </Text>
+                  )}
+                </Box>
+
+                <Flex direction="column" gap="2" style={{ flex: 1, minWidth: 220 }}>
+                  {videoUrl && (
+                    <video
+                      ref={videoRef}
+                      src={videoUrl}
+                      muted
+                      playsInline
+                      preload="metadata"
+                      onLoadedMetadata={(e) => {
+                        const v = e.currentTarget;
+                        setVideoDuration(v.duration || 0);
+                        setScrubTime(Math.min(1, v.duration || 1));
+                      }}
+                      onSeeked={(e) => {
+                        // Keep state in sync if the user drags the native bar.
+                        setScrubTime(e.currentTarget.currentTime);
+                      }}
+                      style={{
+                        width: "100%",
+                        background: "black",
+                        borderRadius: "var(--radius-2)",
+                        aspectRatio: "16 / 9",
+                        objectFit: "contain",
+                      }}
+                    />
+                  )}
+                  <Flex align="center" gap="2">
+                    <Text size="1" color="gray" style={{ width: 64 }}>
+                      Frame
+                    </Text>
+                    <Box style={{ flex: 1 }}>
+                      <Slider
+                        value={[Math.round(scrubTime * 1000)]}
+                        min={0}
+                        max={Math.max(1, Math.round(videoDuration * 1000))}
+                        step={100}
+                        onValueChange={(v) => {
+                          const next = (v[0] ?? 0) / 1000;
+                          setScrubTime(next);
+                          if (videoRef.current) {
+                            videoRef.current.currentTime = next;
+                          }
+                        }}
+                        size="1"
+                        aria-label="Pick thumbnail frame"
+                        disabled={!videoDuration}
+                      />
+                    </Box>
+                    <Text size="1" color="gray" style={{ width: 48 }}>
+                      {scrubTime.toFixed(1)}s
+                    </Text>
+                  </Flex>
+                  <Flex gap="2" wrap="wrap">
+                    <Button
+                      variant="soft"
+                      size="2"
+                      onClick={captureCurrentFrame}
+                      disabled={thumbBusy || !videoDuration}
+                      type="button"
+                    >
+                      Use this frame
+                    </Button>
+                    <Button
+                      variant="soft"
+                      color="gray"
+                      size="2"
+                      type="button"
+                      onClick={() => customThumbInputRef.current?.click()}
+                      disabled={thumbBusy}
+                    >
+                      Upload custom
+                    </Button>
+                    <input
+                      ref={customThumbInputRef}
+                      type="file"
+                      accept={ALLOWED_THUMB_MIME.join(",")}
+                      onChange={(e) => {
+                        onCustomThumbSelected(e.target.files?.[0] ?? null);
+                        e.target.value = "";
+                      }}
+                      style={{ display: "none" }}
+                    />
+                  </Flex>
+                  {thumbError && (
+                    <Text size="1" color="red">
+                      {thumbError}
+                    </Text>
+                  )}
+                </Flex>
+              </Flex>
+            </Flex>
+          )}
 
           {otherTabBusy && (
             <Callout.Root color="amber">
