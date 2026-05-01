@@ -104,6 +104,11 @@ export function GifCard({
         >
           {gif.gifUrl ? (
             <>
+              {/* GIF stays animated for everyone — the file is fetched
+                  from S3 the moment the card mounts, so freezing the
+                  animation client-side doesn't save bandwidth. The 15
+                  videos+gifs daily cap still gates clicks into the
+                  detail page for anon viewers. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 ref={imgRef}

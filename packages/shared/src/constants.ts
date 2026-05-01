@@ -32,6 +32,25 @@ export const UNAPPROVED_DAILY_GIF_LIMIT = 1;
 export const UNAPPROVED_DAILY_SCREENSHOT_LIMIT = 10;
 export const UNAPPROVED_LIMIT_ERROR_PREFIX = "UNAPPROVED_LIMIT:";
 
+// Anonymous viewers (no account) can open up to this many distinct
+// video/gif pages per IP per rolling 24h before the API forces a sign-in.
+// Reloads of the same item don't re-burn quota, so a user binging one
+// long video isn't punished. The server emits an error with the prefix
+// below so the SSR page can swap in a "sign up to keep watching" CTA
+// instead of a generic notFound.
+export const ANON_DAILY_VIEW_LIMIT = 15;
+export const ANON_VIEW_LIMIT_ERROR_PREFIX = "ANON_VIEW_LIMIT:";
+
+// Per-IP egress cap on the /media/ streaming endpoint over a rolling 24h
+// window. Real wallet protection — without this, a single anon viewer
+// can re-fetch a signed URL hourly and loop the same video to drain S3
+// egress. 5 GB/day is well above what a normal heavy viewer hits (480p
+// is ~2-5 MB/min, so 5 GB ≈ 15+ hours of viewing).
+export const MEDIA_DAILY_BYTES_PER_IP = 5 * 1024 ** 3;
+// Per-IP req/min cap on /media/. 200 is generous for a video page that
+// fires range requests on seek but cuts off any sustained loop attack.
+export const MEDIA_REQUESTS_PER_MINUTE_PER_IP = 200;
+
 export const ALLOWED_VIDEO_MIME_TYPES = [
   "video/mp4",
   "video/quicktime",

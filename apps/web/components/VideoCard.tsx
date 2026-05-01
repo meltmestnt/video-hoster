@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Badge, Box, Card, Flex, Text } from "@radix-ui/themes";
 import { useRequireAuth } from "@/lib/auth-required";
 import { useT } from "@/lib/i18n";
@@ -83,6 +84,8 @@ export function VideoCard({
 }) {
   const router = useRouter();
   const requireAuth = useRequireAuth();
+  const { status: authStatus } = useSession();
+  const signedIn = authStatus === "authenticated";
   const t = useT();
   const href = `/videos/${video.id}`;
   const thumbRef = useRef<HTMLDivElement | null>(null);
@@ -114,6 +117,10 @@ export function VideoCard({
 
   const onMouseEnter = () => {
     if (!video.videoUrl) return;
+    // Anonymous viewers don't get hover preview — playback only happens
+    // on the detail page itself, where the per-IP daily cap counts the
+    // distinct video toward the 15/day budget.
+    if (!signedIn) return;
     if (document.body.dataset.morphing) return;
     if (previewTimerRef.current !== null) {
       window.clearTimeout(previewTimerRef.current);

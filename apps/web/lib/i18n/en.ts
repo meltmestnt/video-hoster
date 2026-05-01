@@ -265,12 +265,8 @@ export const en = {
     "Type a query in the search bar above, or click a tag to filter.",
   "page.search.noMatch": "Nothing matches your search.",
 
-  "page.video.signInOverlay": "Sign in to watch this video",
-  "page.video.signInButton": "Sign in",
   "page.video.processing": "Video is still processing.",
   "page.video.suggested": "Suggested",
-  "page.gif.signInOverlay": "Sign in to view this GIF",
-  "page.gif.signInButton": "Sign in",
   "page.gif.processing": "GIF is still processing.",
   "page.gif.similar": "Similar GIFs",
   "page.gif.noSimilar": "No similar GIFs yet.",
@@ -374,6 +370,18 @@ export const en = {
   "unapproved.popup.body.screenshot":
     "Unapproved accounts can save 10 screenshots every 24 hours. An admin needs to approve your account before you can save more today.",
   "unapproved.popup.gotIt": "Got it",
+
+  // ─── Anonymous viewer daily cap ───
+  "anonViewLimit.callout":
+    "You've watched {limit} videos today without an account.",
+  "anonViewLimit.title.video": "Sign in to keep watching",
+  "anonViewLimit.title.gif": "Sign in to keep browsing GIFs",
+  "anonViewLimit.body.video":
+    "Anonymous visitors can watch up to {limit} different videos every 24 hours. Sign in (or create a free account) to remove the cap.",
+  "anonViewLimit.body.gif":
+    "Anonymous visitors can open up to {limit} different GIFs every 24 hours. Sign in (or create a free account) to remove the cap.",
+  "anonViewLimit.signIn": "Sign in",
+  "anonViewLimit.signUp": "Create a free account",
 
   // ─── Account deletion (self) ───
   "user.profile.deleteAccount": "Delete account",

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import type { Metadata } from "next";
-import { Badge, Box, Button, Flex, Heading, Text } from "@radix-ui/themes";
+import { Badge, Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { authOptions } from "@/lib/auth";
 import { getServerTrpc } from "@/lib/trpc-server";
 import { VideoPlayer } from "@/components/VideoPlayer";
@@ -19,6 +19,8 @@ import { ViewCounter } from "@/components/ViewCounter";
 import { MorphLandingSignal } from "@/components/MorphLandingSignal";
 import { absoluteUrl } from "@/lib/site";
 import { T } from "@/lib/i18n";
+import { parseAnonViewLimitError } from "@/lib/anon-view-limit";
+import { AnonViewLimitNotice } from "@/components/AnonViewLimitNotice";
 
 export const dynamic = "force-dynamic";
 
@@ -145,7 +147,13 @@ export default async function VideoPage({
       trpc.videos.suggested.query({ id, limit: 10 }),
       session?.user ? trpc.auth.me.query() : Promise.resolve(null),
     ]);
-  } catch {
+  } catch (err) {
+    // Anon hit the daily distinct-video cap — swap in a sign-up CTA
+    // instead of the player. Anything else (404, transient) flows
+    // through the existing notFound path.
+    if (parseAnonViewLimitError(err) === "video") {
+      return <AnonViewLimitNotice kind="video" callbackPath={`/videos/${id}`} />;
+    }
     notFound();
   }
 
@@ -203,40 +211,7 @@ export default async function VideoPage({
       )}
       <MorphLandingSignal />
       <Box>
-        {!session?.user ? (
-          <Box
-            className="player-frame"
-            style={{
-              backgroundImage: video.thumbnailUrl
-                ? `url(${video.thumbnailUrl})`
-                : undefined,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              cursor: "default",
-            }}
-          >
-            <Flex
-              className="player-overlay"
-              align="center"
-              justify="center"
-              direction="column"
-              gap="3"
-              style={{
-                height: "100%",
-                background: "rgba(0, 0, 0, 0.6)",
-              }}
-            >
-              <Text size="3" weight="medium" style={{ color: "white" }}>
-                <T k="page.video.signInOverlay" />
-              </Text>
-              <Button asChild size="2" variant="solid">
-                <Link href={`/login?callbackUrl=/videos/${video.id}`}>
-                  <T k="page.video.signInButton" />
-                </Link>
-              </Button>
-            </Flex>
-          </Box>
-        ) : video.videoUrl ? (
+        {video.videoUrl ? (
           <VideoPlayer
             url={video.videoUrl}
             thumbnailUrl={video.thumbnailUrl}

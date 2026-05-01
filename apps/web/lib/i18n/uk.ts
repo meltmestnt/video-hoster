@@ -274,12 +274,8 @@ export const uk: EnDict = {
     "Введіть запит у рядку пошуку вище або натисніть тег для фільтрації.",
   "page.search.noMatch": "Нічого не знайдено за вашим запитом.",
 
-  "page.video.signInOverlay": "Увійдіть, щоб переглянути це відео",
-  "page.video.signInButton": "Увійти",
   "page.video.processing": "Відео ще обробляється.",
   "page.video.suggested": "Рекомендоване",
-  "page.gif.signInOverlay": "Увійдіть, щоб переглянути цей GIF",
-  "page.gif.signInButton": "Увійти",
   "page.gif.processing": "GIF ще обробляється.",
   "page.gif.similar": "Схожі GIF",
   "page.gif.noSimilar": "Поки немає схожих GIF.",
@@ -383,6 +379,18 @@ export const uk: EnDict = {
   "unapproved.popup.body.screenshot":
     "Несхвалені акаунти можуть зберігати 10 скріншотів на добу. Щоб зберегти ще, дочекайтеся схвалення адміна.",
   "unapproved.popup.gotIt": "Зрозуміло",
+
+  // ─── Anonymous viewer daily cap ───
+  "anonViewLimit.callout":
+    "Сьогодні ви переглянули {limit} відео без акаунта.",
+  "anonViewLimit.title.video": "Увійдіть, щоб продовжити перегляд",
+  "anonViewLimit.title.gif": "Увійдіть, щоб переглядати GIF далі",
+  "anonViewLimit.body.video":
+    "Анонімні відвідувачі можуть подивитися до {limit} різних відео на добу. Увійдіть або створіть безкоштовний акаунт, щоб зняти обмеження.",
+  "anonViewLimit.body.gif":
+    "Анонімні відвідувачі можуть відкрити до {limit} різних GIF на добу. Увійдіть або створіть безкоштовний акаунт, щоб зняти обмеження.",
+  "anonViewLimit.signIn": "Увійти",
+  "anonViewLimit.signUp": "Створити безкоштовний акаунт",
 
   // ─── Account deletion (self) ───
   "user.profile.deleteAccount": "Видалити акаунт",

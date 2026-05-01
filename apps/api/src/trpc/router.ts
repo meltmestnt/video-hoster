@@ -63,9 +63,16 @@ import {
   adminProcedure,
 } from "./trpc";
 import { rateLimit } from "./rate-limit";
+import { enforceAnonView } from "./anon-view-limit";
+import { Logger } from "@nestjs/common";
 
 const MIN = 60 * 1000;
 const HOUR = 60 * MIN;
+
+// Dedicated logger so traffic lines are easy to grep in Railway. Format
+// stays key=value (matches the rest of the codebase) so a `grep ip=…`
+// or `grep blocked=anon-view-limit` filters cleanly.
+const trafficLog = new Logger("Traffic");
 
 export const appRouter = router({
   auth: router({
@@ -177,10 +184,44 @@ export const appRouter = router({
       ),
 
     byId: publicProcedure
+      // Defense-in-depth rate limit applied to everyone, anon or not. 60/min
+      // is generous for normal browsing (the page itself fires one byId
+      // call per load) but kills any sustained scrape loop.
+      .use(
+        rateLimit({
+          name: "videos.byId",
+          keyBy: "ip",
+          max: 60,
+          windowMs: MIN,
+        }),
+      )
       .input(videoIdInputSchema)
-      .query(({ ctx, input }) =>
-        ctx.services.videos.byId(input.id, ctx.user?.id ?? null),
-      ),
+      .query(({ ctx, input }) => {
+        // Anonymous viewers get a daily distinct-target cap. Reloads of the
+        // same video are free — only first-time-in-window views count.
+        // Throws ANON_VIEW_LIMIT:video when the cap fires; the SSR page
+        // detects the prefix and renders a sign-up CTA.
+        if (!ctx.user) {
+          try {
+            const state = enforceAnonView(ctx.ip, "video", input.id);
+            if (state.newId) {
+              trafficLog.log(
+                `videos.byId actor=anon ip=${ctx.ip} videoId=${input.id} anonViewCount=${state.count}/${state.limit}`,
+              );
+            }
+          } catch (err) {
+            trafficLog.warn(
+              `videos.byId blocked=anon-view-limit ip=${ctx.ip} videoId=${input.id}`,
+            );
+            throw err;
+          }
+        } else {
+          trafficLog.log(
+            `videos.byId actor=user userId=${ctx.user.id} ip=${ctx.ip} videoId=${input.id}`,
+          );
+        }
+        return ctx.services.videos.byId(input.id, ctx.user?.id ?? null);
+      }),
 
     suggested: publicProcedure
       .input(videoIdInputSchema.extend({ limit: z.number().int().min(1).max(20).default(10) }))
@@ -348,10 +389,37 @@ export const appRouter = router({
       ),
 
     byId: publicProcedure
+      .use(
+        rateLimit({
+          name: "gifs.byId",
+          keyBy: "ip",
+          max: 60,
+          windowMs: MIN,
+        }),
+      )
       .input(gifIdInputSchema)
-      .query(({ ctx, input }) =>
-        ctx.services.gifs.byId(input.id, ctx.user?.id ?? null),
-      ),
+      .query(({ ctx, input }) => {
+        if (!ctx.user) {
+          try {
+            const state = enforceAnonView(ctx.ip, "gif", input.id);
+            if (state.newId) {
+              trafficLog.log(
+                `gifs.byId actor=anon ip=${ctx.ip} gifId=${input.id} anonViewCount=${state.count}/${state.limit}`,
+              );
+            }
+          } catch (err) {
+            trafficLog.warn(
+              `gifs.byId blocked=anon-view-limit ip=${ctx.ip} gifId=${input.id}`,
+            );
+            throw err;
+          }
+        } else {
+          trafficLog.log(
+            `gifs.byId actor=user userId=${ctx.user.id} ip=${ctx.ip} gifId=${input.id}`,
+          );
+        }
+        return ctx.services.gifs.byId(input.id, ctx.user?.id ?? null);
+      }),
 
     suggested: publicProcedure
       .input(

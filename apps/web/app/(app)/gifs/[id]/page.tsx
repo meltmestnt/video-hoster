@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import type { Metadata } from "next";
-import { Badge, Box, Button, Flex, Heading, Text } from "@radix-ui/themes";
+import { Badge, Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { authOptions } from "@/lib/auth";
 import { getServerTrpc } from "@/lib/trpc-server";
 import { GifCard } from "@/components/GifCard";
@@ -15,6 +15,8 @@ import { ViewCounter } from "@/components/ViewCounter";
 import { MorphLandingSignal } from "@/components/MorphLandingSignal";
 import { absoluteUrl } from "@/lib/site";
 import { T } from "@/lib/i18n";
+import { parseAnonViewLimitError } from "@/lib/anon-view-limit";
+import { AnonViewLimitNotice } from "@/components/AnonViewLimitNotice";
 
 export const dynamic = "force-dynamic";
 
@@ -131,7 +133,10 @@ export default async function GifPage({
       trpc.gifs.suggested.query({ id, limit: 10 }),
       trpc.auth.me.query(),
     ]);
-  } catch {
+  } catch (err) {
+    if (parseAnonViewLimitError(err) === "gif") {
+      return <AnonViewLimitNotice kind="gif" callbackPath={`/gifs/${id}`} />;
+    }
     notFound();
   }
 
@@ -170,28 +175,7 @@ export default async function GifPage({
           className="player-frame"
           style={{ background: "black", overflow: "hidden" }}
         >
-          {!session?.user ? (
-            <Flex
-              className="player-overlay"
-              align="center"
-              justify="center"
-              direction="column"
-              gap="3"
-              style={{
-                height: "100%",
-                background: "rgba(0, 0, 0, 0.6)",
-              }}
-            >
-              <Text size="3" weight="medium" style={{ color: "white" }}>
-                <T k="page.gif.signInOverlay" />
-              </Text>
-              <Button asChild size="2" variant="solid">
-                <Link href={`/login?callbackUrl=/gifs/${gif.id}`}>
-                  <T k="page.gif.signInButton" />
-                </Link>
-              </Button>
-            </Flex>
-          ) : gif.gifUrl ? (
+          {gif.gifUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={gif.gifUrl}
