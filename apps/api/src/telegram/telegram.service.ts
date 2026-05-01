@@ -234,6 +234,7 @@ export class TelegramService
     // ─── Inline mode ───
     bot.on("inline_query", async (ctx) => {
       const q = ctx.inlineQuery.query.trim();
+      const fromId = ctx.from?.id ?? "?";
       try {
         const items = await this.gifs.searchInlineForBot({
           q,
@@ -253,13 +254,20 @@ export class TelegramService
           }),
         );
         const filtered = results.filter((r) => r.gif_url.length > 0);
+        // Confirms Telegram is actually forwarding inline queries to us
+        // (handler running) and how many results we returned. If you
+        // search and don't see this line, inline mode isn't enabled in
+        // @BotFather → /setinline.
+        this.logger.log(
+          `telegram.inline_query from=${fromId} q="${q}" matched=${items.length} returned=${filtered.length}`,
+        );
         await ctx.answerInlineQuery(filtered, {
           cache_time: INLINE_CACHE_SECONDS,
           is_personal: true,
         });
       } catch (err) {
         this.logger.warn(
-          `telegram.inline_query failed q="${q}": ${(err as Error).message}`,
+          `telegram.inline_query failed from=${fromId} q="${q}": ${(err as Error).message}`,
         );
         await ctx.answerInlineQuery([], { cache_time: 5 }).catch(() => {});
       }

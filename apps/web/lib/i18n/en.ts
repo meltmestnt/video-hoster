@@ -167,6 +167,11 @@ export const en = {
   "user.profile.telegram.connecting": "Opening…",
   "user.profile.telegram.unlink": "Unlink",
   "user.profile.telegram.unlinking": "Unlinking…",
+
+  // ─── /settings page ───
+  "settings.heading": "Settings",
+  "settings.subtitle":
+    "Tweak how vids&gifs behaves for your account. The same options live in the user menu.",
   "user.profile.viewProfile": "View my profile",
   "user.profile.favorites": "Favorites",
   "user.profile.subscriptions": "Subscriptions",

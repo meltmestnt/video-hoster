@@ -169,6 +169,11 @@ export const uk: EnDict = {
   "user.profile.telegram.connecting": "Відкриваємо…",
   "user.profile.telegram.unlink": "Відʼєднати",
   "user.profile.telegram.unlinking": "Відʼєднуємо…",
+
+  // ─── Сторінка /settings ───
+  "settings.heading": "Налаштування",
+  "settings.subtitle":
+    "Налаштуйте поведінку vids&gifs для вашого акаунту. Ті самі опції є в меню користувача.",
   "user.profile.viewProfile": "Мій профіль",
   "user.profile.favorites": "Обране",
   "user.profile.subscriptions": "Підписки",

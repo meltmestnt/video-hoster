@@ -506,7 +506,7 @@ function ProfilePane({
   );
 }
 
-function PushToggleRow() {
+export function PushToggleRow() {
   const t = useT();
   const { status, enable, disable, error, isBusy } = usePushSubscription();
 
