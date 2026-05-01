@@ -60,9 +60,9 @@ export async function generateMetadata({
       url: canonical,
       siteName: "vids&gifs",
       images: ogImage ? [{ url: ogImage }] : undefined,
-      videos: video.videoUrl
-        ? [{ url: video.videoUrl, type: video.mimeType }]
-        : undefined,
+      // og:video would embed the signed S3 stream URL into every link
+      // preview that fetches the metadata — anyone could pull the MP4
+      // from there. Skip it; previews still get the thumbnail.
     },
     twitter: {
       card: "player",
@@ -118,7 +118,12 @@ export default async function VideoPage({
             `Video "${video.title}" by ${video.owner.name}.`,
           thumbnailUrl: video.thumbnailUrl ? [video.thumbnailUrl] : undefined,
           uploadDate: new Date(video.createdAt).toISOString(),
-          contentUrl: video.videoUrl ?? undefined,
+          // contentUrl is the signed S3 stream — never expose it to
+          // anonymous viewers (or to crawlers, which is what the JSON-LD
+          // is for). Signed-in users get the playable URL through the
+          // <VideoPlayer> further down, so they don't need it here either.
+          // Leave embedUrl as the page URL so search engines still wire
+          // structured-data video previews to vidsandgifs.xyz.
           embedUrl: absoluteUrl(`/videos/${video.id}`),
           encodingFormat: video.mimeType,
           keywords: video.tags.map((t) => t.name).join(", ") || undefined,
@@ -164,6 +169,7 @@ export default async function VideoPage({
             }}
           >
             <Flex
+              className="player-overlay"
               align="center"
               justify="center"
               direction="column"
@@ -199,7 +205,12 @@ export default async function VideoPage({
           />
         ) : (
           <Box className="player-frame">
-            <Flex align="center" justify="center" style={{ height: "100%" }}>
+            <Flex
+              className="player-overlay"
+              align="center"
+              justify="center"
+              style={{ height: "100%" }}
+            >
               <Text color="gray">
                 <T k="page.video.processing" />
               </Text>
@@ -208,20 +219,17 @@ export default async function VideoPage({
         )}
         <Flex
           // Stay stacked until ≥md (768px) — at sm widths the action row
-          // (reactions + favorite + share + download buttons + delete) is
-          // wide enough to crush the heading into a single-character column.
-          direction={{ initial: "column", md: "row" }}
-          align={{ initial: "start", md: "center" }}
+          // Always stacked — title on top, action row underneath. The row
+          // layout collided with the action button set (reactions +
+          // favorite + share + download + delete) at every width we tried,
+          // so the page reads cleaner with a deliberate two-row block.
+          direction="column"
+          align="start"
           gap="3"
           mt="4"
         >
           <Heading
             size="6"
-            // No `flex: 1, minWidth: 0` — that combo lets the heading
-            // shrink to 0 in row mode and break each character onto its
-            // own line. In column mode it's naturally full-width; in row
-            // mode it takes its content width and the action row stays
-            // beside it.
             style={{ wordBreak: "break-word" }}
           >
             {video.title}
@@ -254,14 +262,16 @@ export default async function VideoPage({
               path={`/videos/${video.id}`}
               title={video.title}
             />
-            {video.videoUrl && video.downloadPolicy !== "none" && (
-              <VideoDownloadButtons
-                videoUrl={video.videoUrl}
-                videoMimeType={video.mimeType}
-                baseFilename={video.title}
-                policy={video.downloadPolicy}
-              />
-            )}
+            {!!session?.user &&
+              video.videoUrl &&
+              video.downloadPolicy !== "none" && (
+                <VideoDownloadButtons
+                  videoUrl={video.videoUrl}
+                  videoMimeType={video.mimeType}
+                  baseFilename={video.title}
+                  policy={video.downloadPolicy}
+                />
+              )}
             {canDelete && (
               <DeleteVideoButton videoId={video.id} title={video.title} />
             )}
@@ -271,7 +281,11 @@ export default async function VideoPage({
           <Text size="2" color="gray">
             {video.owner.name}
           </Text>
-          <SubscribeButton targetUserId={video.owner.id} />
+          {/* Subscribe is account-only; hide for anon to keep the page
+              free of auth-gated UI that would 401 on click. */}
+          {!!session?.user && (
+            <SubscribeButton targetUserId={video.owner.id} />
+          )}
           <Text size="2" color="gray">
             ·
           </Text>

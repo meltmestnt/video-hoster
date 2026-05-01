@@ -130,6 +130,7 @@ export default async function GifPage({
         >
           {!session?.user ? (
             <Flex
+              className="player-overlay"
               align="center"
               justify="center"
               direction="column"
@@ -161,7 +162,12 @@ export default async function GifPage({
               }}
             />
           ) : (
-            <Flex align="center" justify="center" style={{ height: "100%" }}>
+            <Flex
+              className="player-overlay"
+              align="center"
+              justify="center"
+              style={{ height: "100%" }}
+            >
               <Text color="gray">
                 <T k="page.gif.processing" />
               </Text>
@@ -169,11 +175,11 @@ export default async function GifPage({
           )}
         </Box>
         <Flex
-          // Same as the video page — keep the heading on its own row at
-          // sm widths so it doesn't get crushed into a single-character
-          // column by the action buttons next to it.
-          direction={{ initial: "column", md: "row" }}
-          align={{ initial: "start", md: "center" }}
+          // Always stacked — title on top, action row underneath. Matches
+          // the video detail page; the row layout never had enough room
+          // for the action set without collapsing the heading.
+          direction="column"
+          align="start"
           gap="3"
           mt="4"
         >

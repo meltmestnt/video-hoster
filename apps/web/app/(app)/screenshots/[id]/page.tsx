@@ -80,17 +80,11 @@ export default async function ScreenshotPage({
 
   return (
     <Box>
-      {/* Mobile + small tablet: heading on its own row above the
-          action buttons. Desktop (≥md, 768px): heading and buttons
-          share a row. The action row has enough natural width that
-          sm-tier viewports squeeze the heading into a single-character
-          column unless we keep the column-stack until md. */}
-      <Flex
-        direction={{ initial: "column", md: "row" }}
-        align={{ initial: "start", md: "center" }}
-        gap="3"
-        mb="3"
-      >
+      {/* Always stacked — title on top, action row underneath, same as
+          the video and gif detail pages. The action set was too wide to
+          share a row with the heading even on desktop without crushing
+          the title. */}
+      <Flex direction="column" align="start" gap="3" mb="3">
         <Heading size="6" style={{ wordBreak: "break-word" }}>
           {shot.title}
         </Heading>
@@ -148,6 +142,7 @@ export default async function ScreenshotPage({
           style={{ background: "black", overflow: "hidden" }}
         >
           <Flex
+            className="player-overlay"
             align="center"
             justify="center"
             direction="column"
