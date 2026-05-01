@@ -798,43 +798,28 @@ body[data-morphing] .page-header {
 }
 
 /* ───── lock background scroll while a dialog is open ─────
- * Radix UI normally handles this, but on mobile its lock can race
- * with viewport-height changes (URL bar collapse, address-bar scroll-
- * to-hide) and the underlying page still rubber-bands behind the modal.
- * Pin html + body and disable both axes whenever a Radix dialog,
- * alert-dialog, or popover is mounted in the open state. Uses :has()
- * — supported on every browser shipping in 2024+, which is the floor
- * we already require for the upload editor's ffmpeg.wasm.
- */
-html:has([role="dialog"][data-state="open"]),
-html:has([role="alertdialog"][data-state="open"]) {
-  overflow: hidden;
-}
-
-body:has([role="dialog"][data-state="open"]),
-body:has([role="alertdialog"][data-state="open"]) {
-  overflow: hidden;
-  /* Don't let touch scroll bubble from the open dialog up to the page. */
-  overscroll-behavior: contain;
-  /* Hide any horizontal overflow the dialog may push past the viewport
-     edge during its open animation on small phones. */
-  overflow-x: hidden;
-}
-
-/* Mobile-only: pin body so iOS's momentum scroll and two-finger pan
- * can't grab the page underneath. position:fixed prevents the
- * rubber-band scroll that overflow:hidden alone doesn't stop on iOS.
+ * Triggered by the data-scroll-locked="1" attribute that the
+ * <ScrollLock> client component sets on <body> whenever any Radix
+ * Dialog or AlertDialog is in the open state. Drops the previous
+ * :has() rule and the desktop/mobile split — applying the same lock
+ * everywhere is more reliable than gating by viewport width and
+ * matches the behavior every modal library converges on.
  *
- * Triggered by the data attribute that <ScrollLock> sets on body —
- * not by :has() directly — because <ScrollLock> also sets an inline
- * `top: -<savedScrollY>px` to keep the page visually in place, and
- * we need the JS attribute and the inline style to flip atomically
- * to avoid a one-frame "jump to top" when the dialog opens. */
-@media (max-width: 768px) {
-  body[data-scroll-locked="1"] {
-    position: fixed;
-    inset: 0;
-    width: 100%;
-  }
+ * <ScrollLock> also sets an inline `top: -<savedScrollY>px` on body,
+ * so the fixed position below appears visually in place. On close it
+ * restores the saved position via window.scrollTo().
+ */
+html:has(body[data-scroll-locked="1"]) {
+  overflow: hidden;
+}
+
+body[data-scroll-locked="1"] {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  overflow: hidden;
+  /* Stop touch-scroll bubbling out of the dialog content into the
+   * (now-fixed) page underneath. */
+  overscroll-behavior: contain;
 }
 
