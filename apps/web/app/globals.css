@@ -797,3 +797,39 @@ body[data-morphing] .page-header {
   transform: scale(1.01);
 }
 
+/* ───── lock background scroll while a dialog is open ─────
+ * Radix UI normally handles this, but on mobile its lock can race
+ * with viewport-height changes (URL bar collapse, address-bar scroll-
+ * to-hide) and the underlying page still rubber-bands behind the modal.
+ * Pin html + body and disable both axes whenever a Radix dialog,
+ * alert-dialog, or popover is mounted in the open state. Uses :has()
+ * — supported on every browser shipping in 2024+, which is the floor
+ * we already require for the upload editor's ffmpeg.wasm.
+ */
+html:has([role="dialog"][data-state="open"]),
+html:has([role="alertdialog"][data-state="open"]) {
+  overflow: hidden;
+}
+
+body:has([role="dialog"][data-state="open"]),
+body:has([role="alertdialog"][data-state="open"]) {
+  overflow: hidden;
+  /* Don't let touch scroll bubble from the open dialog up to the page. */
+  overscroll-behavior: contain;
+  /* Hide any horizontal overflow the dialog may push past the viewport
+     edge during its open animation on small phones. */
+  overflow-x: hidden;
+}
+
+/* Mobile-only: pin body so iOS's momentum scroll and two-finger pan
+ * can't grab the page underneath. position:fixed prevents the
+ * rubber-band scroll that overflow:hidden alone doesn't stop on iOS. */
+@media (max-width: 768px) {
+  body:has([role="dialog"][data-state="open"]),
+  body:has([role="alertdialog"][data-state="open"]) {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+  }
+}
+
