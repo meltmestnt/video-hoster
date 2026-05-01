@@ -216,7 +216,7 @@ export function AnonymousIntro() {
           </Link>
         </Button>
         <Button asChild size="3" variant="ghost" color="iris">
-          <Link href="/videos">
+          <Link href="/all">
             <T k="intro.cta.browse" />
           </Link>
         </Button>

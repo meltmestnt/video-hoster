@@ -314,7 +314,7 @@ const NAV_ITEMS: Array<{
     | "topbar.nav.screenshots";
   match: (p: string) => boolean;
 }> = [
-  { href: "/", labelKey: "topbar.nav.all", match: (p) => p === "/" },
+  { href: "/all", labelKey: "topbar.nav.all", match: (p) => p === "/all" },
   {
     href: "/videos",
     labelKey: "topbar.nav.videos",
