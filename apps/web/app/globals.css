@@ -24,6 +24,18 @@ body {
   max-width: 100vw;
 }
 
+/* CookieConsent toggles this class on <body> while the banner is on
+ * screen. The banner is position:fixed at the bottom; without padding
+ * the bottom of the page (footer + last CTAs) would slide under it. */
+body.has-cookie-banner {
+  padding-bottom: 110px;
+}
+@media (max-width: 600px) {
+  body.has-cookie-banner {
+    padding-bottom: 180px;
+  }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -112,12 +124,18 @@ a {
   box-shadow: 0 0 0 2px var(--accent-9);
 }
 
-.player-frame > div:not(.player-controls):not(.media-loader) {
+/* Hide the wrapping <div> the player library injects until the video
+ * itself has signaled ready. .player-overlay opts out — sign-in / "still
+ * processing" overlays are static UI, not the player surface, and need to
+ * stay visible from first paint. */
+.player-frame
+  > div:not(.player-controls):not(.media-loader):not(.player-overlay) {
   opacity: 0;
   transition: opacity 280ms ease;
 }
 
-.player-frame.is-ready > div:not(.player-controls):not(.media-loader) {
+.player-frame.is-ready
+  > div:not(.player-controls):not(.media-loader):not(.player-overlay) {
   opacity: 1;
 }
 

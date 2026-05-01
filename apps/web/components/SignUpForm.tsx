@@ -8,6 +8,7 @@ import {
   Button,
   Flex,
   Heading,
+  Separator,
   Text,
   TextField,
 } from "@radix-ui/themes";
@@ -146,6 +147,26 @@ export function SignUpForm() {
       <Text as="p" color="gray" size="2" mb="5">
         {t("auth.signup.subtitle")}
       </Text>
+
+      {/* Same Google option as /login so the two screens are symmetric.
+          NextAuth treats first-time Google sign-in as account creation, so
+          this is functionally a sign-up too. */}
+      <Button
+        size="3"
+        style={{ width: "100%" }}
+        onClick={() => signIn("google", { callbackUrl: "/" })}
+      >
+        {t("auth.login.continueGoogle")}
+      </Button>
+
+      <Flex align="center" gap="3" my="4">
+        <Separator size="4" style={{ flex: 1 }} />
+        <Text size="1" color="gray">
+          {t("common.or")}
+        </Text>
+        <Separator size="4" style={{ flex: 1 }} />
+      </Flex>
+
       <form onSubmit={submit}>
         <Flex direction="column" gap="3">
           <Box>

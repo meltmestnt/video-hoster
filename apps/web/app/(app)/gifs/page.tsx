@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
-import { Flex, Heading, Text } from "@radix-ui/themes";
+import Link from "next/link";
+import { getServerSession } from "next-auth";
+import { Button, Flex, Heading, Text } from "@radix-ui/themes";
+import { authOptions } from "@/lib/auth";
 import { getServerTrpc } from "@/lib/trpc-server";
 import { GifCard } from "@/components/GifCard";
 import { VideoSortSelect } from "@/components/VideoSortSelect";
@@ -37,6 +40,8 @@ export default async function GifsPage({
   const { sort: sortRaw } = await searchParams;
   const sort = normalizeSort(sortRaw);
 
+  const session = await getServerSession(authOptions);
+  const signedIn = !!session?.user;
   const trpc = await getServerTrpc();
   const result = await trpc.gifs.list.query({ limit: 24, sort });
 
@@ -60,6 +65,8 @@ export default async function GifsPage({
         <Flex
           align="center"
           justify="center"
+          direction="column"
+          gap="3"
           style={{
             padding: "64px 24px",
             background: "var(--gray-2)",
@@ -68,8 +75,17 @@ export default async function GifsPage({
           }}
         >
           <Text color="gray">
-            <T k="page.gifs.empty" />
+            <T
+              k={signedIn ? "page.gifs.empty" : "page.gifs.empty.anon"}
+            />
           </Text>
+          {!signedIn && (
+            <Button asChild size="2">
+              <Link href="/signup">
+                <T k="topbar.signUp" />
+              </Link>
+            </Button>
+          )}
         </Flex>
       ) : (
         <div className="dashboard-grid">

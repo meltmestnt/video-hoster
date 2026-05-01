@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Flex, Separator, Text } from "@radix-ui/themes";
 import { GitHubLogoIcon } from "@radix-ui/react-icons";
 import { useT } from "@/lib/i18n";
+import { LocaleSwitcher } from "./LocaleSwitcher";
 
 // Custom event name used to coordinate the "Cookie settings" button in the
 // footer with the consent banner mounted in the root layout. When fired,
@@ -56,6 +57,11 @@ export function Footer() {
         >
           {t("footer.cookieSettings")}
         </button>
+        <Separator orientation="vertical" />
+        {/* Surface the locale toggle on every page (it was previously
+            only on the signed-out intro hero) so visitors who land on
+            /videos, /login, etc. can switch language. */}
+        <LocaleSwitcher size="1" />
       </Flex>
       <Flex align="center" justify="center" gap="2" wrap="wrap">
         <Text size="1">{t("footer.createdBy")}</Text>

@@ -16,7 +16,16 @@ const nextConfig = {
     return [
       { source: "/trpc/:path*", destination: "http://localhost:4000/trpc/:path*" },
     ];
-  }
+  },
+  async redirects() {
+    return [
+      // Old browsers + Safari probe /favicon.ico unconditionally; we ship
+      // the favicon via app/icon.tsx (Next emits it at /icon). Without
+      // this redirect, the probe 404s and pollutes the console on every
+      // page load.
+      { source: "/favicon.ico", destination: "/icon", permanent: false },
+    ];
+  },
 };
 
 export default nextConfig;

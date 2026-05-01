@@ -3,6 +3,7 @@
 import { Button, Tooltip } from "@radix-ui/themes";
 import { trpc } from "@/lib/trpc";
 import { useRequireAuth } from "@/lib/auth-required";
+import { useT } from "@/lib/i18n";
 
 interface Props {
   targetUserId: string;
@@ -15,6 +16,7 @@ export function SubscribeButton({ targetUserId, hideForSelf = true }: Props) {
   const me = trpc.auth.me.useQuery();
   const utils = trpc.useUtils();
   const requireAuth = useRequireAuth();
+  const t = useT();
 
   const status = trpc.subscriptions.isSubscribed.useQuery(
     { userId: targetUserId },
@@ -61,8 +63,8 @@ export function SubscribeButton({ targetUserId, hideForSelf = true }: Props) {
     <Tooltip
       content={
         subscribed
-          ? "Stop receiving upload notifications from this creator"
-          : "Get notified when this creator uploads new videos"
+          ? t("subscribe.tooltip.subscribed")
+          : t("subscribe.tooltip.unsubscribed")
       }
     >
       <Button
@@ -72,7 +74,9 @@ export function SubscribeButton({ targetUserId, hideForSelf = true }: Props) {
         onClick={onClick}
         disabled={toggle.isPending || status.isLoading}
       >
-        {subscribed ? "Subscribed" : "Subscribe"}
+        {subscribed
+          ? t("subscribe.button.subscribed")
+          : t("subscribe.button.unsubscribed")}
       </Button>
     </Tooltip>
   );

@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
 import { Flex, Heading, Text } from "@radix-ui/themes";
+import { authOptions } from "@/lib/auth";
 import { getServerTrpc } from "@/lib/trpc-server";
 import { ScreenshotCard } from "@/components/ScreenshotCard";
 import { absoluteUrl } from "@/lib/site";
@@ -12,16 +15,16 @@ export const metadata: Metadata = {
   description:
     "Browse the latest public screenshots captured from videos and GIFs on vids&gifs.",
   alternates: { canonical: absoluteUrl("/screenshots") },
-  openGraph: {
-    title: "All screenshots — vids&gifs",
-    description:
-      "Browse the latest public screenshots captured on vids&gifs.",
-    url: absoluteUrl("/screenshots"),
-    type: "website",
-  },
+  // Detail pages redirect anonymous viewers, so the listing is
+  // signed-in-only too. Skip indexing.
+  robots: { index: false, follow: false },
 };
 
 export default async function ScreenshotsPage() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    redirect(`/login?callbackUrl=${encodeURIComponent("/screenshots")}`);
+  }
   const trpc = await getServerTrpc();
   const result = await trpc.screenshots.list.query({ limit: 24 });
 

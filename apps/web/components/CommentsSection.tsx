@@ -56,6 +56,8 @@ function buildThread(items: CommentItem[]): ThreadedComment[] {
 export function CommentsSection({ videoId, initial }: Props) {
   const t = useT();
   const utils = trpc.useUtils();
+  const session = useSession();
+  const signedIn = session.status === "authenticated";
   const me = trpc.auth.me.useQuery();
   const myId = me.data?.id ?? null;
 
@@ -110,23 +112,45 @@ export function CommentsSection({ videoId, initial }: Props) {
         </Select.Root>
       </Flex>
 
-      <Flex direction="column" gap="2" mb="5">
-        <TextArea
-          placeholder={t("comments.add.placeholder")}
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          rows={3}
-          maxLength={2000}
-        />
-        <Flex justify="end">
-          <Button
-            onClick={submitTopLevel}
-            disabled={create.isPending || body.trim().length === 0}
-          >
-            {create.isPending ? t("comments.posting") : t("comments.post")}
+      {signedIn ? (
+        <Flex direction="column" gap="2" mb="5">
+          <TextArea
+            placeholder={t("comments.add.placeholder")}
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            rows={3}
+            maxLength={2000}
+          />
+          <Flex justify="end">
+            <Button
+              onClick={submitTopLevel}
+              disabled={create.isPending || body.trim().length === 0}
+            >
+              {create.isPending ? t("comments.posting") : t("comments.post")}
+            </Button>
+          </Flex>
+        </Flex>
+      ) : (
+        <Flex
+          align="center"
+          justify="center"
+          gap="3"
+          mb="5"
+          p="4"
+          style={{
+            background: "var(--gray-2)",
+            border: "1px solid var(--gray-4)",
+            borderRadius: "var(--radius-3)",
+          }}
+        >
+          <Text size="2" color="gray">
+            {t("comments.signInPrompt")}
+          </Text>
+          <Button onClick={() => signIn(undefined, { callbackUrl: "/" })}>
+            {t("topbar.signIn")}
           </Button>
         </Flex>
-      </Flex>
+      )}
 
       <Flex direction="column" gap="4">
         {threaded.map((c) => (

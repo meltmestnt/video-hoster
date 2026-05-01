@@ -57,6 +57,14 @@ export const uk: EnDict = {
   "footer.createdBy": "Створено",
   "footer.withHelpFrom": "за допомогою",
 
+  // ─── Subscribe button ───
+  "subscribe.button.subscribed": "Підписано",
+  "subscribe.button.unsubscribed": "Підписатися",
+  "subscribe.tooltip.subscribed":
+    "Перестати отримувати сповіщення про завантаження від цього автора",
+  "subscribe.tooltip.unsubscribed":
+    "Отримувати сповіщення, коли цей автор завантажує нові відео",
+
   // ─── Privacy page ───
   "privacy.title": "Конфіденційність",
   "privacy.lastUpdated": "Останнє оновлення: {date}",
@@ -214,6 +222,8 @@ export const uk: EnDict = {
   "page.gifs.subtitle": "Короткі цикли, завантажені на vids&gifs.",
   "page.gifs.empty":
     'Поки що немає GIF. Натисніть «Завантажити» та оберіть GIF у редакторі.',
+  "page.gifs.empty.anon":
+    "Поки що немає GIF. Зареєструйтесь, щоб завантажити перший.",
 
   "page.favorites.heading": "Обране",
   "page.favorites.subtitle": "Відео, які ви зберегли на потім.",
@@ -384,6 +394,7 @@ export const uk: EnDict = {
   "comments.count.one": "{n} коментар",
   "comments.count.many": "{n} коментарів",
   "comments.add.placeholder": "Додати коментар...",
+  "comments.signInPrompt": "Увійдіть, щоб залишити коментар.",
   "comments.post": "Коментувати",
   "comments.posting": "Надсилання...",
   "comments.reply": "Відповісти",

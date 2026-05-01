@@ -37,6 +37,17 @@ export function CookieConsent({ gaId }: { gaId: string }) {
     return () => window.removeEventListener(CONSENT_RESET_EVENT, onReset);
   }, []);
 
+  // While the banner is showing, mark <body> so globals.css can add
+  // padding-bottom equal to the banner's max height. Otherwise on mobile
+  // the position:fixed banner sits on top of page CTAs.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (hydrated && consent === null) {
+      document.body.classList.add("has-cookie-banner");
+      return () => document.body.classList.remove("has-cookie-banner");
+    }
+  }, [hydrated, consent]);
+
   const choose = (next: Consent) => {
     localStorage.setItem(STORAGE_KEY, next);
     setConsent(next);

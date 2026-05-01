@@ -55,6 +55,14 @@ export const en = {
   "footer.createdBy": "Created by",
   "footer.withHelpFrom": "with the help from",
 
+  // ─── Subscribe button ───
+  "subscribe.button.subscribed": "Subscribed",
+  "subscribe.button.unsubscribed": "Subscribe",
+  "subscribe.tooltip.subscribed":
+    "Stop receiving upload notifications from this creator",
+  "subscribe.tooltip.unsubscribed":
+    "Get notified when this creator uploads new videos",
+
   // ─── Privacy page ───
   "privacy.title": "Privacy",
   "privacy.lastUpdated": "Last updated: {date}",
@@ -207,6 +215,7 @@ export const en = {
   "page.gifs.heading": "All GIFs",
   "page.gifs.subtitle": "Short loops uploaded to vids&gifs.",
   "page.gifs.empty": 'No GIFs yet. Click "Upload" and choose GIF in the editor.',
+  "page.gifs.empty.anon": "No GIFs yet. Sign up to upload the first one.",
 
   "page.favorites.heading": "Favorites",
   "page.favorites.subtitle": "Videos you've saved for later.",
@@ -376,6 +385,7 @@ export const en = {
   "comments.count.one": "{n} comment",
   "comments.count.many": "{n} comments",
   "comments.add.placeholder": "Add a comment...",
+  "comments.signInPrompt": "Sign in to leave a comment.",
   "comments.post": "Comment",
   "comments.posting": "Posting...",
   "comments.reply": "Reply",
