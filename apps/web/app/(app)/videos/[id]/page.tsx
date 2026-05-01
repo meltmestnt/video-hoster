@@ -58,7 +58,18 @@ export async function generateMetadata({
   return {
     title: video.title,
     description,
-    alternates: { canonical },
+    alternates: {
+      canonical,
+      // oEmbed discovery — Slack, Notion, and a handful of other
+      // unfurling consumers fetch this URL after seeing the alternate
+      // link and use the JSON response (iframe HTML) for inline
+      // playback. See app/api/oembed/route.ts for the response shape.
+      types: {
+        "application/json+oembed": absoluteUrl(
+          `/api/oembed?url=${encodeURIComponent(canonical)}`,
+        ),
+      },
+    },
     keywords: video.tags.map((t) => t.name),
     robots: isPrivate
       ? { index: false, follow: false, googleBot: { index: false, follow: false } }

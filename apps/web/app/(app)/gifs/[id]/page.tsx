@@ -48,7 +48,17 @@ export async function generateMetadata({
   return {
     title: gif.title,
     description,
-    alternates: { canonical },
+    alternates: {
+      canonical,
+      // oEmbed discovery — Slack and a few other consumers fetch this
+      // URL to get a `type: "photo"` response with the .gif URL for
+      // inline playback. See app/api/oembed/route.ts.
+      types: {
+        "application/json+oembed": absoluteUrl(
+          `/api/oembed?url=${encodeURIComponent(canonical)}`,
+        ),
+      },
+    },
     keywords: gif.tags.map((t) => t.name),
     robots: isPrivate
       ? { index: false, follow: false, googleBot: { index: false, follow: false } }

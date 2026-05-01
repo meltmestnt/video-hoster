@@ -33,7 +33,16 @@ export async function generateMetadata({
     return {
       title: shot.title,
       description,
-      alternates: { canonical },
+      alternates: {
+        canonical,
+        // oEmbed discovery for Slack and friends — returns a `type:
+        // "photo"` response pointing at the screenshot URL.
+        types: {
+          "application/json+oembed": absoluteUrl(
+            `/api/oembed?url=${encodeURIComponent(canonical)}`,
+          ),
+        },
+      },
       robots: isPrivate ? { index: false, follow: false } : undefined,
       openGraph: {
         type: "article",
