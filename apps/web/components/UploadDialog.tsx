@@ -135,7 +135,11 @@ export function UploadDialog({ open, onOpenChange, initialFile }: Props) {
         }
       })
       .finally(() => {
-        if (!cancelled) setThumbBusy(false);
+        // Always clear busy, even if a newer effect run cancelled this one —
+        // a leftover `true` would leave the thumbnail buttons permanently
+        // disabled. Worst case we briefly clear and the new run sets it
+        // back to `true` on its own setThumbBusy(true).
+        setThumbBusy(false);
       });
     return () => {
       cancelled = true;
@@ -410,7 +414,11 @@ export function UploadDialog({ open, onOpenChange, initialFile }: Props) {
                       src={videoUrl}
                       muted
                       playsInline
-                      preload="metadata"
+                      // "auto" forces the browser to start fetching enough
+                      // bytes to fire loadedmetadata; "metadata" alone is a
+                      // hint and Safari sometimes ignores it, leaving
+                      // videoDuration at 0 and the slider locked.
+                      preload="auto"
                       onLoadedMetadata={(e) => {
                         const v = e.currentTarget;
                         setVideoDuration(v.duration || 0);
@@ -460,7 +468,12 @@ export function UploadDialog({ open, onOpenChange, initialFile }: Props) {
                       variant="soft"
                       size="2"
                       onClick={captureCurrentFrame}
-                      disabled={thumbBusy || !videoDuration}
+                      // Don't gate on videoDuration — extractFrame loads
+                      // its own off-DOM video and clamps to the actual
+                      // duration internally. If the inline <video>'s
+                      // onLoadedMetadata is slow/never fires, the user can
+                      // still capture at scrubTime=1.
+                      disabled={thumbBusy}
                       type="button"
                     >
                       {t("upload.thumb.useFrame")}
