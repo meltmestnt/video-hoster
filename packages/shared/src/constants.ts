@@ -1,5 +1,10 @@
 export const MAX_VIDEO_BYTES = Math.round(1.5 * 1024 ** 3);
 export const MAX_VIDEO_GB = 1.5;
+// Cap the *post-compression* upload payload. Even a long video transcoded
+// to 480p shouldn't blow past this — anything bigger almost always means
+// the trim/quality settings need adjusting.
+export const MAX_VIDEO_OUTPUT_BYTES = 300 * 1024 * 1024;
+export const MAX_VIDEO_OUTPUT_MB = 300;
 export const MAX_THUMBNAIL_BYTES = 5 * 1024 * 1024;
 
 export const ALLOWED_VIDEO_MIME_TYPES = [

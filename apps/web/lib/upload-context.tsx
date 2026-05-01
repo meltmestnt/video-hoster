@@ -12,6 +12,10 @@ import {
 import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
 import { compressTo480p, type EditOptions } from "@/lib/compress-video";
+import {
+  MAX_VIDEO_OUTPUT_BYTES,
+  MAX_VIDEO_OUTPUT_MB,
+} from "@repo/shared";
 
 // Cross-tab coordination: while one tab is uploading, every ~HEARTBEAT_MS it
 // broadcasts its activity. Receiving tabs treat any heartbeat seen within
@@ -278,6 +282,15 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
             );
             compressServerSide = true;
           }
+        }
+
+        // Reject anything that ends up over the post-compression cap. This
+        // covers both the in-browser compress path and the skipCompression
+        // path (where the caller already produced an mp4, e.g. GIF→MP4).
+        if (payload.size > MAX_VIDEO_OUTPUT_BYTES) {
+          throw new Error(
+            `Video is ${(payload.size / 1024 ** 2).toFixed(0)} MB after compression. The maximum allowed is ${MAX_VIDEO_OUTPUT_MB} MB — trim the clip or lower the quality and try again.`,
+          );
         }
 
         setState((s) => ({ ...s, status: "preparing", progress: 0 }));
