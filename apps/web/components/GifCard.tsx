@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Badge, Box, Card, Flex, Text } from "@radix-ui/themes";
+import { useRequireAuth } from "@/lib/auth-required";
+import { morphToPlayer } from "@/lib/morph-to-player";
 import { useT } from "@/lib/i18n";
 
 interface GifCardData {
@@ -22,8 +24,10 @@ export function GifCard({
   index?: number;
 }) {
   const router = useRouter();
+  const requireAuth = useRequireAuth();
   const t = useT();
   const href = `/gifs/${gif.id}`;
+  const thumbRef = useRef<HTMLDivElement | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   // Browsers progressively decode GIFs: the first frame becomes visible long
   // before the full file lands, and naturalWidth flips to non-zero at that
@@ -57,15 +61,44 @@ export function GifCard({
     return () => cancelAnimationFrame(raf);
   }, [gif.gifUrl]);
 
+  const navigate = (e: React.MouseEvent) => {
+    if (e.metaKey || e.ctrlKey || e.button === 1) return;
+    if (!requireAuth()) {
+      e.preventDefault();
+      return;
+    }
+    const thumb = thumbRef.current;
+    if (!thumb) return; // let the <a> navigate normally
+    e.preventDefault();
+    // Push the route from inside onMorphStart so the destination page
+    // begins streaming as the overlay starts moving — same staging
+    // VideoCard uses.
+    const ok = morphToPlayer({
+      thumbEl: thumb,
+      imageUrl: gif.gifUrl,
+      backgroundColor: gif.gifUrl ? "var(--gray-3)" : "black",
+      // The destination GIF page renders the image with object-fit:contain,
+      // so the overlay should land in "contain" mode too. Source thumb is
+      // "cover", but the helper's overlay is square-ish during transit and
+      // "cover" reads better mid-flight; the brief mismatch on land is
+      // hidden when the overlay fades out.
+      objectFit: "cover",
+      onMorphStart: () => router.push(href),
+    });
+    if (!ok) router.push(href);
+  };
+
   return (
     <a
       href={href}
+      onClick={navigate}
       className="video-card"
       aria-label={gif.title}
       style={{ ["--card-index" as string]: index }}
     >
       <Card style={{ overflow: "hidden", padding: 0 }}>
         <div
+          ref={thumbRef}
           className="thumb-aspect"
           style={gif.gifUrl ? undefined : { background: "black" }}
         >

@@ -11,6 +11,7 @@ import { GifCommentsSection } from "@/components/GifCommentsSection";
 import { DeleteGifButton } from "@/components/DeleteGifButton";
 import { SubscribeButton } from "@/components/SubscribeButton";
 import { ShareButton } from "@/components/ShareButton";
+import { MorphLandingSignal } from "@/components/MorphLandingSignal";
 import { absoluteUrl } from "@/lib/site";
 import { T } from "@/lib/i18n";
 
@@ -123,6 +124,7 @@ export default async function GifPage({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       )}
+      <MorphLandingSignal />
       <Box>
         <Box
           className="player-frame"

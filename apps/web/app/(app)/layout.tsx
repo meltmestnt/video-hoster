@@ -7,6 +7,8 @@ import { UnverifiedBanner } from "@/components/UnverifiedBanner";
 import { UnapprovedBanner } from "@/components/UnapprovedBanner";
 import { DropZoneOverlay } from "@/components/DropZoneOverlay";
 import { PendingUploadResumer } from "@/components/PendingUploadResumer";
+import { GoogleOneTap } from "@/components/GoogleOneTap";
+import { PushPromptBanner } from "@/components/PushPromptBanner";
 import { Footer } from "@/components/Footer";
 import { Box, Container, Flex } from "@radix-ui/themes";
 import { AuthRequiredProvider } from "@/lib/auth-required";
@@ -48,8 +50,16 @@ export default async function AppLayout({
             miniPlayerEnabled={me?.miniPlayerEnabled ?? true}
             isAdmin={me?.role === "admin"}
           />
-          {signedIn && <UnverifiedBanner />}
-          {signedIn && <UnapprovedBanner />}
+          {signedIn && (
+            <UnverifiedBanner initialStatus={me?.status ?? null} />
+          )}
+          {signedIn && (
+            <UnapprovedBanner
+              initialStatus={me?.status ?? null}
+              initialApproved={me?.approved ?? null}
+              initialRole={me?.role ?? null}
+            />
+          )}
           <Box style={{ flex: 1 }}>
             <Container size="4" px="4" py="6">
               {children}
@@ -60,6 +70,10 @@ export default async function AppLayout({
         {signedIn && <MiniPlayer />}
         <DropZoneOverlay signedIn={signedIn} />
         {signedIn && <PendingUploadResumer />}
+        {signedIn && <PushPromptBanner />}
+        {!signedIn && (
+          <GoogleOneTap clientId={process.env.GOOGLE_CLIENT_ID ?? ""} />
+        )}
       </UploadDialogProvider>
     </AuthRequiredProvider>
   );
