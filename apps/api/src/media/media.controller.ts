@@ -109,6 +109,23 @@ export class MediaController {
         );
       }
     }
+    // The API's own host has to be on the allow-list too: when a video
+    // URL is loaded directly (Chrome navigation, Telegram preview
+    // fetcher), the page URL *is* the media URL, so the <video>
+    // element's follow-up range/metadata requests carry the API host
+    // as Referer. Without this, those self-referencing fetches get
+    // 403'd by the hotlink check and the player can't read duration —
+    // exactly the symptom that broke Telegram inline previews.
+    const apiPublicUrl = config.get<string>("API_PUBLIC_URL");
+    if (apiPublicUrl) {
+      try {
+        hosts.add(new URL(apiPublicUrl).host);
+      } catch {
+        this.logger.warn(
+          `API_PUBLIC_URL="${apiPublicUrl}" is not a valid URL; self-referer check disabled.`,
+        );
+      }
+    }
     const extra = config.get<string>("ALLOWED_MEDIA_REFERERS") ?? "";
     for (const raw of extra.split(",")) {
       const v = raw.trim();
