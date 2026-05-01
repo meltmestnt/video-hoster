@@ -64,7 +64,7 @@ function AuthRequiredDialog({
             {t("auth.required.body")}
           </Text>
         </AlertDialog.Description>
-        <Flex gap="3" mt="4" justify="end">
+        <Flex gap="3" mt="4" justify="end" wrap="wrap">
           <AlertDialog.Cancel>
             <Button variant="soft" color="gray">
               {t("common.notNow")}

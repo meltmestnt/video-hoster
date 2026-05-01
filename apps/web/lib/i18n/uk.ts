@@ -73,6 +73,7 @@ export const uk: EnDict = {
   "topbar.nav.videos": "Відео",
   "topbar.nav.gifs": "GIF",
   "topbar.nav.screenshots": "Скріншоти",
+  "topbar.menu.toggle": "Відкрити меню",
 
   // ─── User menu ───
   "user.menu.aria": "Меню користувача {name}",

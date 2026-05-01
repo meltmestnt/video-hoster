@@ -1,6 +1,15 @@
 "use client";
 
-import { Box, Button, Flex, Heading, TextField, Tooltip } from "@radix-ui/themes";
+import {
+  Box,
+  Button,
+  Flex,
+  Heading,
+  IconButton,
+  TextField,
+  Tooltip,
+} from "@radix-ui/themes";
+import { Cross1Icon, HamburgerMenuIcon } from "@radix-ui/react-icons";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -36,6 +45,7 @@ export function TopBar({
 }: TopBarProps) {
   const [open, setOpen] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const upload = useUpload();
   const busy = isUploadBusy(upload.status);
   const otherTabBusy = upload.otherTabUploading;
@@ -65,13 +75,35 @@ export function TopBar({
     setQuery(searchParams.get("q") ?? "");
   }, [searchParams]);
 
+  // Close the mobile drawer when the route changes (e.g. user tapped a nav
+  // link inside the drawer) so they don't have to dismiss it themselves.
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [pathname]);
+
   const submitSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!requireAuth()) return;
     const trimmed = query.trim();
     if (!trimmed) return;
     router.push(`/search?q=${encodeURIComponent(trimmed)}`);
+    setDrawerOpen(false);
   };
+
+  const openUpload = () => {
+    if (uploadDisabled) return;
+    setOpen(true);
+    setDrawerOpen(false);
+  };
+
+  const openConvert = () => {
+    setConvertOpen(true);
+    setDrawerOpen(false);
+  };
+
+  const searchPlaceholder = signedIn
+    ? t("topbar.search.placeholder.signedIn")
+    : t("topbar.search.placeholder.signedOut");
 
   return (
     <Box
@@ -91,15 +123,17 @@ export function TopBar({
               {t("site.name")}
             </Heading>
           </Link>
-          <TopBarNav />
-          <Box asChild style={{ width: 280, maxWidth: "30vw" }}>
+          <Box className="topbar-desktop-only">
+            <TopBarNav />
+          </Box>
+          <Box
+            asChild
+            className="topbar-desktop-only"
+            style={{ width: 280, maxWidth: "30vw" }}
+          >
             <form onSubmit={submitSearch} role="search">
               <TextField.Root
-                placeholder={
-                  signedIn
-                    ? t("topbar.search.placeholder.signedIn")
-                    : t("topbar.search.placeholder.signedOut")
-                }
+                placeholder={searchPlaceholder}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onFocus={() => {
@@ -113,34 +147,38 @@ export function TopBar({
         <Flex align="center" gap="3">
           {signedIn ? (
             <>
-              <Tooltip content={t("topbar.convertTooltip")}>
-                <Button
-                  size="2"
-                  variant="soft"
-                  color="gray"
-                  onClick={() => setConvertOpen(true)}
-                >
-                  {t("topbar.convert")}
-                </Button>
-              </Tooltip>
-              <Tooltip
-                content={
-                  otherTabBusy
-                    ? t("topbar.uploadTooltip.otherTabBusy")
-                    : busy
-                      ? t("topbar.uploadTooltip.busy")
-                      : uploadTooltip
-                }
-              >
-                <Button
-                  size="2"
-                  variant="solid"
-                  onClick={() => !uploadDisabled && setOpen(true)}
-                  disabled={uploadDisabled}
-                >
-                  {uploadLabel}
-                </Button>
-              </Tooltip>
+              <Box className="topbar-desktop-only">
+                <Flex align="center" gap="3">
+                  <Tooltip content={t("topbar.convertTooltip")}>
+                    <Button
+                      size="2"
+                      variant="soft"
+                      color="gray"
+                      onClick={() => setConvertOpen(true)}
+                    >
+                      {t("topbar.convert")}
+                    </Button>
+                  </Tooltip>
+                  <Tooltip
+                    content={
+                      otherTabBusy
+                        ? t("topbar.uploadTooltip.otherTabBusy")
+                        : busy
+                          ? t("topbar.uploadTooltip.busy")
+                          : uploadTooltip
+                    }
+                  >
+                    <Button
+                      size="2"
+                      variant="solid"
+                      onClick={openUpload}
+                      disabled={uploadDisabled}
+                    >
+                      {uploadLabel}
+                    </Button>
+                  </Tooltip>
+                </Flex>
+              </Box>
               <NotificationsBell />
               <UserMenu
                 name={userName ?? ""}
@@ -152,17 +190,104 @@ export function TopBar({
               />
             </>
           ) : (
-            <>
-              <Button asChild size="2" variant="soft">
-                <Link href="/login">{t("topbar.signIn")}</Link>
-              </Button>
-              <Button asChild size="2" variant="solid">
-                <Link href="/signup">{t("topbar.signUp")}</Link>
-              </Button>
-            </>
+            <Box className="topbar-desktop-only">
+              <Flex align="center" gap="3">
+                <Button asChild size="2" variant="soft">
+                  <Link href="/login">{t("topbar.signIn")}</Link>
+                </Button>
+                <Button asChild size="2" variant="solid">
+                  <Link href="/signup">{t("topbar.signUp")}</Link>
+                </Button>
+              </Flex>
+            </Box>
           )}
+          <Box className="topbar-mobile-only">
+            <IconButton
+              variant="soft"
+              color="gray"
+              onClick={() => setDrawerOpen((v) => !v)}
+              aria-label={t("topbar.menu.toggle")}
+              aria-expanded={drawerOpen}
+            >
+              {drawerOpen ? <Cross1Icon /> : <HamburgerMenuIcon />}
+            </IconButton>
+          </Box>
         </Flex>
       </Flex>
+
+      {drawerOpen && (
+        <Box className="topbar-drawer topbar-mobile-only">
+          <Flex direction="column" gap="3" px="4" py="4">
+            <form onSubmit={submitSearch} role="search">
+              <TextField.Root
+                placeholder={searchPlaceholder}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onFocus={() => {
+                  if (!signedIn) requireAuth();
+                }}
+                aria-label={t("topbar.search.aria")}
+              />
+            </form>
+            <Flex direction="column" gap="1">
+              {NAV_ITEMS.map((item) => {
+                const active = item.match(pathname);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    aria-current={active ? "page" : undefined}
+                    className="topbar-drawer-link"
+                    onClick={() => setDrawerOpen(false)}
+                  >
+                    {t(item.labelKey)}
+                  </Link>
+                );
+              })}
+            </Flex>
+            {signedIn ? (
+              <Flex direction="column" gap="2">
+                <Button
+                  size="3"
+                  variant="soft"
+                  color="gray"
+                  onClick={openConvert}
+                >
+                  {t("topbar.convert")}
+                </Button>
+                <Button
+                  size="3"
+                  variant="solid"
+                  onClick={openUpload}
+                  disabled={uploadDisabled}
+                >
+                  {uploadLabel}
+                </Button>
+              </Flex>
+            ) : (
+              <Flex direction="column" gap="2">
+                <Button asChild size="3" variant="soft">
+                  <Link
+                    href="/login"
+                    onClick={() => setDrawerOpen(false)}
+                  >
+                    {t("topbar.signIn")}
+                  </Link>
+                </Button>
+                <Button asChild size="3" variant="solid">
+                  <Link
+                    href="/signup"
+                    onClick={() => setDrawerOpen(false)}
+                  >
+                    {t("topbar.signUp")}
+                  </Link>
+                </Button>
+              </Flex>
+            )}
+          </Flex>
+        </Box>
+      )}
+
       <ConvertDialog open={convertOpen} onOpenChange={setConvertOpen} />
       {signedIn && (
         <>

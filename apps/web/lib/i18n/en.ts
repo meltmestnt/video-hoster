@@ -71,6 +71,7 @@ export const en = {
   "topbar.nav.videos": "Videos",
   "topbar.nav.gifs": "GIFs",
   "topbar.nav.screenshots": "Screenshots",
+  "topbar.menu.toggle": "Open menu",
 
   // ─── User menu ───
   "user.menu.aria": "User menu for {name}",
