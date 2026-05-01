@@ -33,6 +33,10 @@ interface Props {
   videoCount: number;
   verified: boolean;
   miniPlayerEnabled: boolean;
+  // Resolved from the server-rendered layout's auth.me call so the admin
+  // link appears on the very first menu open instead of waiting for the
+  // client-side useQuery to land.
+  isAdmin: boolean;
 }
 
 export function UserMenu({
@@ -42,6 +46,7 @@ export function UserMenu({
   videoCount,
   verified,
   miniPlayerEnabled,
+  isAdmin,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<View>("profile");
@@ -160,6 +165,7 @@ export function UserMenu({
               videoCount={videoCount}
               verified={verified}
               miniPlayerEnabled={miniPlayerEnabled}
+              isAdmin={isAdmin}
               onChangeAvatar={() => setView("upload")}
             />
           )}
@@ -199,6 +205,7 @@ interface ProfilePaneProps {
   videoCount: number;
   verified: boolean;
   miniPlayerEnabled: boolean;
+  isAdmin: boolean;
   onChangeAvatar: () => void;
 }
 
@@ -209,6 +216,7 @@ function ProfilePane({
   videoCount,
   verified,
   miniPlayerEnabled,
+  isAdmin,
   onChangeAvatar,
 }: ProfilePaneProps) {
   const utils = trpc.useUtils();
@@ -414,7 +422,10 @@ function ProfilePane({
         <Button asChild variant="soft" color="iris">
           <Link href="/billing">{t("user.profile.billing")}</Link>
         </Button>
-        {me.data?.role === "admin" && (
+        {/* Trust the server-rendered prop on first paint, then let the
+            live query take over once it lands so a role change without a
+            full reload still propagates. */}
+        {(me.data ? me.data.role === "admin" : isAdmin) && (
           <Button asChild variant="soft" color="red">
             <Link href="/manage">{t("user.profile.manage")}</Link>
           </Button>

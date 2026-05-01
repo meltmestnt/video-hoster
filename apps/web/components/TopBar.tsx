@@ -32,6 +32,7 @@ interface TopBarProps {
   videoCount: number;
   verified: boolean;
   miniPlayerEnabled: boolean;
+  isAdmin: boolean;
 }
 
 export function TopBar({
@@ -42,6 +43,7 @@ export function TopBar({
   videoCount,
   verified,
   miniPlayerEnabled,
+  isAdmin,
 }: TopBarProps) {
   const [open, setOpen] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
@@ -187,6 +189,7 @@ export function TopBar({
                 videoCount={videoCount}
                 verified={verified}
                 miniPlayerEnabled={miniPlayerEnabled}
+                isAdmin={isAdmin}
               />
             </>
           ) : (

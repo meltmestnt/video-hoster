@@ -41,6 +41,7 @@ export default async function AppLayout({
           videoCount={me?.videoCount ?? 0}
           verified={me?.status === "verified"}
           miniPlayerEnabled={me?.miniPlayerEnabled ?? true}
+          isAdmin={me?.role === "admin"}
         />
         {signedIn && <UnverifiedBanner />}
         <Box style={{ flex: 1 }}>
