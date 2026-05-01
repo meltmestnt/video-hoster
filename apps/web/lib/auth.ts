@@ -48,6 +48,24 @@ const verifyCredentialsViaApi = async (
   return json.result?.data ?? null;
 };
 
+// Resolves the DB user UUID by hitting the API's auth.me endpoint with the
+// freshly minted JWT. The API upserts Google users on first authenticated
+// request, so this also seeds the user row.
+const fetchApiUserId = async (apiToken: string): Promise<string | null> => {
+  try {
+    const res = await fetch(`${apiUrl()}/trpc/auth.me`, {
+      headers: { Authorization: `Bearer ${apiToken}` },
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as {
+      result?: { data?: { id?: string } | null };
+    };
+    return json.result?.data?.id ?? null;
+  } catch {
+    return null;
+  }
+};
+
 export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
@@ -112,12 +130,25 @@ export const authOptions: NextAuthOptions = {
           provider: token.provider ?? "google",
         });
       }
+
+      // Credentials sign-in already gave us the DB UUID (mintApiToken's `sub`
+      // came from `user.id`). For Google, `sub` is Google's id — we need to
+      // resolve the DB UUID once and cache it so ownership checks work.
+      if (!token.userId) {
+        if (token.provider === "credentials") {
+          token.userId = token.sub;
+        } else if (token.apiToken) {
+          const id = await fetchApiUserId(token.apiToken);
+          if (id) token.userId = id;
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {
       session.apiToken = token.apiToken ?? "";
       session.user = {
-        id: token.sub ?? "",
+        id: token.userId ?? token.sub ?? "",
         email: token.email ?? "",
         name: token.name ?? "",
         image: (token.picture as string | null | undefined) ?? null,

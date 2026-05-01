@@ -21,5 +21,9 @@ declare module "next-auth/jwt" {
     email?: string;
     name?: string;
     provider?: "google" | "credentials";
+    // The DB user UUID. Differs from `sub` for Google sign-ins (where sub is
+    // Google's user id) — anything that compares ownership against API-shaped
+    // user.id values needs this, not sub.
+    userId?: string;
   }
 }
