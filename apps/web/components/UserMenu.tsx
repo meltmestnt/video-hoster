@@ -7,17 +7,20 @@ import {
   Button,
   Flex,
   Popover,
+  SegmentedControl,
   Switch,
   Text,
 } from "@radix-ui/themes";
 import { signOut } from "next-auth/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { StarIcon } from "@radix-ui/react-icons";
 import { trpc } from "@/lib/trpc";
+import { useLocale, useSetLocale, useT } from "@/lib/i18n";
 import { AvatarUploadPane } from "./AvatarUploadPane";
 import { AvatarEditPane } from "./AvatarEditPane";
+import { Morph } from "./Morph";
 
 type View = "profile" | "upload" | "edit";
 
@@ -49,28 +52,7 @@ export function UserMenu({
   const utils = trpc.useUtils();
   const createUpload = trpc.users.createAvatarUpload.useMutation();
   const finalizeUpload = trpc.users.finalizeAvatarUpload.useMutation();
-
-  const paneRef = useRef<HTMLDivElement | null>(null);
-  const observerRef = useRef<ResizeObserver | null>(null);
-  const [paneSize, setPaneSize] = useState<{ w: number; h: number } | null>(
-    null,
-  );
-
-  const setPaneNode = useCallback((node: HTMLDivElement | null) => {
-    paneRef.current = node;
-    observerRef.current?.disconnect();
-    observerRef.current = null;
-    if (!node) return;
-    setPaneSize({ w: node.scrollWidth, h: node.scrollHeight });
-    const ro = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (!entry) return;
-      const target = entry.target as HTMLElement;
-      setPaneSize({ w: target.scrollWidth, h: target.scrollHeight });
-    });
-    ro.observe(node);
-    observerRef.current = ro;
-  }, []);
+  const t = useT();
 
   const reset = () => {
     setView("profile");
@@ -81,10 +63,7 @@ export function UserMenu({
 
   const onOpenChange = (next: boolean) => {
     setOpen(next);
-    if (!next) {
-      reset();
-      setPaneSize(null);
-    }
+    if (!next) reset();
   };
 
   const handleSave = async (blob: Blob) => {
@@ -123,7 +102,7 @@ export function UserMenu({
     <Popover.Root open={open} onOpenChange={onOpenChange}>
       <Popover.Trigger>
         <button
-          aria-label={`User menu for ${name}`}
+          aria-label={t("user.menu.aria", { name })}
           style={{
             background: "transparent",
             border: 0,
@@ -160,50 +139,42 @@ export function UserMenu({
         align="end"
         style={{ width: 312, overflow: "hidden" }}
       >
-        <div
-          className="user-menu-morph"
-          style={{
-            width: 280,
-            height: paneSize ? paneSize.h : "auto",
-          }}
-        >
-          <div ref={setPaneNode} key={view} className="user-menu-pane">
-            {view === "profile" && (
-              <ProfilePane
-                name={name}
-                email={email}
-                avatarUrl={displayAvatar}
-                videoCount={videoCount}
-                verified={verified}
-                miniPlayerEnabled={miniPlayerEnabled}
-                onChangeAvatar={() => setView("upload")}
-              />
-            )}
-            {view === "upload" && (
-              <AvatarUploadPane
-                onPick={(f) => {
-                  setFile(f);
-                  setView("edit");
-                }}
-                onBack={() => setView("profile")}
-              />
-            )}
-            {view === "edit" && file && (
-              <AvatarEditPane
-                file={file}
-                busy={busy}
-                errorMessage={error}
-                onCancel={() => {
-                  if (busy) return;
-                  setFile(null);
-                  setError(null);
-                  setView("upload");
-                }}
-                onSave={handleSave}
-              />
-            )}
-          </div>
-        </div>
+        <Morph viewKey={view} axis="height" style={{ width: 280 }}>
+          {view === "profile" && (
+            <ProfilePane
+              name={name}
+              email={email}
+              avatarUrl={displayAvatar}
+              videoCount={videoCount}
+              verified={verified}
+              miniPlayerEnabled={miniPlayerEnabled}
+              onChangeAvatar={() => setView("upload")}
+            />
+          )}
+          {view === "upload" && (
+            <AvatarUploadPane
+              onPick={(f) => {
+                setFile(f);
+                setView("edit");
+              }}
+              onBack={() => setView("profile")}
+            />
+          )}
+          {view === "edit" && file && (
+            <AvatarEditPane
+              file={file}
+              busy={busy}
+              errorMessage={error}
+              onCancel={() => {
+                if (busy) return;
+                setFile(null);
+                setError(null);
+                setView("upload");
+              }}
+              onSave={handleSave}
+            />
+          )}
+        </Morph>
       </Popover.Content>
     </Popover.Root>
   );
@@ -229,6 +200,9 @@ function ProfilePane({
   onChangeAvatar,
 }: ProfilePaneProps) {
   const utils = trpc.useUtils();
+  const t = useT();
+  const locale = useLocale();
+  const setLocale = useSetLocale();
   // The prop is from a server-rendered layout that doesn't re-fetch on every
   // navigation, so it can drift after a mutation. Treat the client-side
   // `auth.me` query as the source of truth and fall back to the prop only
@@ -243,14 +217,23 @@ function ProfilePane({
   const setPref = trpc.users.setMiniPlayerPreference.useMutation({
     onSuccess: () => utils.auth.me.invalidate(),
   });
+
+  const liveNotifySubs = me.data?.notifySubscribersOnUpload ?? true;
+  const [notifySubs, setNotifySubs] = useState(liveNotifySubs);
+  useEffect(() => {
+    setNotifySubs(liveNotifySubs);
+  }, [liveNotifySubs]);
+  const setNotifyPref = trpc.users.setNotifySubscribersOnUpload.useMutation({
+    onSuccess: () => utils.auth.me.invalidate(),
+  });
   return (
     <Flex direction="column" gap="3" style={{ width: 280 }}>
       <Flex gap="3" align="center">
         <button
           type="button"
           onClick={onChangeAvatar}
-          aria-label="Change avatar"
-          title="Change avatar"
+          aria-label={t("user.profile.changeAvatar")}
+          title={t("user.profile.changeAvatar")}
           style={{
             border: 0,
             background: "transparent",
@@ -298,7 +281,9 @@ function ProfilePane({
               variant="soft"
               radius="full"
             >
-              {verified ? "Verified" : "Unverified"}
+              {verified
+                ? t("user.profile.verified")
+                : t("user.profile.unverified")}
             </Badge>
           </Flex>
           <Text as="div" size="1" color="gray" truncate>
@@ -315,7 +300,7 @@ function ProfilePane({
       />
       <Flex justify="between" align="center" px="1">
         <Text size="2" color="gray">
-          Videos uploaded
+          {t("user.profile.videosUploaded")}
         </Text>
         <Text size="2" weight="medium">
           {videoCount}
@@ -324,10 +309,10 @@ function ProfilePane({
       <Flex justify="between" align="center" px="1" gap="3">
         <Box style={{ minWidth: 0 }}>
           <Text as="div" size="2" color="gray">
-            Mini player
+            {t("user.profile.miniPlayer.label")}
           </Text>
           <Text as="div" size="1" color="gray">
-            Show a floating player when leaving a video page.
+            {t("user.profile.miniPlayer.hint")}
           </Text>
         </Box>
         <Switch
@@ -341,8 +326,44 @@ function ProfilePane({
               { onError: () => setEnabled(prev) },
             );
           }}
-          aria-label="Toggle mini player"
+          aria-label={t("user.profile.miniPlayer.toggleAria")}
         />
+      </Flex>
+      <Flex justify="between" align="center" px="1" gap="3">
+        <Box style={{ minWidth: 0 }}>
+          <Text as="div" size="2" color="gray">
+            {t("user.profile.notifySubs.label")}
+          </Text>
+          <Text as="div" size="1" color="gray">
+            {t("user.profile.notifySubs.hint")}
+          </Text>
+        </Box>
+        <Switch
+          checked={notifySubs}
+          disabled={setNotifyPref.isPending}
+          onCheckedChange={(checked) => {
+            const prev = notifySubs;
+            setNotifySubs(checked);
+            setNotifyPref.mutate(
+              { enabled: checked },
+              { onError: () => setNotifySubs(prev) },
+            );
+          }}
+          aria-label={t("user.profile.notifySubs.toggleAria")}
+        />
+      </Flex>
+      <Flex justify="between" align="center" px="1" gap="3">
+        <Text size="2" color="gray">
+          {t("user.profile.language")}
+        </Text>
+        <SegmentedControl.Root
+          size="1"
+          value={locale}
+          onValueChange={(v) => setLocale(v === "uk" ? "uk" : "en")}
+        >
+          <SegmentedControl.Item value="en">EN</SegmentedControl.Item>
+          <SegmentedControl.Item value="uk">UK</SegmentedControl.Item>
+        </SegmentedControl.Root>
       </Flex>
       <Box
         style={{
@@ -354,18 +375,23 @@ function ProfilePane({
       <Flex direction="column" gap="2">
         <Button asChild variant="soft" color="amber">
           <Link href="/favorites">
-            <StarIcon /> Favorites
+            <StarIcon /> {t("user.profile.favorites")}
+          </Link>
+        </Button>
+        <Button asChild variant="soft" color="iris">
+          <Link href="/subscriptions">
+            {t("user.profile.subscriptions")}
           </Link>
         </Button>
         <Button variant="soft" onClick={onChangeAvatar}>
-          Change avatar
+          {t("user.profile.changeAvatar")}
         </Button>
         <Button
           color="gray"
           variant="soft"
           onClick={() => signOut({ callbackUrl: "/login" })}
         >
-          Sign out
+          {t("user.profile.signOut")}
         </Button>
       </Flex>
     </Flex>

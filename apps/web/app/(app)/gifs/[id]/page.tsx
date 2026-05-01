@@ -9,7 +9,9 @@ import { GifCard } from "@/components/GifCard";
 import { GifReactions } from "@/components/GifReactions";
 import { GifCommentsSection } from "@/components/GifCommentsSection";
 import { DeleteGifButton } from "@/components/DeleteGifButton";
+import { SubscribeButton } from "@/components/SubscribeButton";
 import { absoluteUrl } from "@/lib/site";
+import { T } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -127,7 +129,9 @@ export default async function GifPage({
             />
           ) : (
             <Flex align="center" justify="center" style={{ height: "100%" }}>
-              <Text color="gray">GIF is still processing.</Text>
+              <Text color="gray">
+                <T k="page.gif.processing" />
+              </Text>
             </Flex>
           )}
         </Box>
@@ -138,7 +142,7 @@ export default async function GifPage({
           <Badge variant="solid" color="iris">GIF</Badge>
           {gif.visibility === "private" && (
             <Badge variant="soft" color="gray">
-              Private
+              <T k="card.private" />
             </Badge>
           )}
           <Flex align="center" gap="2" wrap="wrap">
@@ -155,6 +159,7 @@ export default async function GifPage({
         </Flex>
         <Flex align="center" gap="3" mt="1" mb="3" wrap="wrap">
           <Text size="2" color="gray">{gif.owner.name}</Text>
+          <SubscribeButton targetUserId={gif.owner.id} />
           <Text size="2" color="gray">·</Text>
           <Text size="2" color="gray">
             {new Date(gif.createdAt).toLocaleDateString()}
@@ -182,9 +187,13 @@ export default async function GifPage({
         <GifCommentsSection gifId={gif.id} initial={comments} />
       </Box>
       <Box>
-        <Heading size="3" mb="3">Similar GIFs</Heading>
+        <Heading size="3" mb="3">
+          <T k="page.gif.similar" />
+        </Heading>
         {suggested.length === 0 ? (
-          <Text size="2" color="gray">No similar GIFs yet.</Text>
+          <Text size="2" color="gray">
+            <T k="page.gif.noSimilar" />
+          </Text>
         ) : (
           <Flex direction="column" gap="3">
             {suggested.map((g, i) => (

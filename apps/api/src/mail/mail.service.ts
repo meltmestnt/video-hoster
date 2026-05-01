@@ -2,10 +2,12 @@ import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { SendEmailCommand, SESv2Client } from "@aws-sdk/client-sesv2";
 import nodemailer, { type Transporter } from "nodemailer";
+import { Resend } from "resend";
 
 type Transport =
   | { kind: "smtp"; mailer: Transporter }
-  | { kind: "ses"; client: SESv2Client };
+  | { kind: "ses"; client: SESv2Client }
+  | { kind: "resend"; client: Resend };
 
 @Injectable()
 export class MailService {
@@ -16,7 +18,7 @@ export class MailService {
   constructor(config: ConfigService) {
     this.fromAddress = config.getOrThrow<string>("MAIL_FROM");
     const kind = (
-      config.get<string>("MAIL_TRANSPORT") ?? "ses"
+      config.get<string>("MAIL_TRANSPORT") ?? "resend"
     ).toLowerCase();
 
     if (kind === "smtp") {
@@ -42,9 +44,14 @@ export class MailService {
           },
         }),
       };
+    } else if (kind === "resend") {
+      this.transport = {
+        kind: "resend",
+        client: new Resend(config.getOrThrow<string>("RESEND_API_KEY")),
+      };
     } else {
       throw new Error(
-        `Unknown MAIL_TRANSPORT: ${kind}. Use "smtp" or "ses".`,
+        `Unknown MAIL_TRANSPORT: ${kind}. Use "smtp", "ses", or "resend".`,
       );
     }
     this.logger.log(`Mail transport: ${this.transport.kind}`);
@@ -64,7 +71,7 @@ export class MailService {
         html,
         text,
       });
-    } else {
+    } else if (this.transport.kind === "ses") {
       await this.transport.client.send(
         new SendEmailCommand({
           FromEmailAddress: this.fromAddress,
@@ -80,6 +87,17 @@ export class MailService {
           },
         }),
       );
+    } else {
+      const { error } = await this.transport.client.emails.send({
+        from: this.fromAddress,
+        to: toEmail,
+        subject,
+        html,
+        text,
+      });
+      if (error) {
+        throw new Error(`Resend send failed: ${error.message}`);
+      }
     }
     this.logger.log(`Sent confirmation email to ${toEmail}`);
   }

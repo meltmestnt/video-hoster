@@ -468,8 +468,14 @@ body[data-morphing] .page-header {
   }
 }
 
-/* ───── morphing user-menu popover ───── */
+/* ───── morphing popups ─────
+ * Used by <Morph> (apps/web/components/Morph.tsx) to animate width/height
+ * when a popover/dialog's content swaps between states. The kept aliases
+ * (.user-menu-morph, .user-menu-pane) are for any inline usages that still
+ * reference the old class names.
+ */
 
+.morph-container,
 .user-menu-morph {
   overflow: hidden;
   transition:
@@ -479,8 +485,16 @@ body[data-morphing] .page-header {
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  .morph-pane,
   .user-menu-pane {
     animation: paneMorphIn 240ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .morph-container,
+  .user-menu-morph {
+    transition: none;
   }
 }
 

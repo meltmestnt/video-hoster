@@ -14,6 +14,7 @@ import { TagsService } from "../tags/tags.service";
 import { S3Service } from "../s3/s3.service";
 import { ReactionsService } from "../reactions/reactions.service";
 import type { ReactionType } from "../reactions/reaction.entity";
+import { NotificationsService } from "../notifications/notifications.service";
 
 const MAX_GIF_BYTES = 20 * 1024 * 1024;
 
@@ -48,6 +49,7 @@ export class GifsService {
     private readonly tagsService: TagsService,
     private readonly s3: S3Service,
     private readonly reactionsService: ReactionsService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async createUpload(args: CreateUploadArgs) {
@@ -114,6 +116,15 @@ export class GifsService {
     gif.sizeBytes = head.size;
     gif.status = "ready";
     await this.gifs.save(gif);
+    if (gif.visibility === "public") {
+      await this.notificationsService
+        .onGifUploaded(gif.id, gif.ownerId)
+        .catch((err) =>
+          this.logger.warn(
+            `Failed to notify subscribers of GIF upload ${gif.id}: ${(err as Error).message}`,
+          ),
+        );
+    }
     return { ok: true };
   }
 

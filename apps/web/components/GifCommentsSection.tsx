@@ -13,6 +13,7 @@ import {
 } from "@radix-ui/themes";
 import { signIn, useSession } from "next-auth/react";
 import { trpc } from "@/lib/trpc";
+import { useT } from "@/lib/i18n";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@repo/api";
 import type { CommentSort } from "@repo/shared";
@@ -25,6 +26,7 @@ interface Props {
 }
 
 export function GifCommentsSection({ gifId, initial }: Props) {
+  const t = useT();
   const utils = trpc.useUtils();
   const session = useSession();
   const myId = session.data?.user?.id ?? null;
@@ -60,24 +62,29 @@ export function GifCommentsSection({ gifId, initial }: Props) {
     <Box>
       <Flex align="center" justify="between" gap="3" mb="3" wrap="wrap">
         <Heading size="4">
-          {items.length} {items.length === 1 ? "comment" : "comments"}
+          {t(
+            items.length === 1 ? "comments.count.one" : "comments.count.many",
+            { n: items.length },
+          )}
         </Heading>
         <Select.Root
           value={sort}
           onValueChange={(v) => setSort(v as CommentSort)}
         >
-          <Select.Trigger aria-label="Sort comments" />
+          <Select.Trigger aria-label={t("sort.aria.comments")} />
           <Select.Content>
-            <Select.Item value="newest">Newest</Select.Item>
-            <Select.Item value="mostLiked">Most liked</Select.Item>
-            <Select.Item value="mostDisliked">Most disliked</Select.Item>
+            <Select.Item value="newest">{t("sort.newest")}</Select.Item>
+            <Select.Item value="mostLiked">{t("sort.mostLiked")}</Select.Item>
+            <Select.Item value="mostDisliked">
+              {t("sort.mostDisliked")}
+            </Select.Item>
           </Select.Content>
         </Select.Root>
       </Flex>
 
       <Flex direction="column" gap="2" mb="5">
         <TextArea
-          placeholder="Add a comment..."
+          placeholder={t("comments.add.placeholder")}
           value={body}
           onChange={(e) => setBody(e.target.value)}
           rows={3}
@@ -88,7 +95,7 @@ export function GifCommentsSection({ gifId, initial }: Props) {
             onClick={submit}
             disabled={create.isPending || body.trim().length === 0}
           >
-            {create.isPending ? "Posting..." : "Comment"}
+            {create.isPending ? t("comments.posting") : t("comments.post")}
           </Button>
         </Flex>
       </Flex>

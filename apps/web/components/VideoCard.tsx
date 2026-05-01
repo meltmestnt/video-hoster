@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Badge, Box, Card, Flex, Text } from "@radix-ui/themes";
 import { useRequireAuth } from "@/lib/auth-required";
+import { useT } from "@/lib/i18n";
 
 interface VideoCardData {
   id: string;
@@ -82,6 +83,7 @@ export function VideoCard({
 }) {
   const router = useRouter();
   const requireAuth = useRequireAuth();
+  const t = useT();
   const href = `/videos/${video.id}`;
   const thumbRef = useRef<HTMLDivElement | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
@@ -281,7 +283,7 @@ export function VideoCard({
           ) : (
             <Flex align="center" justify="center" style={{ height: "100%" }}>
               <Text color="gray" size="2">
-                No thumbnail
+                {t("card.noThumbnail")}
               </Text>
             </Flex>
           )}
@@ -309,7 +311,7 @@ export function VideoCard({
             </Text>
             {video.visibility === "private" && (
               <Badge variant="soft" color="gray" size="1">
-                Private
+                {t("card.private")}
               </Badge>
             )}
           </Flex>

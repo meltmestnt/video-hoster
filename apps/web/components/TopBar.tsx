@@ -6,11 +6,13 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useUpload, isUploadBusy } from "@/lib/upload-context";
 import { useRequireAuth } from "@/lib/auth-required";
+import { useT } from "@/lib/i18n";
 import { UploadDialog } from "./UploadDialog";
 import { GifUploadDialog } from "./GifUploadDialog";
 import { UploadProgressBar } from "./UploadProgressBar";
 import { UploadSuccessToast } from "./UploadSuccessToast";
 import { UserMenu } from "./UserMenu";
+import { NotificationsBell } from "./NotificationsBell";
 
 interface TopBarProps {
   signedIn: boolean;
@@ -37,6 +39,7 @@ export function TopBar({
   const otherTabBusy = upload.otherTabUploading;
   const uploadDisabled = busy || otherTabBusy;
   const requireAuth = useRequireAuth();
+  const t = useT();
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -44,15 +47,15 @@ export function TopBar({
   const onGifs = pathname === "/gifs" || pathname.startsWith("/gifs/");
   const onVideos = pathname === "/videos" || pathname.startsWith("/videos/");
   const uploadLabel = onGifs
-    ? "Upload GIF"
+    ? t("topbar.uploadGif")
     : onVideos
-      ? "Upload Video"
-      : "Upload";
+      ? t("topbar.uploadVideo")
+      : t("topbar.upload");
   const uploadTooltip = onGifs
-    ? "Upload a GIF"
+    ? t("topbar.uploadTooltip.gif")
     : onVideos
-      ? "Upload a video"
-      : "Upload a video or GIF";
+      ? t("topbar.uploadTooltip.video")
+      : t("topbar.uploadTooltip.any");
   const initialQ = searchParams.get("q") ?? "";
   const [query, setQuery] = useState(initialQ);
 
@@ -82,7 +85,7 @@ export function TopBar({
       <Flex align="center" justify="between" px="4" py="3" gap="3">
         <Link href="/">
           <Heading size="5" style={{ letterSpacing: "-0.02em" }}>
-            Video Hoster
+            {t("site.name")}
           </Heading>
         </Link>
         <TopBarNav />
@@ -91,15 +94,15 @@ export function TopBar({
             <TextField.Root
               placeholder={
                 signedIn
-                  ? "Search videos by title or tag"
-                  : "Sign in to search"
+                  ? t("topbar.search.placeholder.signedIn")
+                  : t("topbar.search.placeholder.signedOut")
               }
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onFocus={() => {
                 if (!signedIn) requireAuth();
               }}
-              aria-label="Search videos"
+              aria-label={t("topbar.search.aria")}
             />
           </form>
         </Box>
@@ -109,9 +112,9 @@ export function TopBar({
               <Tooltip
                 content={
                   otherTabBusy
-                    ? "Another tab is uploading. Wait for it to finish."
+                    ? t("topbar.uploadTooltip.otherTabBusy")
                     : busy
-                      ? "Wait for current upload to finish"
+                      ? t("topbar.uploadTooltip.busy")
                       : uploadTooltip
                 }
               >
@@ -124,6 +127,7 @@ export function TopBar({
                   {uploadLabel}
                 </Button>
               </Tooltip>
+              <NotificationsBell />
               <UserMenu
                 name={userName ?? ""}
                 email={userEmail ?? ""}
@@ -136,10 +140,10 @@ export function TopBar({
           ) : (
             <>
               <Button asChild size="2" variant="soft">
-                <Link href="/login">Sign in</Link>
+                <Link href="/login">{t("topbar.signIn")}</Link>
               </Button>
               <Button asChild size="2" variant="solid">
-                <Link href="/signup">Sign up</Link>
+                <Link href="/signup">{t("topbar.signUp")}</Link>
               </Button>
             </>
           )}
@@ -160,22 +164,37 @@ export function TopBar({
   );
 }
 
-const NAV_ITEMS = [
-  { href: "/", label: "All", match: (p: string) => p === "/" },
+const NAV_ITEMS: Array<{
+  href: string;
+  labelKey:
+    | "topbar.nav.all"
+    | "topbar.nav.videos"
+    | "topbar.nav.gifs"
+    | "topbar.nav.screenshots";
+  match: (p: string) => boolean;
+}> = [
+  { href: "/", labelKey: "topbar.nav.all", match: (p) => p === "/" },
   {
     href: "/videos",
-    label: "Videos",
-    match: (p: string) => p === "/videos" || p.startsWith("/videos/"),
+    labelKey: "topbar.nav.videos",
+    match: (p) => p === "/videos" || p.startsWith("/videos/"),
   },
   {
     href: "/gifs",
-    label: "GIFs",
-    match: (p: string) => p === "/gifs" || p.startsWith("/gifs/"),
+    labelKey: "topbar.nav.gifs",
+    match: (p) => p === "/gifs" || p.startsWith("/gifs/"),
+  },
+  {
+    href: "/screenshots",
+    labelKey: "topbar.nav.screenshots",
+    match: (p) =>
+      p === "/screenshots" || p.startsWith("/screenshots/"),
   },
 ];
 
 function TopBarNav() {
   const pathname = usePathname() ?? "/";
+  const t = useT();
   return (
     <Flex gap="1" align="center">
       {NAV_ITEMS.map((item) => {
@@ -195,7 +214,7 @@ function TopBarNav() {
               transition: "background 120ms ease, color 120ms ease",
             }}
           >
-            {item.label}
+            {t(item.labelKey)}
           </Link>
         );
       })}

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AlertDialog, Button, Callout, Flex } from "@radix-ui/themes";
 import { trpc } from "@/lib/trpc";
 import { useMiniPlayer } from "@/lib/mini-player-context";
+import { useT } from "@/lib/i18n";
 
 interface Props {
   videoId: string;
@@ -15,6 +16,7 @@ export function DeleteVideoButton({ videoId, title }: Props) {
   const router = useRouter();
   const utils = trpc.useUtils();
   const mini = useMiniPlayer();
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const deleteVideo = trpc.videos.delete.useMutation();
@@ -40,14 +42,13 @@ export function DeleteVideoButton({ videoId, title }: Props) {
     <AlertDialog.Root open={open} onOpenChange={setOpen}>
       <AlertDialog.Trigger>
         <Button color="red" variant="soft">
-          Delete
+          {t("common.delete")}
         </Button>
       </AlertDialog.Trigger>
       <AlertDialog.Content maxWidth="440px">
-        <AlertDialog.Title>Delete video?</AlertDialog.Title>
+        <AlertDialog.Title>{t("delete.video.title")}</AlertDialog.Title>
         <AlertDialog.Description size="2">
-          "{title}" will be permanently removed, along with its thumbnail and
-          uploaded file. This cannot be undone.
+          {t("delete.video.body", { title })}
         </AlertDialog.Description>
 
         {error && (
@@ -59,7 +60,7 @@ export function DeleteVideoButton({ videoId, title }: Props) {
         <Flex gap="3" mt="4" justify="end">
           <AlertDialog.Cancel>
             <Button variant="soft" color="gray" disabled={deleteVideo.isPending}>
-              Cancel
+              {t("common.cancel")}
             </Button>
           </AlertDialog.Cancel>
           <Button
@@ -67,7 +68,7 @@ export function DeleteVideoButton({ videoId, title }: Props) {
             onClick={submit}
             disabled={deleteVideo.isPending}
           >
-            {deleteVideo.isPending ? "Deleting..." : "Delete"}
+            {deleteVideo.isPending ? t("common.deleting") : t("common.delete")}
           </Button>
         </Flex>
       </AlertDialog.Content>

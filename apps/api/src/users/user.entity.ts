@@ -50,6 +50,9 @@ export class User {
   @Column({ type: "boolean", default: false })
   miniPlayerPromptSeen: boolean;
 
+  @Column({ type: "boolean", default: true })
+  notifySubscribersOnUpload: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 }

@@ -24,12 +24,15 @@ import {
   type EditOptions,
   type Rotation,
 } from "@/lib/compress-video";
-import { DownloadIcon } from "@radix-ui/react-icons";
+import { extractFrame } from "@/lib/extract-frame";
+import { DownloadIcon, CameraIcon } from "@radix-ui/react-icons";
 import { Callout } from "@radix-ui/themes";
 import {
   MAX_GIF_BYTES,
   MAX_GIF_DURATION_SECONDS,
 } from "@repo/shared";
+import { useT } from "@/lib/i18n";
+import { useUpload } from "@/lib/upload-context";
 
 export type EditorOutput =
   | { kind: "video"; edit: EditOptions }
@@ -43,11 +46,16 @@ interface Props {
 }
 
 const ROTATIONS: Rotation[] = [0, 90, 180, 270];
-const CROP_ASPECTS: { value: CropAspect; label: string }[] = [
-  { value: "original", label: "Original" },
-  { value: "16:9", label: "16:9" },
-  { value: "4:3", label: "4:3" },
-  { value: "1:1", label: "1:1" },
+type CropOption = {
+  value: CropAspect;
+  labelKey?: "editor.crop.original";
+  rawLabel?: string;
+};
+const CROP_ASPECTS: CropOption[] = [
+  { value: "original", labelKey: "editor.crop.original" },
+  { value: "16:9", rawLabel: "16:9" },
+  { value: "4:3", rawLabel: "4:3" },
+  { value: "1:1", rawLabel: "1:1" },
 ];
 
 function format(seconds: number): string {
@@ -59,6 +67,7 @@ function format(seconds: number): string {
 }
 
 export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
+  const t = useT();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const url = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
 
@@ -78,6 +87,14 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
     null,
   );
   const [extractError, setExtractError] = useState<string | null>(null);
+
+  const upload = useUpload();
+  const [screenshotBusy, setScreenshotBusy] = useState(false);
+  const [screenshotMsg, setScreenshotMsg] = useState<
+    | { kind: "ok"; id: string; title: string }
+    | { kind: "error"; message: string }
+    | null
+  >(null);
 
   const [outputKind, setOutputKind] = useState<"video" | "gif">("video");
   const [gifBusy, setGifBusy] = useState(false);
@@ -217,7 +234,7 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
         (trimEnd > 0 ? trimEnd : duration) - trimStart;
       if (trimmedDuration > MAX_GIF_DURATION_SECONDS + 0.5) {
         throw new Error(
-          `GIFs can't be longer than ${MAX_GIF_DURATION_SECONDS}s. Trim it down first.`,
+          t("editor.gif.tooLong", { sec: MAX_GIF_DURATION_SECONDS }),
         );
       }
       const blob = await convertToGif(file, {
@@ -226,7 +243,10 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
       });
       if (blob.size > MAX_GIF_BYTES) {
         throw new Error(
-          `Generated GIF is ${(blob.size / 1024 ** 2).toFixed(1)} MB — over the ${(MAX_GIF_BYTES / 1024 ** 2).toFixed(0)} MB limit. Trim more or lower the resolution.`,
+          t("editor.gif.tooBig", {
+            size: (blob.size / 1024 ** 2).toFixed(1),
+            max: (MAX_GIF_BYTES / 1024 ** 2).toFixed(0),
+          }),
         );
       }
       onApply({ kind: "gif", blob, durationSeconds: trimmedDuration });
@@ -267,26 +287,70 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
     }
   };
 
+  const captureScreenshot = async () => {
+    if (!file || !url) return;
+    setScreenshotBusy(true);
+    setScreenshotMsg(null);
+    try {
+      // Capture the raw frame at the current scrub time. Edits like rotate/
+      // crop/zoom are intentionally ignored — the screenshot is meant to
+      // freeze whatever the source video shows at this timestamp.
+      const { blob, width, height } = await extractFrame(url, {
+        atSeconds: currentTime,
+        // Cap to 1920 — plenty for sharing, and keeps payloads small.
+        maxWidth: 1920,
+        quality: 0.9,
+      });
+      const baseTitle =
+        file.name.replace(/\.[^.]+$/, "").trim() || "Screenshot";
+      const stamp = format(currentTime).replace(":", "-");
+      const result = await upload.uploadScreenshot(blob, {
+        title: `${baseTitle} @ ${stamp}`,
+        visibility: "public",
+        source: "video",
+        width,
+        height,
+      });
+      setScreenshotMsg({
+        kind: "ok",
+        id: result.screenshotId,
+        title: result.title,
+      });
+    } catch (err) {
+      setScreenshotMsg({
+        kind: "error",
+        message: (err as Error).message,
+      });
+    } finally {
+      setScreenshotBusy(false);
+    }
+  };
+
   return (
     <Dialog.Root open={open} onOpenChange={(o) => !o && onCancel()}>
       <Dialog.Content maxWidth="720px">
-        <Dialog.Title>Edit video</Dialog.Title>
+        <Dialog.Title>{t("editor.title")}</Dialog.Title>
         <Dialog.Description size="2" color="gray" mb="4">
-          Trim, rotate, crop, and zoom before uploading. You can also turn
-          the clip into an animated GIF (max {MAX_GIF_DURATION_SECONDS}s,{" "}
-          {Math.round(MAX_GIF_BYTES / 1024 / 1024)} MB).
+          {t("editor.subtitle", {
+            sec: MAX_GIF_DURATION_SECONDS,
+            mb: Math.round(MAX_GIF_BYTES / 1024 / 1024),
+          })}
         </Dialog.Description>
 
         <Flex align="center" gap="3" mb="3">
           <Text size="2" weight="medium" style={{ width: 76 }}>
-            Output
+            {t("editor.output")}
           </Text>
           <SegmentedControl.Root
             value={outputKind}
             onValueChange={(v) => setOutputKind(v as "video" | "gif")}
           >
-            <SegmentedControl.Item value="video">Video</SegmentedControl.Item>
-            <SegmentedControl.Item value="gif">GIF</SegmentedControl.Item>
+            <SegmentedControl.Item value="video">
+              {t("editor.output.video")}
+            </SegmentedControl.Item>
+            <SegmentedControl.Item value="gif">
+              {t("editor.output.gif")}
+            </SegmentedControl.Item>
           </SegmentedControl.Root>
         </Flex>
 
@@ -349,7 +413,7 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
                   step={1}
                   onValueChange={(v) => seekTo((v[0] ?? 0) / 1000)}
                   size="1"
-                  aria-label="Seek"
+                  aria-label={t("editor.aria.seek")}
                 />
               </Box>
             </Flex>
@@ -358,7 +422,7 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
             <Box>
               <Flex justify="between" mb="1">
                 <Text size="2" weight="medium">
-                  Trim
+                  {t("editor.trim")}
                 </Text>
                 <Text size="1" color="gray">
                   {format(trimStart)} → {format(trimEnd)}
@@ -367,7 +431,7 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
               <Flex direction="column" gap="2">
                 <Flex align="center" gap="2">
                   <Text size="1" color="gray" style={{ width: 36 }}>
-                    Start
+                    {t("editor.trim.start")}
                   </Text>
                   <Box style={{ flex: 1 }}>
                     <Slider
@@ -384,13 +448,13 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
                         seekTo(next);
                       }}
                       size="1"
-                      aria-label="Trim start"
+                      aria-label={t("editor.aria.trimStart")}
                     />
                   </Box>
                 </Flex>
                 <Flex align="center" gap="2">
                   <Text size="1" color="gray" style={{ width: 36 }}>
-                    End
+                    {t("editor.trim.end")}
                   </Text>
                   <Box style={{ flex: 1 }}>
                     <Slider
@@ -407,7 +471,7 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
                         seekTo(next);
                       }}
                       size="1"
-                      aria-label="Trim end"
+                      aria-label={t("editor.aria.trimEnd")}
                     />
                   </Box>
                 </Flex>
@@ -417,7 +481,7 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
             {/* Rotate */}
             <Flex align="center" gap="3">
               <Text size="2" weight="medium" style={{ width: 76 }}>
-                Rotate
+                {t("editor.rotate")}
               </Text>
               <Button variant="soft" onClick={cycleRotation}>
                 <ReloadIcon /> {rotation}°
@@ -429,7 +493,7 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
                   color="gray"
                   onClick={() => setRotation(0)}
                 >
-                  <ResetIcon /> Reset
+                  <ResetIcon /> {t("common.reset")}
                 </Button>
               )}
             </Flex>
@@ -437,7 +501,7 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
             {/* Crop */}
             <Flex align="center" gap="3">
               <Text size="2" weight="medium" style={{ width: 76 }}>
-                Crop
+                {t("editor.crop")}
               </Text>
               <SegmentedControl.Root
                 value={cropAspect}
@@ -445,7 +509,7 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
               >
                 {CROP_ASPECTS.map((c) => (
                   <SegmentedControl.Item key={c.value} value={c.value}>
-                    {c.label}
+                    {c.labelKey ? t(c.labelKey) : c.rawLabel}
                   </SegmentedControl.Item>
                 ))}
               </SegmentedControl.Root>
@@ -454,7 +518,7 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
             {/* Zoom */}
             <Flex align="center" gap="3">
               <Text size="2" weight="medium" style={{ width: 76 }}>
-                Zoom
+                {t("editor.zoom")}
               </Text>
               <Box style={{ flex: 1 }}>
                 <Slider
@@ -463,7 +527,7 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
                   max={300}
                   step={5}
                   onValueChange={(v) => setZoom((v[0] ?? 100) / 100)}
-                  aria-label="Zoom"
+                  aria-label={t("editor.aria.zoom")}
                 />
               </Box>
               <Text size="1" color="gray" style={{ width: 40 }}>
@@ -474,7 +538,7 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
             {/* Speed */}
             <Flex align="center" gap="3">
               <Text size="2" weight="medium" style={{ width: 76 }}>
-                Speed
+                {t("editor.speed")}
               </Text>
               <Box style={{ flex: 1 }}>
                 <Slider
@@ -485,7 +549,7 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
                   onValueChange={(v) =>
                     setPlaybackRate((v[0] ?? 100) / 100)
                   }
-                  aria-label="Playback speed"
+                  aria-label={t("editor.aria.speed")}
                 />
               </Box>
               <Text size="1" color="gray" style={{ width: 40 }}>
@@ -496,7 +560,7 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
             {/* Export */}
             <Flex align="center" gap="3" wrap="wrap">
               <Text size="2" weight="medium" style={{ width: 76 }}>
-                Export
+                {t("editor.export")}
               </Text>
               <Button
                 variant="soft"
@@ -505,7 +569,9 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
                 disabled={extractBusy !== null}
               >
                 <DownloadIcon />
-                {extractBusy === "audio" ? "Extracting…" : "Audio (.mp3)"}
+                {extractBusy === "audio"
+                  ? t("editor.export.extracting")
+                  : t("editor.export.audio")}
               </Button>
               <Button
                 variant="soft"
@@ -514,7 +580,20 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
                 disabled={extractBusy !== null}
               >
                 <DownloadIcon />
-                {extractBusy === "video" ? "Extracting…" : "Video (no audio)"}
+                {extractBusy === "video"
+                  ? t("editor.export.extracting")
+                  : t("editor.export.video")}
+              </Button>
+              <Button
+                variant="soft"
+                color="iris"
+                onClick={captureScreenshot}
+                disabled={screenshotBusy}
+              >
+                <CameraIcon />
+                {screenshotBusy
+                  ? t("screenshots.editor.saving")
+                  : t("screenshots.editor.button")}
               </Button>
             </Flex>
             {extractError && (
@@ -522,9 +601,29 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
                 {extractError}
               </Text>
             )}
+            {screenshotMsg?.kind === "ok" && (
+              <Callout.Root color="iris" mt="1">
+                <Callout.Text>
+                  <span
+                    // The localized string includes the link markup so
+                    // translators can rephrase the sentence around it.
+                    dangerouslySetInnerHTML={{
+                      __html: t("screenshots.editor.savedHtml", {
+                        href: `/screenshots/${screenshotMsg.id}`,
+                      }),
+                    }}
+                  />
+                </Callout.Text>
+              </Callout.Root>
+            )}
+            {screenshotMsg?.kind === "error" && (
+              <Callout.Root color="red" mt="1">
+                <Callout.Text>{screenshotMsg.message}</Callout.Text>
+              </Callout.Root>
+            )}
           </Flex>
         ) : (
-          <Text color="gray">No file selected.</Text>
+          <Text color="gray">{t("editor.noFile")}</Text>
         )}
 
         {gifError && (
@@ -535,7 +634,7 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
         {gifBusy && (
           <Callout.Root color="iris" mt="3">
             <Callout.Text>
-              Building GIF… {Math.round(gifProgress * 100)}%
+              {t("editor.gif.building", { pct: Math.round(gifProgress * 100) })}
             </Callout.Text>
           </Callout.Root>
         )}
@@ -547,14 +646,14 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
             onClick={onCancel}
             disabled={gifBusy}
           >
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button onClick={apply} disabled={!file || gifBusy}>
             {outputKind === "gif"
               ? gifBusy
-                ? "Converting…"
-                : "Convert & upload GIF"
-              : "Apply & upload"}
+                ? t("upload.gif.convertingShort")
+                : t("editor.applyGif")
+              : t("editor.applyVideo")}
           </Button>
         </Flex>
       </Dialog.Content>

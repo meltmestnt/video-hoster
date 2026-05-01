@@ -6,11 +6,14 @@ import { S3Module } from "./s3/s3.module";
 import { UsersModule } from "./users/users.module";
 import { VideosModule } from "./videos/videos.module";
 import { GifsModule } from "./gifs/gifs.module";
+import { ScreenshotsModule } from "./screenshots/screenshots.module";
 import { TagsModule } from "./tags/tags.module";
 import { CommentsModule } from "./comments/comments.module";
 import { ReactionsModule } from "./reactions/reactions.module";
 import { FavoritesModule } from "./favorites/favorites.module";
 import { TranscoderModule } from "./transcoder/transcoder.module";
+import { NotificationsModule } from "./notifications/notifications.module";
+import { SubscriptionsModule } from "./subscriptions/subscriptions.module";
 import { TrpcModule } from "./trpc/trpc.module";
 
 @Module({
@@ -22,11 +25,14 @@ import { TrpcModule } from "./trpc/trpc.module";
     UsersModule,
     VideosModule,
     GifsModule,
+    ScreenshotsModule,
     TagsModule,
     CommentsModule,
     ReactionsModule,
     FavoritesModule,
     TranscoderModule,
+    NotificationsModule,
+    SubscriptionsModule,
     TrpcModule,
   ],
 })

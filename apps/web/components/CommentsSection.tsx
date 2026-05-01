@@ -15,6 +15,7 @@ import {
 } from "@radix-ui/themes";
 import { signIn, useSession } from "next-auth/react";
 import { trpc } from "@/lib/trpc";
+import { useT } from "@/lib/i18n";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@repo/api";
 import type { CommentSort } from "@repo/shared";
@@ -53,6 +54,7 @@ function buildThread(items: CommentItem[]): ThreadedComment[] {
 }
 
 export function CommentsSection({ videoId, initial }: Props) {
+  const t = useT();
   const utils = trpc.useUtils();
   const me = trpc.auth.me.useQuery();
   const myId = me.data?.id ?? null;
@@ -89,24 +91,28 @@ export function CommentsSection({ videoId, initial }: Props) {
     <Box>
       <Flex align="center" justify="between" gap="3" mb="3" wrap="wrap">
         <Heading size="4">
-          {total} {total === 1 ? "comment" : "comments"}
+          {t(total === 1 ? "comments.count.one" : "comments.count.many", {
+            n: total,
+          })}
         </Heading>
         <Select.Root
           value={sort}
           onValueChange={(v) => setSort(v as CommentSort)}
         >
-          <Select.Trigger aria-label="Sort comments" />
+          <Select.Trigger aria-label={t("sort.aria.comments")} />
           <Select.Content>
-            <Select.Item value="newest">Newest</Select.Item>
-            <Select.Item value="mostLiked">Most liked</Select.Item>
-            <Select.Item value="mostDisliked">Most disliked</Select.Item>
+            <Select.Item value="newest">{t("sort.newest")}</Select.Item>
+            <Select.Item value="mostLiked">{t("sort.mostLiked")}</Select.Item>
+            <Select.Item value="mostDisliked">
+              {t("sort.mostDisliked")}
+            </Select.Item>
           </Select.Content>
         </Select.Root>
       </Flex>
 
       <Flex direction="column" gap="2" mb="5">
         <TextArea
-          placeholder="Add a comment..."
+          placeholder={t("comments.add.placeholder")}
           value={body}
           onChange={(e) => setBody(e.target.value)}
           rows={3}
@@ -117,7 +123,7 @@ export function CommentsSection({ videoId, initial }: Props) {
             onClick={submitTopLevel}
             disabled={create.isPending || body.trim().length === 0}
           >
-            {create.isPending ? "Posting..." : "Comment"}
+            {create.isPending ? t("comments.posting") : t("comments.post")}
           </Button>
         </Flex>
       </Flex>
@@ -214,7 +220,7 @@ function CommentNode({
             onSubmit={onSubmitReply}
             onCancel={onCancelReply}
             pending={replyPending}
-            placeholder={`Reply to ${c.author.name}...`}
+            placeholderName={c.author.name}
           />
         </Box>
       )}
@@ -273,6 +279,7 @@ function CommentRow({
   onStartReply,
   canReply,
 }: RowProps) {
+  const t = useT();
   const mine = !!myId && c.author.id === myId;
   const edited =
     new Date(c.updatedAt).getTime() - new Date(c.createdAt).getTime() > 1000;
@@ -285,7 +292,7 @@ function CommentRow({
       await onDelete();
       setDeleteOpen(false);
     } catch (err) {
-      setDeleteError((err as Error).message ?? "Delete failed");
+      setDeleteError((err as Error).message ?? t("comments.delete.failed"));
     }
   };
 
@@ -307,7 +314,7 @@ function CommentRow({
           </Text>
           {edited && (
             <Text size="1" color="gray">
-              (edited)
+              {t("common.edited")}
             </Text>
           )}
         </Flex>
@@ -339,7 +346,7 @@ function CommentRow({
                 onClick={onStartReply}
                 className="comment-action"
               >
-                Reply
+                {t("comments.reply")}
               </button>
             )}
             {mine && (
@@ -349,7 +356,7 @@ function CommentRow({
                   onClick={onStartEdit}
                   className="comment-action"
                 >
-                  Edit
+                  {t("comments.edit")}
                 </button>
                 <AlertDialog.Root
                   open={deleteOpen}
@@ -364,15 +371,19 @@ function CommentRow({
                       disabled={deletePending}
                       className="comment-action comment-action-danger"
                     >
-                      Delete
+                      {t("comments.delete")}
                     </button>
                   </AlertDialog.Trigger>
                   <AlertDialog.Content maxWidth="440px">
-                    <AlertDialog.Title>Delete comment?</AlertDialog.Title>
+                    <AlertDialog.Title>
+                      {t("comments.delete.title")}
+                    </AlertDialog.Title>
                     <AlertDialog.Description size="2">
-                      This comment will be permanently removed
-                      {c.parentId ? "" : ", along with any replies"}. This
-                      cannot be undone.
+                      {t("comments.delete.body", {
+                        withReplies: c.parentId
+                          ? ""
+                          : t("comments.delete.withReplies"),
+                      })}
                     </AlertDialog.Description>
 
                     {deleteError && (
@@ -388,7 +399,7 @@ function CommentRow({
                           color="gray"
                           disabled={deletePending}
                         >
-                          Cancel
+                          {t("common.cancel")}
                         </Button>
                       </AlertDialog.Cancel>
                       <Button
@@ -396,7 +407,9 @@ function CommentRow({
                         onClick={confirmDelete}
                         disabled={deletePending}
                       >
-                        {deletePending ? "Deleting..." : "Delete"}
+                        {deletePending
+                          ? t("common.deleting")
+                          : t("common.delete")}
                       </Button>
                     </Flex>
                   </AlertDialog.Content>
@@ -414,25 +427,26 @@ function ReplyForm({
   onSubmit,
   onCancel,
   pending,
-  placeholder,
+  placeholderName,
 }: {
   onSubmit: (text: string) => Promise<void>;
   onCancel: () => void;
   pending: boolean;
-  placeholder: string;
+  placeholderName: string;
 }) {
+  const t = useT();
   const [text, setText] = useState("");
   const submit = async () => {
-    const t = text.trim();
-    if (!t) return;
-    await onSubmit(t);
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    await onSubmit(trimmed);
     setText("");
   };
   return (
     <Flex direction="column" gap="2">
       <TextArea
         autoFocus
-        placeholder={placeholder}
+        placeholder={t("comments.replyTo", { name: placeholderName })}
         value={text}
         onChange={(e) => setText(e.target.value)}
         rows={2}
@@ -445,10 +459,10 @@ function ReplyForm({
           onClick={onCancel}
           disabled={pending}
         >
-          Cancel
+          {t("common.cancel")}
         </Button>
         <Button onClick={submit} disabled={pending || !text.trim()}>
-          {pending ? "Posting..." : "Reply"}
+          {pending ? t("comments.posting") : t("comments.reply")}
         </Button>
       </Flex>
     </Flex>
@@ -466,14 +480,15 @@ function EditForm({
   onCancel: () => void;
   pending: boolean;
 }) {
+  const t = useT();
   const [text, setText] = useState(initial);
   const submit = async () => {
-    const t = text.trim();
-    if (!t || t === initial) {
+    const trimmed = text.trim();
+    if (!trimmed || trimmed === initial) {
       onCancel();
       return;
     }
-    await onSubmit(t);
+    await onSubmit(trimmed);
   };
   return (
     <Flex direction="column" gap="2">
@@ -491,10 +506,10 @@ function EditForm({
           onClick={onCancel}
           disabled={pending}
         >
-          Cancel
+          {t("common.cancel")}
         </Button>
         <Button onClick={submit} disabled={pending || !text.trim()}>
-          {pending ? "Saving..." : "Save"}
+          {pending ? t("common.saving") : t("common.save")}
         </Button>
       </Flex>
     </Flex>

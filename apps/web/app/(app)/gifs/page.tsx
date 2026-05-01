@@ -5,6 +5,7 @@ import { GifCard } from "@/components/GifCard";
 import { VideoSortSelect } from "@/components/VideoSortSelect";
 import type { VideoSort } from "@repo/shared";
 import { absoluteUrl } from "@/lib/site";
+import { T } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -45,10 +46,10 @@ export default async function GifsPage({
         <Flex align="end" justify="between" gap="3" wrap="wrap" mb="5">
           <div>
             <Heading size="6" mb="1">
-              All GIFs
+              <T k="page.gifs.heading" />
             </Heading>
             <Text as="p" color="gray" size="2">
-              Short loops uploaded to Video Hoster.
+              <T k="page.gifs.subtitle" />
             </Text>
           </div>
           <VideoSortSelect value={sort} />
@@ -67,7 +68,7 @@ export default async function GifsPage({
           }}
         >
           <Text color="gray">
-            No GIFs yet. Click "Upload" and choose GIF in the editor.
+            <T k="page.gifs.empty" />
           </Text>
         </Flex>
       ) : (

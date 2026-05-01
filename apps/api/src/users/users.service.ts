@@ -90,6 +90,17 @@ export class UsersService {
     };
   }
 
+  async setNotifySubscribersOnUpload(
+    userId: string,
+    enabled: boolean,
+  ): Promise<{ notifySubscribersOnUpload: boolean }> {
+    const user = await this.users.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException("User not found");
+    user.notifySubscribersOnUpload = enabled;
+    await this.users.save(user);
+    return { notifySubscribersOnUpload: user.notifySubscribersOnUpload };
+  }
+
   async finalizeAvatarUpload(
     userId: string,
     s3Key: string,
@@ -190,24 +201,12 @@ export class UsersService {
     try {
       await this.mail.sendConfirmation(email, link);
     } catch (err) {
-      this.logger.warn(
-        `SES send failed for ${email}; creating verified user as fallback: ${(err as Error).message}`,
+      this.logger.error(
+        `Failed to send confirmation email to ${email}: ${(err as Error).message}`,
       );
-      const user = this.users.create({
-        email,
-        name: input.name,
-        googleId: null,
-        avatarUrl: null,
-        passwordHash,
-        status: "verified",
-      });
-      const saved = await this.users.save(user);
-      return {
-        status: "confirmed",
-        id: saved.id,
-        email: saved.email,
-        name: saved.name,
-      };
+      throw new BadRequestException(
+        "Could not send confirmation email. Please try again in a moment.",
+      );
     }
 
     const user = this.users.create({

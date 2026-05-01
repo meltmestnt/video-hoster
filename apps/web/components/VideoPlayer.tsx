@@ -14,6 +14,7 @@ import {
 } from "@radix-ui/react-icons";
 import type ReactPlayerType from "react-player";
 import { useMiniPlayer } from "@/lib/mini-player-context";
+import { useT } from "@/lib/i18n";
 
 const ReactPlayer = dynamic(() => import("react-player"), { ssr: false });
 
@@ -48,6 +49,7 @@ export function VideoPlayer({
   const playerRef = useRef<ReactPlayerType | null>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const hideTimerRef = useRef<number | null>(null);
+  const t = useT();
 
   const mini = useMiniPlayer();
   const restoredTimeRef = useRef<number | null>(null);
@@ -228,7 +230,7 @@ export function VideoPlayer({
       className={`player-frame${controlsVisible ? " is-active" : ""}${ready ? " is-ready" : ""}`}
       tabIndex={0}
       role="application"
-      aria-label="Video player"
+      aria-label={t("player.aria.player")}
       onClick={onFrameClick}
       onKeyDown={onKeyDown}
       onMouseMove={showControls}
@@ -297,7 +299,7 @@ export function VideoPlayer({
             max={1000}
             step={1}
             size="1"
-            aria-label="Seek"
+            aria-label={t("player.aria.seek")}
           />
         </div>
         <div className="player-controls-row">
@@ -305,7 +307,7 @@ export function VideoPlayer({
             type="button"
             className="player-icon-btn"
             onClick={togglePlay}
-            aria-label={playing ? "Pause" : "Play"}
+            aria-label={playing ? t("player.aria.pause") : t("player.aria.play")}
           >
             {playing ? <PauseIcon /> : <PlayIcon />}
           </button>
@@ -313,7 +315,7 @@ export function VideoPlayer({
             type="button"
             className="player-icon-btn"
             onClick={toggleMute}
-            aria-label={muted ? "Unmute" : "Mute"}
+            aria-label={muted ? t("player.aria.unmute") : t("player.aria.mute")}
           >
             <VolumeIcon />
           </button>
@@ -329,7 +331,7 @@ export function VideoPlayer({
               max={100}
               step={1}
               size="1"
-              aria-label="Volume"
+              aria-label={t("player.aria.volume")}
             />
           </div>
           <span className="player-time" aria-hidden>
@@ -339,7 +341,11 @@ export function VideoPlayer({
             type="button"
             className="player-icon-btn player-fullscreen-btn"
             onClick={toggleFullscreen}
-            aria-label={fullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+            aria-label={
+              fullscreen
+                ? t("player.aria.fullscreen.exit")
+                : t("player.aria.fullscreen.enter")
+            }
           >
             <FullscreenIcon />
           </button>

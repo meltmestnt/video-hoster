@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Badge, Box, Card, Flex, Text } from "@radix-ui/themes";
+import { useT } from "@/lib/i18n";
 
 interface GifCardData {
   id: string;
@@ -21,6 +22,7 @@ export function GifCard({
   index?: number;
 }) {
   const router = useRouter();
+  const t = useT();
   const href = `/gifs/${gif.id}`;
   const imgRef = useRef<HTMLImageElement | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -79,7 +81,7 @@ export function GifCard({
           ) : (
             <Flex align="center" justify="center" style={{ height: "100%" }}>
               <Text color="gray" size="2">
-                No preview
+                {t("card.noPreview")}
               </Text>
             </Flex>
           )}
@@ -97,7 +99,7 @@ export function GifCard({
             </Text>
             {gif.visibility === "private" && (
               <Badge variant="soft" color="gray" size="1">
-                Private
+                {t("card.private")}
               </Badge>
             )}
           </Flex>

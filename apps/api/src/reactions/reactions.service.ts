@@ -4,6 +4,7 @@ import { In, Repository } from "typeorm";
 import { ReactionType, VideoReaction } from "./reaction.entity";
 import { CommentReaction } from "./comment-reaction.entity";
 import { GifReaction } from "./gif-reaction.entity";
+import { NotificationsService } from "../notifications/notifications.service";
 
 export interface VideoReactionCounts {
   likes: number;
@@ -19,24 +20,31 @@ export class ReactionsService {
     private readonly commentReactions: Repository<CommentReaction>,
     @InjectRepository(GifReaction)
     private readonly gifReactions: Repository<GifReaction>,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async setReaction(videoId: string, userId: string, type: ReactionType) {
     const existing = await this.reactions.findOne({
       where: { videoId, userId },
     });
+    let next: ReactionType | null;
     if (existing) {
       if (existing.type === type) {
-        // Same reaction → toggle off
         await this.reactions.delete({ id: existing.id });
-        return { reaction: null as ReactionType | null };
+        next = null;
+      } else {
+        existing.type = type;
+        await this.reactions.save(existing);
+        next = type;
       }
-      existing.type = type;
-      await this.reactions.save(existing);
-      return { reaction: type };
+    } else {
+      await this.reactions.save(
+        this.reactions.create({ videoId, userId, type }),
+      );
+      next = type;
     }
-    await this.reactions.save(this.reactions.create({ videoId, userId, type }));
-    return { reaction: type };
+    await this.notifications.onVideoReaction(videoId, userId, next);
+    return { reaction: next };
   }
 
   async countsFor(
@@ -144,19 +152,24 @@ export class ReactionsService {
     const existing = await this.gifReactions.findOne({
       where: { gifId, userId },
     });
+    let next: ReactionType | null;
     if (existing) {
       if (existing.type === type) {
         await this.gifReactions.delete({ id: existing.id });
-        return { reaction: null as ReactionType | null };
+        next = null;
+      } else {
+        existing.type = type;
+        await this.gifReactions.save(existing);
+        next = type;
       }
-      existing.type = type;
-      await this.gifReactions.save(existing);
-      return { reaction: type };
+    } else {
+      await this.gifReactions.save(
+        this.gifReactions.create({ gifId, userId, type }),
+      );
+      next = type;
     }
-    await this.gifReactions.save(
-      this.gifReactions.create({ gifId, userId, type }),
-    );
-    return { reaction: type };
+    await this.notifications.onGifReaction(gifId, userId, next);
+    return { reaction: next };
   }
 
   async gifCountsFor(

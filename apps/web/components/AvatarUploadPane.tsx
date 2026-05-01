@@ -7,6 +7,7 @@ import {
   type AllowedAvatarMimeType,
 } from "@repo/shared";
 import { useRef, useState } from "react";
+import { useT } from "@/lib/i18n";
 
 interface Props {
   onPick: (file: File) => void;
@@ -17,6 +18,7 @@ const isAllowed = (type: string): type is AllowedAvatarMimeType =>
   (ALLOWED_AVATAR_MIME_TYPES as readonly string[]).includes(type);
 
 export function AvatarUploadPane({ onPick, onBack }: Props) {
+  const t = useT();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -24,12 +26,14 @@ export function AvatarUploadPane({ onPick, onBack }: Props) {
   const handleFile = (file: File | null | undefined) => {
     if (!file) return;
     if (!isAllowed(file.type)) {
-      setError("Please pick a JPEG, PNG, or WebP image.");
+      setError(t("avatar.errorWrongType"));
       return;
     }
     if (file.size > MAX_AVATAR_BYTES) {
       setError(
-        `Image is too large. Max ${(MAX_AVATAR_BYTES / 1024 / 1024).toFixed(0)} MB.`,
+        t("avatar.errorTooLarge", {
+          mb: (MAX_AVATAR_BYTES / 1024 / 1024).toFixed(0),
+        }),
       );
       return;
     }
@@ -40,7 +44,7 @@ export function AvatarUploadPane({ onPick, onBack }: Props) {
   return (
     <Flex direction="column" gap="3" style={{ width: 280 }}>
       <Text size="2" weight="medium">
-        Pick a new avatar
+        {t("avatar.pickNew")}
       </Text>
 
       <div
@@ -68,11 +72,12 @@ export function AvatarUploadPane({ onPick, onBack }: Props) {
         style={{ cursor: "pointer" }}
       >
         <Text size="2" weight="medium">
-          Drop an image here
+          {t("avatar.dropHere")}
         </Text>
         <Text size="1" color="gray">
-          or click to browse — JPEG, PNG, WebP up to{" "}
-          {Math.round(MAX_AVATAR_BYTES / 1024 / 1024)} MB
+          {t("avatar.browseHint", {
+            mb: Math.round(MAX_AVATAR_BYTES / 1024 / 1024),
+          })}
         </Text>
         <input
           ref={inputRef}
@@ -91,7 +96,7 @@ export function AvatarUploadPane({ onPick, onBack }: Props) {
 
       <Flex justify="end">
         <Button variant="soft" color="gray" onClick={onBack}>
-          Cancel
+          {t("common.cancel")}
         </Button>
       </Flex>
     </Flex>

@@ -11,8 +11,10 @@ import { SuggestedList } from "@/components/SuggestedList";
 import { DeleteVideoButton } from "@/components/DeleteVideoButton";
 import { VideoReactions } from "@/components/VideoReactions";
 import { FavoriteButton } from "@/components/FavoriteButton";
+import { SubscribeButton } from "@/components/SubscribeButton";
 import { MorphLandingSignal } from "@/components/MorphLandingSignal";
 import { absoluteUrl } from "@/lib/site";
+import { T } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -163,11 +165,11 @@ export default async function VideoPage({
               }}
             >
               <Text size="3" weight="medium" style={{ color: "white" }}>
-                Sign in to watch this video
+                <T k="page.video.signInOverlay" />
               </Text>
               <Button asChild size="2" variant="solid">
                 <Link href={`/login?callbackUrl=/videos/${video.id}`}>
-                  Sign in
+                  <T k="page.video.signInButton" />
                 </Link>
               </Button>
             </Flex>
@@ -182,7 +184,9 @@ export default async function VideoPage({
         ) : (
           <Box className="player-frame">
             <Flex align="center" justify="center" style={{ height: "100%" }}>
-              <Text color="gray">Video is still processing.</Text>
+              <Text color="gray">
+                <T k="page.video.processing" />
+              </Text>
             </Flex>
           </Box>
         )}
@@ -192,7 +196,7 @@ export default async function VideoPage({
           </Heading>
           {video.visibility === "private" && (
             <Badge variant="soft" color="gray">
-              Private
+              <T k="card.private" />
             </Badge>
           )}
           <Flex align="center" gap="2" wrap="wrap">
@@ -217,6 +221,7 @@ export default async function VideoPage({
           <Text size="2" color="gray">
             {video.owner.name}
           </Text>
+          <SubscribeButton targetUserId={video.owner.id} />
           <Text size="2" color="gray">
             ·
           </Text>
@@ -249,7 +254,7 @@ export default async function VideoPage({
       </Box>
       <Box className="fade-in-delayed">
         <Heading size="3" mb="3">
-          Suggested
+          <T k="page.video.suggested" />
         </Heading>
         <SuggestedList items={suggested} />
       </Box>

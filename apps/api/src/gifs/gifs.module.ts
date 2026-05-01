@@ -5,6 +5,7 @@ import { GifsService } from "./gifs.service";
 import { TagsModule } from "../tags/tags.module";
 import { S3Module } from "../s3/s3.module";
 import { ReactionsModule } from "../reactions/reactions.module";
+import { NotificationsModule } from "../notifications/notifications.module";
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { ReactionsModule } from "../reactions/reactions.module";
     TagsModule,
     S3Module,
     ReactionsModule,
+    NotificationsModule,
   ],
   providers: [GifsService],
   exports: [GifsService],

@@ -20,10 +20,12 @@ import {
 } from "@repo/shared";
 import { isUploadBusy, useUpload } from "@/lib/upload-context";
 import { extractFrame } from "@/lib/extract-frame";
+import { useT } from "@/lib/i18n";
 import {
   VideoEditorDialog,
   type EditorOutput,
 } from "./VideoEditorDialog";
+import { Morph } from "./Morph";
 
 const MAX_CUSTOM_THUMB_BYTES = 4 * 1024 * 1024;
 const ALLOWED_THUMB_MIME = ["image/jpeg", "image/png", "image/webp"];
@@ -37,6 +39,7 @@ export function UploadDialog({ open, onOpenChange }: Props) {
   const upload = useUpload();
   const busy = isUploadBusy(upload.status);
   const otherTabBusy = upload.otherTabUploading;
+  const t = useT();
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -112,9 +115,7 @@ export function UploadDialog({ open, onOpenChange }: Props) {
       .catch((err) => {
         if (!cancelled) {
           console.warn("Default thumbnail capture failed:", err);
-          setThumbError(
-            "Couldn't auto-generate a thumbnail. Pick a frame or upload a custom image.",
-          );
+          setThumbError(t("upload.thumb.autoFail"));
         }
       })
       .finally(() => {
@@ -123,7 +124,7 @@ export function UploadDialog({ open, onOpenChange }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [file]);
+  }, [file, t]);
 
   const captureCurrentFrame = async () => {
     if (!file) return;
@@ -142,12 +143,15 @@ export function UploadDialog({ open, onOpenChange }: Props) {
   const onCustomThumbSelected = (f: File | null) => {
     if (!f) return;
     if (!ALLOWED_THUMB_MIME.includes(f.type)) {
-      setThumbError("Thumbnail must be a JPEG, PNG, or WebP image.");
+      setThumbError(t("upload.thumb.errorType"));
       return;
     }
     if (f.size > MAX_CUSTOM_THUMB_BYTES) {
       setThumbError(
-        `Image is ${(f.size / 1024 ** 2).toFixed(1)} MB. Max allowed is ${MAX_CUSTOM_THUMB_BYTES / 1024 ** 2} MB.`,
+        t("upload.thumb.errorSize", {
+          actual: (f.size / 1024 ** 2).toFixed(1),
+          max: MAX_CUSTOM_THUMB_BYTES / 1024 ** 2,
+        }),
       );
       return;
     }
@@ -167,14 +171,17 @@ export function UploadDialog({ open, onOpenChange }: Props) {
   const fileError = (() => {
     if (!file) return null;
     if (file.size > MAX_VIDEO_BYTES) {
-      return `File is ${(file.size / 1024 ** 3).toFixed(2)} GiB. Max allowed is ${MAX_VIDEO_GB} GiB.`;
+      return t("upload.file.errorSize", {
+        gib: (file.size / 1024 ** 3).toFixed(2),
+        max: MAX_VIDEO_GB,
+      });
     }
     if (
       !ALLOWED_VIDEO_MIME_TYPES.includes(
         file.type as (typeof ALLOWED_VIDEO_MIME_TYPES)[number],
       )
     ) {
-      return `Unsupported file type: ${file.type || "unknown"}.`;
+      return t("upload.file.errorType", { type: file.type || "unknown" });
     }
     return null;
   })();
@@ -232,19 +239,21 @@ export function UploadDialog({ open, onOpenChange }: Props) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Content maxWidth="520px">
-        <Dialog.Title>Upload a video</Dialog.Title>
+        <Dialog.Title>{t("upload.video.title")}</Dialog.Title>
         <Dialog.Description size="2" color="gray" mb="4">
-          Up to {MAX_VIDEO_GB} GiB. Pick a frame for the thumbnail or upload
-          your own image.
+          {t("upload.video.subtitle", { gb: MAX_VIDEO_GB })}
         </Dialog.Description>
 
+        {/* viewKey omitted on purpose — typing in TextField/TextArea must
+            not remount the form. Height still animates via ResizeObserver. */}
+        <Morph axis="height">
         <Flex direction="column" gap="3">
           <Flex direction="column" gap="1">
             <Text size="2" weight="medium">
-              Title
+              {t("upload.field.title")}
             </Text>
             <TextField.Root
-              placeholder="My weekend hike"
+              placeholder={t("upload.field.title.placeholder")}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               maxLength={200}
@@ -253,10 +262,10 @@ export function UploadDialog({ open, onOpenChange }: Props) {
 
           <Flex direction="column" gap="1">
             <Text size="2" weight="medium">
-              Description
+              {t("upload.field.description")}
             </Text>
             <TextArea
-              placeholder="What's it about?"
+              placeholder={t("upload.field.description.placeholder")}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
@@ -266,10 +275,10 @@ export function UploadDialog({ open, onOpenChange }: Props) {
 
           <Flex direction="column" gap="1">
             <Text size="2" weight="medium">
-              Tags <Text color="gray">(comma-separated)</Text>
+              {t("upload.field.tags")} <Text color="gray">{t("upload.field.tags.hint")}</Text>
             </Text>
             <TextField.Root
-              placeholder="hiking, nature, vlog"
+              placeholder={t("upload.field.tags.placeholder")}
               value={tagsRaw}
               onChange={(e) => setTagsRaw(e.target.value)}
             />
@@ -277,29 +286,29 @@ export function UploadDialog({ open, onOpenChange }: Props) {
 
           <Flex direction="column" gap="1">
             <Text size="2" weight="medium">
-              Visibility
+              {t("upload.field.visibility")}
             </Text>
             <SegmentedControl.Root
               value={visibility}
               onValueChange={(v) => setVisibility(v as "public" | "private")}
             >
               <SegmentedControl.Item value="public">
-                Public
+                {t("common.public")}
               </SegmentedControl.Item>
               <SegmentedControl.Item value="private">
-                Private
+                {t("common.private")}
               </SegmentedControl.Item>
             </SegmentedControl.Root>
             <Text size="1" color="gray">
               {visibility === "public"
-                ? "Visible on the dashboard and in suggestions for everyone."
-                : "Only you can see this video."}
+                ? t("upload.visibility.publicHint")
+                : t("upload.visibility.privateHint")}
             </Text>
           </Flex>
 
           <Flex direction="column" gap="1">
             <Text size="2" weight="medium">
-              Video file
+              {t("upload.field.videoFile")}
             </Text>
             <input
               type="file"
@@ -312,7 +321,7 @@ export function UploadDialog({ open, onOpenChange }: Props) {
           {file && !fileError && (
             <Flex direction="column" gap="2">
               <Text size="2" weight="medium">
-                Thumbnail
+                {t("upload.field.thumbnail")}
               </Text>
               <Flex gap="3" align="start" wrap="wrap">
                 <Box
@@ -341,7 +350,9 @@ export function UploadDialog({ open, onOpenChange }: Props) {
                     />
                   ) : (
                     <Text size="1" color="gray">
-                      {thumbBusy ? "Capturing..." : "No thumbnail"}
+                      {thumbBusy
+                        ? t("upload.thumb.capturing")
+                        : t("card.noThumbnail")}
                     </Text>
                   )}
                 </Box>
@@ -374,7 +385,7 @@ export function UploadDialog({ open, onOpenChange }: Props) {
                   )}
                   <Flex align="center" gap="2">
                     <Text size="1" color="gray" style={{ width: 64 }}>
-                      Frame
+                      {t("upload.thumb.frame")}
                     </Text>
                     <Box style={{ flex: 1 }}>
                       <Slider
@@ -406,7 +417,7 @@ export function UploadDialog({ open, onOpenChange }: Props) {
                       disabled={thumbBusy || !videoDuration}
                       type="button"
                     >
-                      Use this frame
+                      {t("upload.thumb.useFrame")}
                     </Button>
                     <Button
                       variant="soft"
@@ -416,7 +427,7 @@ export function UploadDialog({ open, onOpenChange }: Props) {
                       onClick={() => customThumbInputRef.current?.click()}
                       disabled={thumbBusy}
                     >
-                      Upload custom
+                      {t("upload.thumb.uploadCustom")}
                     </Button>
                     <input
                       ref={customThumbInputRef}
@@ -441,10 +452,7 @@ export function UploadDialog({ open, onOpenChange }: Props) {
 
           {otherTabBusy && (
             <Callout.Root color="amber">
-              <Callout.Text>
-                Another tab is already uploading. Wait for it to finish before
-                starting a new upload here.
-              </Callout.Text>
+              <Callout.Text>{t("upload.otherTab.busy")}</Callout.Text>
             </Callout.Root>
           )}
           {fileError && (
@@ -458,15 +466,16 @@ export function UploadDialog({ open, onOpenChange }: Props) {
             </Callout.Root>
           )}
         </Flex>
+        </Morph>
 
         <Flex gap="3" mt="5" justify="end">
           <Dialog.Close>
             <Button variant="soft" color="gray" disabled={busy}>
-              Cancel
+              {t("common.cancel")}
             </Button>
           </Dialog.Close>
           <Button onClick={submit} disabled={!canSubmit}>
-            {busy ? "Uploading..." : "Continue"}
+            {busy ? t("upload.busy") : t("upload.continue")}
           </Button>
         </Flex>
       </Dialog.Content>

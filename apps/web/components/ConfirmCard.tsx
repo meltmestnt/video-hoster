@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Box, Heading, Text } from "@radix-ui/themes";
 import { trpc } from "@/lib/trpc";
+import { useT } from "@/lib/i18n";
 
 type State =
   | { kind: "missing" }
@@ -12,6 +13,7 @@ type State =
   | { kind: "error"; message: string };
 
 export function ConfirmCard({ token }: { token: string }) {
+  const t = useT();
   const [state, setState] = useState<State>(
     token ? { kind: "loading" } : { kind: "missing" },
   );
@@ -27,10 +29,10 @@ export function ConfirmCard({ token }: { token: string }) {
       .catch((err: Error) =>
         setState({
           kind: "error",
-          message: err.message || "Could not confirm your account.",
+          message: err.message || t("confirm.error.fallback"),
         }),
       );
-  }, [token, confirm]);
+  }, [token, confirm, t]);
 
   return (
     <Box
@@ -44,35 +46,34 @@ export function ConfirmCard({ token }: { token: string }) {
       {state.kind === "missing" && (
         <>
           <Heading size="6" mb="2">
-            Missing token
+            {t("confirm.missing.heading")}
           </Heading>
           <Text as="p" color="gray" size="2">
-            This confirmation link is incomplete. Please use the link from the
-            email we sent you.
+            {t("confirm.missing.body")}
           </Text>
         </>
       )}
       {state.kind === "loading" && (
         <>
           <Heading size="6" mb="2">
-            Confirming…
+            {t("confirm.loading.heading")}
           </Heading>
           <Text as="p" color="gray" size="2">
-            Hold on while we verify your account.
+            {t("confirm.loading.body")}
           </Text>
         </>
       )}
       {state.kind === "success" && (
         <>
           <Heading size="6" mb="2">
-            Account verified
+            {t("confirm.success.heading")}
           </Heading>
           <Text as="p" color="gray" size="2" mb="3">
-            <strong>{state.email}</strong> is ready to sign in.
+            {t("confirm.success.body", { email: state.email })}
           </Text>
           <Text as="p" size="2" align="center">
             <Link href="/login" style={{ color: "var(--accent-9)" }}>
-              Continue to sign in
+              {t("confirm.success.cta")}
             </Link>
           </Text>
         </>
@@ -80,14 +81,14 @@ export function ConfirmCard({ token }: { token: string }) {
       {state.kind === "error" && (
         <>
           <Heading size="6" mb="2">
-            Confirmation failed
+            {t("confirm.error.heading")}
           </Heading>
           <Text as="p" color="red" size="2" mb="3">
             {state.message}
           </Text>
           <Text as="p" size="2" align="center">
             <Link href="/signup" style={{ color: "var(--accent-9)" }}>
-              Sign up again
+              {t("confirm.error.cta")}
             </Link>
           </Text>
         </>

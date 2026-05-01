@@ -5,6 +5,7 @@ import { Dashboard } from "@/components/Dashboard";
 import { VideoSortSelect } from "@/components/VideoSortSelect";
 import type { VideoSort } from "@repo/shared";
 import { absoluteUrl } from "@/lib/site";
+import { T } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -49,10 +50,10 @@ export default async function DashboardPage({
         <Flex align="end" justify="between" gap="3" wrap="wrap" mb="5">
           <div>
             <Heading size="6" mb="1">
-              All
+              <T k="page.dashboard.heading" />
             </Heading>
             <Text as="p" color="gray" size="2">
-              Recent videos and GIFs from everyone on Video Hoster.
+              <T k="page.dashboard.subtitle" />
             </Text>
           </div>
           <VideoSortSelect value={sort} />

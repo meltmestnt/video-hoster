@@ -26,6 +26,18 @@ export const ALLOWED_THUMBNAIL_MIME_TYPES = [
   "image/webp",
 ] as const;
 
+export const ALLOWED_SCREENSHOT_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+] as const;
+export type AllowedScreenshotMimeType =
+  (typeof ALLOWED_SCREENSHOT_MIME_TYPES)[number];
+
+// 10 MB feels generous for a still frame; the editor produces JPEGs that
+// are well under 1 MB at typical resolutions.
+export const MAX_SCREENSHOT_BYTES = 10 * 1024 * 1024;
+
 export const ALLOWED_AVATAR_MIME_TYPES = [
   "image/jpeg",
   "image/png",

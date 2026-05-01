@@ -1,8 +1,10 @@
 import { z } from "zod";
 import {
   ALLOWED_AVATAR_MIME_TYPES,
+  ALLOWED_SCREENSHOT_MIME_TYPES,
   ALLOWED_VIDEO_MIME_TYPES,
   MAX_AVATAR_BYTES,
+  MAX_SCREENSHOT_BYTES,
   MAX_VIDEO_BYTES,
 } from "./constants";
 
@@ -116,6 +118,41 @@ export const searchGifsInputSchema = z.object({
 });
 export type SearchGifsInput = z.infer<typeof searchGifsInputSchema>;
 
+export const createScreenshotUploadInputSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  mimeType: z.enum(ALLOWED_SCREENSHOT_MIME_TYPES),
+  sizeBytes: z.number().int().positive().max(MAX_SCREENSHOT_BYTES, {
+    message: `Screenshot exceeds ${MAX_SCREENSHOT_BYTES} byte limit`,
+  }),
+  width: z.number().int().positive().max(8192),
+  height: z.number().int().positive().max(8192),
+  visibility: videoVisibilitySchema.default("public"),
+  source: z
+    .enum(["video", "gif", "manual"])
+    .default("manual"),
+});
+export type CreateScreenshotUploadInput = z.infer<
+  typeof createScreenshotUploadInputSchema
+>;
+
+export const finalizeScreenshotUploadInputSchema = z.object({
+  screenshotId: z.string().uuid(),
+});
+export type FinalizeScreenshotUploadInput = z.infer<
+  typeof finalizeScreenshotUploadInputSchema
+>;
+
+export const screenshotIdInputSchema = z.object({ id: z.string().uuid() });
+
+export const listScreenshotsInputSchema = z.object({
+  cursor: z.string().uuid().optional(),
+  limit: z.number().int().min(1).max(50).default(24),
+  ownerId: z.string().uuid().optional(),
+});
+export type ListScreenshotsInput = z.infer<
+  typeof listScreenshotsInputSchema
+>;
+
 
 export const commentSortSchema = z
   .enum(["newest", "mostLiked", "mostDisliked"])
@@ -139,6 +176,27 @@ export const setMiniPlayerPreferenceInputSchema = z.object({
 });
 export type SetMiniPlayerPreferenceInput = z.infer<
   typeof setMiniPlayerPreferenceInputSchema
+>;
+
+export const setNotifySubscribersOnUploadInputSchema = z.object({
+  enabled: z.boolean(),
+});
+export type SetNotifySubscribersOnUploadInput = z.infer<
+  typeof setNotifySubscribersOnUploadInputSchema
+>;
+
+export const userIdInputSchema = z.object({
+  userId: z.string().uuid(),
+});
+export type UserIdInput = z.infer<typeof userIdInputSchema>;
+
+export const listSubscriptionsInputSchema = z.object({
+  userId: z.string().uuid().optional(),
+  cursor: z.string().uuid().optional(),
+  limit: z.number().int().min(1).max(50).default(24),
+});
+export type ListSubscriptionsInput = z.infer<
+  typeof listSubscriptionsInputSchema
 >;
 
 export const toggleFavoriteInputSchema = z.object({
@@ -221,3 +279,16 @@ export const listGifCommentsInputSchema = z.object({
   id: z.string().uuid(),
   sort: commentSortSchema,
 });
+
+export const listNotificationsInputSchema = z.object({
+  cursor: z.string().uuid().optional(),
+  limit: z.number().int().min(1).max(50).default(20),
+});
+export type ListNotificationsInput = z.infer<
+  typeof listNotificationsInputSchema
+>;
+
+export const notificationIdInputSchema = z.object({
+  id: z.string().uuid(),
+});
+export type NotificationIdInput = z.infer<typeof notificationIdInputSchema>;

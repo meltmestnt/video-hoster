@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useT } from "@/lib/i18n";
 
 interface Props {
   file: File;
@@ -27,6 +28,7 @@ export function AvatarEditPane({
   onCancel,
   onSave,
 }: Props) {
+  const t = useT();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const [imgReady, setImgReady] = useState(false);
@@ -56,11 +58,11 @@ export function AvatarEditPane({
       setImgReady(true);
     };
     img.onerror = () => {
-      setImgError("Could not read this image");
+      setImgError(t("avatar.errorRead"));
     };
     img.src = url;
     return () => URL.revokeObjectURL(url);
-  }, [file]);
+  }, [file, t]);
 
   const draw = useCallback(
     (canvas: HTMLCanvasElement, size: number) => {
@@ -132,7 +134,7 @@ export function AvatarEditPane({
   return (
     <Flex direction="column" gap="3" style={{ width: 280 }}>
       <Text size="2" weight="medium">
-        Crop and rotate
+        {t("avatar.cropAndRotate")}
       </Text>
 
       <Flex justify="center">
@@ -158,7 +160,7 @@ export function AvatarEditPane({
 
       <Flex direction="column" gap="1">
         <Text size="1" color="gray">
-          Zoom
+          {t("avatar.zoom")}
         </Text>
         <Slider
           value={[scale]}
@@ -173,7 +175,7 @@ export function AvatarEditPane({
       <Flex direction="column" gap="1">
         <Flex justify="between" align="center">
           <Text size="1" color="gray">
-            Rotate
+            {t("avatar.rotate")}
           </Text>
           <Text size="1" color="gray">
             {Math.round(rotation)}°
@@ -213,7 +215,7 @@ export function AvatarEditPane({
             onClick={() => setRotation(0)}
             disabled={!imgReady || busy}
           >
-            Reset
+            {t("common.reset")}
           </Button>
         </Flex>
       </Flex>
@@ -226,10 +228,10 @@ export function AvatarEditPane({
 
       <Flex gap="2" justify="end">
         <Button variant="soft" color="gray" onClick={onCancel} disabled={busy}>
-          Back
+          {t("common.back")}
         </Button>
         <Button onClick={handleSave} disabled={!imgReady || busy}>
-          {busy ? "Saving..." : "Save avatar"}
+          {busy ? t("common.saving") : t("avatar.saveButton")}
         </Button>
       </Flex>
     </Flex>

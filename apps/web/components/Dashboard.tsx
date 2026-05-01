@@ -2,6 +2,7 @@
 
 import { Flex, Text } from "@radix-ui/themes";
 import { trpc } from "@/lib/trpc";
+import { useT } from "@/lib/i18n";
 import { VideoCard } from "./VideoCard";
 import { GifCard } from "./GifCard";
 import type { inferRouterOutputs } from "@trpc/server";
@@ -20,6 +21,7 @@ export function Dashboard({
   initialGifs: GifListResult;
   sort: VideoSort;
 }) {
+  const t = useT();
   const { data: videosData } = trpc.videos.list.useQuery(
     { limit: 24, sort },
     { initialData: initial },
@@ -67,9 +69,7 @@ export function Dashboard({
           border: "1px dashed var(--gray-5)",
         }}
       >
-        <Text color="gray">
-          Nothing here yet. Click "Upload" to add the first video or GIF.
-        </Text>
+        <Text color="gray">{t("page.dashboard.empty")}</Text>
       </Flex>
     );
   }

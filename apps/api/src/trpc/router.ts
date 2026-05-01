@@ -23,6 +23,10 @@ import {
   listGifsInputSchema,
   createGifCommentInputSchema,
   listGifCommentsInputSchema,
+  createScreenshotUploadInputSchema,
+  finalizeScreenshotUploadInputSchema,
+  listScreenshotsInputSchema,
+  screenshotIdInputSchema,
   listNotificationsInputSchema,
   listSubscriptionsInputSchema,
   notificationIdInputSchema,
@@ -268,6 +272,55 @@ export const appRouter = router({
     sitemap: publicProcedure.query(({ ctx }) =>
       ctx.services.gifs.listPublicForSitemap(),
     ),
+  }),
+
+  screenshots: router({
+    list: publicProcedure
+      .input(listScreenshotsInputSchema)
+      .query(({ ctx, input }) =>
+        ctx.services.screenshots.list({
+          cursor: input.cursor,
+          limit: input.limit,
+          ownerId: input.ownerId,
+          viewerId: ctx.user?.id ?? null,
+        }),
+      ),
+
+    byId: publicProcedure
+      .input(screenshotIdInputSchema)
+      .query(({ ctx, input }) =>
+        ctx.services.screenshots.byId(input.id, ctx.user?.id ?? null),
+      ),
+
+    createUpload: protectedProcedure
+      .input(createScreenshotUploadInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.screenshots.createUpload({
+          ownerId: ctx.user.id,
+          title: input.title,
+          mimeType: input.mimeType,
+          sizeBytes: input.sizeBytes,
+          width: input.width,
+          height: input.height,
+          visibility: input.visibility,
+          source: input.source,
+        }),
+      ),
+
+    finalizeUpload: protectedProcedure
+      .input(finalizeScreenshotUploadInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.screenshots.finalizeUpload({
+          screenshotId: input.screenshotId,
+          ownerId: ctx.user.id,
+        }),
+      ),
+
+    delete: protectedProcedure
+      .input(screenshotIdInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.screenshots.deleteScreenshot(input.id, ctx.user.id),
+      ),
   }),
 
   comments: router({

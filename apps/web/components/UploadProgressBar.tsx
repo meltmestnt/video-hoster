@@ -2,16 +2,20 @@
 
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { useUpload, isUploadBusy } from "@/lib/upload-context";
+import { useT } from "@/lib/i18n";
 
 export function UploadProgressBar() {
   const upload = useUpload();
+  const t = useT();
   if (!isUploadBusy(upload.status) && upload.status !== "error") return null;
 
   if (upload.status === "error") {
     return (
       <Box style={{ padding: "8px 16px", background: "var(--crimson-3)" }}>
         <Text size="2" style={{ color: "var(--crimson-11)" }}>
-          Upload failed: {upload.errorMessage ?? "unknown error"}
+          {t("upload.progress.failed", {
+            reason: upload.errorMessage ?? t("upload.error.unknown"),
+          })}
         </Text>
       </Box>
     );
@@ -20,12 +24,18 @@ export function UploadProgressBar() {
   const pct = Math.round(upload.progress * 100);
   const label =
     upload.status === "compressing"
-      ? `Compressing ${upload.fileName ?? ""} ${pct}%`
+      ? t("upload.progress.compressing", {
+          name: upload.fileName ?? "",
+          pct,
+        })
       : upload.status === "preparing"
-        ? "Preparing..."
+        ? t("upload.progress.preparing")
         : upload.status === "finalizing"
-          ? "Finalizing (generating thumbnail)..."
-          : `Uploading ${upload.fileName ?? ""} ${pct}%`;
+          ? t("upload.progress.finalizing")
+          : t("upload.progress.uploading", {
+              name: upload.fileName ?? "",
+              pct,
+            });
 
   return (
     <Box style={{ padding: "0 16px" }}>

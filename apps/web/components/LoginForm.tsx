@@ -13,8 +13,10 @@ import {
   Text,
   TextField,
 } from "@radix-ui/themes";
+import { useT } from "@/lib/i18n";
 
 export function LoginForm() {
+  const t = useT();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState(searchParams.get("email") ?? "");
   const [password, setPassword] = useState("");
@@ -33,7 +35,7 @@ export function LoginForm() {
     });
     setPending(false);
     if (!res || res.error) {
-      setError("Invalid email or password");
+      setError(t("auth.login.invalid"));
       return;
     }
     window.location.href = res.url ?? "/";
@@ -49,10 +51,10 @@ export function LoginForm() {
       }}
     >
       <Heading size="6" mb="2">
-        Video Hoster
+        {t("auth.login.title")}
       </Heading>
       <Text as="p" color="gray" size="2" mb="5">
-        Sign in to upload, watch, and discuss videos.
+        {t("auth.login.subtitle")}
       </Text>
 
       <Button
@@ -60,13 +62,13 @@ export function LoginForm() {
         style={{ width: "100%" }}
         onClick={() => signIn("google", { callbackUrl: "/" })}
       >
-        Continue with Google
+        {t("auth.login.continueGoogle")}
       </Button>
 
       <Flex align="center" gap="3" my="4">
         <Separator size="4" style={{ flex: 1 }} />
         <Text size="1" color="gray">
-          OR
+          {t("common.or")}
         </Text>
         <Separator size="4" style={{ flex: 1 }} />
       </Flex>
@@ -75,7 +77,7 @@ export function LoginForm() {
         <Flex direction="column" gap="3">
           <Box>
             <Text as="div" size="2" weight="medium" mb="1">
-              Email
+              {t("auth.login.email")}
             </Text>
             <TextField.Root
               type="email"
@@ -87,7 +89,7 @@ export function LoginForm() {
           </Box>
           <Box>
             <Text as="div" size="2" weight="medium" mb="1">
-              Password
+              {t("auth.login.password")}
             </Text>
             <TextField.Root
               type="password"
@@ -108,15 +110,15 @@ export function LoginForm() {
             disabled={pending}
             variant="soft"
           >
-            {pending ? "Signing in..." : "Sign in"}
+            {pending ? t("auth.login.signingIn") : t("auth.login.signInButton")}
           </Button>
         </Flex>
       </form>
 
       <Text as="p" size="2" color="gray" mt="4" align="center">
-        New here?{" "}
+        {t("auth.login.newHere")}{" "}
         <Link href="/signup" style={{ color: "var(--accent-9)" }}>
-          Create an account
+          {t("auth.login.createAccount")}
         </Link>
       </Text>
     </Box>

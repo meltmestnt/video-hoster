@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Box, Card, Flex, Text } from "@radix-ui/themes";
+import { useT } from "@/lib/i18n";
 
 interface Item {
   id: string;
@@ -46,10 +47,11 @@ function SuggestedThumb({ src, alt }: { src: string; alt: string }) {
 }
 
 export function SuggestedList({ items }: { items: Item[] }) {
+  const t = useT();
   if (items.length === 0) {
     return (
       <Text size="2" color="gray">
-        No similar videos yet.
+        {t("suggested.empty")}
       </Text>
     );
   }

@@ -8,6 +8,7 @@ import { S3Module } from "../s3/s3.module";
 import { TranscoderModule } from "../transcoder/transcoder.module";
 import { ReactionsModule } from "../reactions/reactions.module";
 import { FavoritesModule } from "../favorites/favorites.module";
+import { NotificationsModule } from "../notifications/notifications.module";
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { FavoritesModule } from "../favorites/favorites.module";
     TranscoderModule,
     ReactionsModule,
     FavoritesModule,
+    NotificationsModule,
   ],
   providers: [VideosService],
   exports: [VideosService],

@@ -5,6 +5,7 @@ import { VideoCard } from "@/components/VideoCard";
 import { VideoSortSelect } from "@/components/VideoSortSelect";
 import type { VideoSort } from "@repo/shared";
 import { absoluteUrl } from "@/lib/site";
+import { T } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -45,10 +46,10 @@ export default async function VideosPage({
         <Flex align="end" justify="between" gap="3" wrap="wrap" mb="5">
           <div>
             <Heading size="6" mb="1">
-              All videos
+              <T k="page.videos.heading" />
             </Heading>
             <Text as="p" color="gray" size="2">
-              Recent video uploads on Video Hoster.
+              <T k="page.videos.subtitle" />
             </Text>
           </div>
           <VideoSortSelect value={sort} />
@@ -67,7 +68,7 @@ export default async function VideosPage({
           }}
         >
           <Text color="gray">
-            No videos yet. Click "Upload" to add the first one.
+            <T k="page.videos.empty" />
           </Text>
         </Flex>
       ) : (

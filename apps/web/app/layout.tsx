@@ -56,8 +56,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body>
+    <html lang="uk" suppressHydrationWarning>
+      {/* suppressHydrationWarning silences React's mismatch warning when
+          browser extensions (ColorZilla, Grammarly, etc.) add their own
+          attributes to <html>/<body> before React hydrates. Only applies
+          to the root tags — content inside is still strictly checked. */}
+      <body suppressHydrationWarning>
         <Theme appearance="dark" accentColor="iris" radius="large" scaling="100%">
           <Providers>{children}</Providers>
         </Theme>

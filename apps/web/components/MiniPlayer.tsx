@@ -15,6 +15,7 @@ import { AlertDialog, Button, Flex, Text } from "@radix-ui/themes";
 import type ReactPlayerType from "react-player";
 import { useMiniPlayer } from "@/lib/mini-player-context";
 import { trpc } from "@/lib/trpc";
+import { useT } from "@/lib/i18n";
 
 const ReactPlayer = dynamic(() => import("react-player"), { ssr: false });
 
@@ -24,6 +25,7 @@ export function MiniPlayer() {
   const playerRef = useRef<ReactPlayerType | null>(null);
   const [seeded, setSeeded] = useState(false);
   const [promptOpen, setPromptOpen] = useState(false);
+  const t = useT();
 
   const me = trpc.auth.me.useQuery();
   const utils = trpc.useUtils();
@@ -73,7 +75,7 @@ export function MiniPlayer() {
   };
 
   return (
-    <div className="mini-player" role="complementary" aria-label="Mini player">
+    <div className="mini-player" role="complementary" aria-label={t("mini.aria.label")}>
       <div className="mini-player-frame">
         <ReactPlayer
           ref={(r: ReactPlayerType | null) => {
@@ -106,7 +108,7 @@ export function MiniPlayer() {
         <Link
           href={`/videos/${mini.video.id}`}
           className="mini-player-cover"
-          aria-label={`Open ${mini.video.title}`}
+          aria-label={t("mini.aria.open", { title: mini.video.title })}
         />
       </div>
       <div className="mini-player-controls">
@@ -114,7 +116,7 @@ export function MiniPlayer() {
           type="button"
           className="mini-player-btn"
           onClick={() => mini.update({ playing: !mini.playing })}
-          aria-label={mini.playing ? "Pause" : "Play"}
+          aria-label={mini.playing ? t("player.aria.pause") : t("player.aria.play")}
         >
           {mini.playing ? <PauseIcon /> : <PlayIcon />}
         </button>
@@ -122,7 +124,7 @@ export function MiniPlayer() {
           type="button"
           className="mini-player-btn"
           onClick={() => mini.update({ muted: !mini.muted })}
-          aria-label={mini.muted ? "Unmute" : "Mute"}
+          aria-label={mini.muted ? t("player.aria.unmute") : t("player.aria.mute")}
         >
           {mini.muted ? <SpeakerOffIcon /> : <SpeakerLoudIcon />}
         </button>
@@ -137,7 +139,7 @@ export function MiniPlayer() {
           type="button"
           className="mini-player-btn"
           onClick={handleClose}
-          aria-label="Close mini player"
+          aria-label={t("mini.aria.close")}
         >
           <Cross2Icon />
         </button>
@@ -145,14 +147,11 @@ export function MiniPlayer() {
 
       <AlertDialog.Root open={promptOpen} onOpenChange={setPromptOpen}>
         <AlertDialog.Content maxWidth="440px">
-          <AlertDialog.Title>Hide the mini player?</AlertDialog.Title>
+          <AlertDialog.Title>{t("mini.prompt.title")}</AlertDialog.Title>
           <AlertDialog.Description size="2">
-            <Text as="p">
-              The mini player keeps a video playing in the corner when you
-              browse other pages.
-            </Text>
+            <Text as="p">{t("mini.prompt.body")}</Text>
             <Text as="p" mt="2">
-              Always hide it, or just close this one?
+              {t("mini.prompt.q")}
             </Text>
           </AlertDialog.Description>
 
@@ -163,14 +162,14 @@ export function MiniPlayer() {
               onClick={dismissOnce}
               disabled={setPref.isPending}
             >
-              Just this time
+              {t("mini.prompt.justOnce")}
             </Button>
             <Button
               color="red"
               onClick={alwaysHide}
               disabled={setPref.isPending}
             >
-              Always hide
+              {t("mini.prompt.alwaysHide")}
             </Button>
           </Flex>
         </AlertDialog.Content>

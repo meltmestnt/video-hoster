@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertDialog, Button, Callout, Flex } from "@radix-ui/themes";
 import { trpc } from "@/lib/trpc";
+import { useT } from "@/lib/i18n";
 
 interface Props {
   gifId: string;
@@ -13,6 +14,7 @@ interface Props {
 export function DeleteGifButton({ gifId, title }: Props) {
   const router = useRouter();
   const utils = trpc.useUtils();
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const remove = trpc.gifs.delete.useMutation();
@@ -33,13 +35,13 @@ export function DeleteGifButton({ gifId, title }: Props) {
     <AlertDialog.Root open={open} onOpenChange={setOpen}>
       <AlertDialog.Trigger>
         <Button color="red" variant="soft">
-          Delete
+          {t("common.delete")}
         </Button>
       </AlertDialog.Trigger>
       <AlertDialog.Content maxWidth="440px">
-        <AlertDialog.Title>Delete GIF?</AlertDialog.Title>
+        <AlertDialog.Title>{t("delete.gif.title")}</AlertDialog.Title>
         <AlertDialog.Description size="2">
-          "{title}" will be permanently removed. This cannot be undone.
+          {t("delete.gif.body", { title })}
         </AlertDialog.Description>
         {error && (
           <Callout.Root color="red" mt="3">
@@ -49,11 +51,11 @@ export function DeleteGifButton({ gifId, title }: Props) {
         <Flex gap="3" mt="4" justify="end">
           <AlertDialog.Cancel>
             <Button variant="soft" color="gray" disabled={remove.isPending}>
-              Cancel
+              {t("common.cancel")}
             </Button>
           </AlertDialog.Cancel>
           <Button color="red" onClick={submit} disabled={remove.isPending}>
-            {remove.isPending ? "Deleting..." : "Delete"}
+            {remove.isPending ? t("common.deleting") : t("common.delete")}
           </Button>
         </Flex>
       </AlertDialog.Content>

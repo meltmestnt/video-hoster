@@ -15,6 +15,8 @@ import {
 import { MAX_GIF_BYTES, MAX_GIF_DURATION_SECONDS } from "@repo/shared";
 import { isUploadBusy, useUpload } from "@/lib/upload-context";
 import { compressTo480p } from "@/lib/compress-video";
+import { useT } from "@/lib/i18n";
+import { Morph } from "./Morph";
 
 interface Props {
   open: boolean;
@@ -46,6 +48,7 @@ export function GifUploadDialog({ open, onOpenChange }: Props) {
   const upload = useUpload();
   const busy = isUploadBusy(upload.status);
   const otherTabBusy = upload.otherTabUploading;
+  const t = useT();
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -59,6 +62,13 @@ export function GifUploadDialog({ open, onOpenChange }: Props) {
   const [converting, setConverting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const previewImgRef = useRef<HTMLImageElement | null>(null);
+  const [screenshotBusy, setScreenshotBusy] = useState(false);
+  const [screenshotMsg, setScreenshotMsg] = useState<
+    | { kind: "ok"; id: string }
+    | { kind: "error"; message: string }
+    | null
+  >(null);
 
   const previewUrl = useMemo(
     () => (file ? URL.createObjectURL(file) : null),
@@ -84,6 +94,8 @@ export function GifUploadDialog({ open, onOpenChange }: Props) {
       setConvertProgress(0);
       setConverting(false);
       setError(null);
+      setScreenshotBusy(false);
+      setScreenshotMsg(null);
     }
   }, [open]);
 
@@ -120,7 +132,7 @@ export function GifUploadDialog({ open, onOpenChange }: Props) {
       next.type !== "image/gif" &&
       !next.name.toLowerCase().endsWith(".gif")
     ) {
-      setError("That doesn't look like a GIF. Pick a .gif file.");
+      setError(t("upload.gif.notGif"));
       return;
     }
     setError(null);
@@ -130,16 +142,20 @@ export function GifUploadDialog({ open, onOpenChange }: Props) {
   const fileError = (() => {
     if (!file) return null;
     if (outputKind === "gif" && file.size > MAX_GIF_BYTES) {
-      return `GIF is ${(file.size / 1024 ** 2).toFixed(1)} MB. Max is ${Math.round(
-        MAX_GIF_BYTES / 1024 ** 2,
-      )} MB.`;
+      return t("upload.gif.tooBig", {
+        size: (file.size / 1024 ** 2).toFixed(1),
+        max: Math.round(MAX_GIF_BYTES / 1024 ** 2),
+      });
     }
     if (
       outputKind === "gif" &&
       duration !== null &&
       duration > MAX_GIF_DURATION_SECONDS + 0.5
     ) {
-      return `GIF is ${duration.toFixed(1)}s. Max length is ${MAX_GIF_DURATION_SECONDS}s.`;
+      return t("upload.gif.tooLong", {
+        sec: duration.toFixed(1),
+        max: MAX_GIF_DURATION_SECONDS,
+      });
     }
     return null;
   })();
@@ -151,6 +167,50 @@ export function GifUploadDialog({ open, onOpenChange }: Props) {
     !!file &&
     !fileError &&
     title.trim().length >= 1;
+
+  const captureScreenshot = async () => {
+    const img = previewImgRef.current;
+    if (!img || !file) return;
+    setScreenshotBusy(true);
+    setScreenshotMsg(null);
+    try {
+      // Browsers don't expose an API to seek a GIF — clicking "Capture"
+      // grabs whatever frame is currently animating. We render to a canvas
+      // at the natural dimensions, so quality matches the source GIF.
+      const w = img.naturalWidth;
+      const h = img.naturalHeight;
+      if (!w || !h) {
+        throw new Error(t("screenshots.gif.notReady"));
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas 2D context unavailable");
+      ctx.drawImage(img, 0, 0, w, h);
+      const blob: Blob = await new Promise((resolve, reject) =>
+        canvas.toBlob(
+          (b) =>
+            b ? resolve(b) : reject(new Error("Canvas toBlob returned null")),
+          "image/png",
+        ),
+      );
+      const baseTitle =
+        file.name.replace(/\.[^.]+$/, "").trim() || "GIF screenshot";
+      const result = await upload.uploadScreenshot(blob, {
+        title: `${baseTitle} frame`,
+        visibility: "public",
+        source: "gif",
+        width: w,
+        height: h,
+      });
+      setScreenshotMsg({ kind: "ok", id: result.screenshotId });
+    } catch (err) {
+      setScreenshotMsg({ kind: "error", message: (err as Error).message });
+    } finally {
+      setScreenshotBusy(false);
+    }
+  };
 
   const submit = async () => {
     if (!file || !canSubmit) return;
@@ -207,20 +267,22 @@ export function GifUploadDialog({ open, onOpenChange }: Props) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Content maxWidth="520px">
-        <Dialog.Title>Upload a GIF</Dialog.Title>
+        <Dialog.Title>{t("upload.gif.title")}</Dialog.Title>
         <Dialog.Description size="2" color="gray" mb="4">
-          Up to {Math.round(MAX_GIF_BYTES / 1024 ** 2)} MB and{" "}
-          {MAX_GIF_DURATION_SECONDS} seconds when uploaded as a GIF. You can
-          also convert it to an MP4 video instead.
+          {t("upload.gif.subtitle", {
+            mb: Math.round(MAX_GIF_BYTES / 1024 ** 2),
+            sec: MAX_GIF_DURATION_SECONDS,
+          })}
         </Dialog.Description>
 
+        <Morph axis="height">
         <Flex direction="column" gap="3">
           <Flex direction="column" gap="1">
             <Text size="2" weight="medium">
-              Title
+              {t("upload.field.title")}
             </Text>
             <TextField.Root
-              placeholder="My favorite loop"
+              placeholder={t("upload.gif.title.placeholder")}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               maxLength={200}
@@ -229,10 +291,10 @@ export function GifUploadDialog({ open, onOpenChange }: Props) {
 
           <Flex direction="column" gap="1">
             <Text size="2" weight="medium">
-              Description
+              {t("upload.field.description")}
             </Text>
             <TextArea
-              placeholder="What's it about?"
+              placeholder={t("upload.field.description.placeholder")}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
@@ -242,10 +304,10 @@ export function GifUploadDialog({ open, onOpenChange }: Props) {
 
           <Flex direction="column" gap="1">
             <Text size="2" weight="medium">
-              Tags <Text color="gray">(comma-separated)</Text>
+              {t("upload.field.tags")} <Text color="gray">{t("upload.field.tags.hint")}</Text>
             </Text>
             <TextField.Root
-              placeholder="reaction, funny, loop"
+              placeholder={t("upload.field.tags.gif.placeholder")}
               value={tagsRaw}
               onChange={(e) => setTagsRaw(e.target.value)}
             />
@@ -253,44 +315,46 @@ export function GifUploadDialog({ open, onOpenChange }: Props) {
 
           <Flex direction="column" gap="1">
             <Text size="2" weight="medium">
-              Visibility
+              {t("upload.field.visibility")}
             </Text>
             <SegmentedControl.Root
               value={visibility}
               onValueChange={(v) => setVisibility(v as "public" | "private")}
             >
               <SegmentedControl.Item value="public">
-                Public
+                {t("common.public")}
               </SegmentedControl.Item>
               <SegmentedControl.Item value="private">
-                Private
+                {t("common.private")}
               </SegmentedControl.Item>
             </SegmentedControl.Root>
           </Flex>
 
           <Flex direction="column" gap="1">
             <Text size="2" weight="medium">
-              Save as
+              {t("upload.gif.saveAs")}
             </Text>
             <SegmentedControl.Root
               value={outputKind}
               onValueChange={(v) => setOutputKind(v as "gif" | "mp4")}
             >
-              <SegmentedControl.Item value="gif">GIF</SegmentedControl.Item>
+              <SegmentedControl.Item value="gif">
+                {t("upload.gif.saveAs.gif")}
+              </SegmentedControl.Item>
               <SegmentedControl.Item value="mp4">
-                Convert to MP4
+                {t("upload.gif.saveAs.mp4")}
               </SegmentedControl.Item>
             </SegmentedControl.Root>
             <Text size="1" color="gray">
               {outputKind === "gif"
-                ? "Stored as an animated GIF and shown on the GIFs page."
-                : "Re-encoded to a 480p MP4 and saved to your videos."}
+                ? t("upload.gif.saveAs.gifHint")
+                : t("upload.gif.saveAs.mp4Hint")}
             </Text>
           </Flex>
 
           <Flex direction="column" gap="1">
             <Text size="2" weight="medium">
-              GIF file
+              {t("upload.gif.fileLabel")}
             </Text>
             <Box
               role="button"
@@ -342,8 +406,10 @@ export function GifUploadDialog({ open, onOpenChange }: Props) {
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
+                      ref={previewImgRef}
                       src={previewUrl}
                       alt={file.name}
+                      crossOrigin="anonymous"
                       style={{
                         width: "100%",
                         height: "100%",
@@ -369,7 +435,7 @@ export function GifUploadDialog({ open, onOpenChange }: Props) {
                         ? ` · ${duration.toFixed(1)}s`
                         : ""}
                     </Text>
-                    <Box>
+                    <Flex gap="1" wrap="wrap">
                       <Button
                         size="1"
                         variant="soft"
@@ -380,18 +446,34 @@ export function GifUploadDialog({ open, onOpenChange }: Props) {
                         }}
                         disabled={working}
                       >
-                        Remove
+                        {t("common.remove")}
                       </Button>
-                    </Box>
+                      <Button
+                        size="1"
+                        variant="soft"
+                        color="iris"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          captureScreenshot();
+                        }}
+                        disabled={working || screenshotBusy}
+                      >
+                        {screenshotBusy
+                          ? t("screenshots.gif.saving")
+                          : t("screenshots.gif.button")}
+                      </Button>
+                    </Flex>
                   </Flex>
                 </Flex>
               ) : (
                 <Flex direction="column" align="center" gap="1">
                   <Text size="2" weight="medium">
-                    Drop a GIF here, or click to browse
+                    {t("upload.gif.dropHint")}
                   </Text>
                   <Text size="1" color="gray">
-                    Up to {Math.round(MAX_GIF_BYTES / 1024 ** 2)} MB · .gif
+                    {t("upload.gif.dropSize", {
+                      mb: Math.round(MAX_GIF_BYTES / 1024 ** 2),
+                    })}
                   </Text>
                 </Flex>
               )}
@@ -412,10 +494,7 @@ export function GifUploadDialog({ open, onOpenChange }: Props) {
 
           {otherTabBusy && (
             <Callout.Root color="amber">
-              <Callout.Text>
-                Another tab is already uploading. Wait for it to finish before
-                starting a new upload here.
-              </Callout.Text>
+              <Callout.Text>{t("upload.otherTab.busy")}</Callout.Text>
             </Callout.Root>
           )}
           {fileError && (
@@ -426,7 +505,9 @@ export function GifUploadDialog({ open, onOpenChange }: Props) {
           {converting && (
             <Callout.Root color="iris">
               <Callout.Text>
-                Converting to MP4… {Math.round(convertProgress * 100)}%
+                {t("upload.gif.converting", {
+                  pct: Math.round(convertProgress * 100),
+                })}
               </Callout.Text>
             </Callout.Root>
           )}
@@ -435,22 +516,41 @@ export function GifUploadDialog({ open, onOpenChange }: Props) {
               <Callout.Text>{error}</Callout.Text>
             </Callout.Root>
           )}
+          {screenshotMsg?.kind === "ok" && (
+            <Callout.Root color="iris">
+              <Callout.Text>
+                <span
+                  dangerouslySetInnerHTML={{
+                    __html: t("screenshots.editor.savedHtml", {
+                      href: `/screenshots/${screenshotMsg.id}`,
+                    }),
+                  }}
+                />
+              </Callout.Text>
+            </Callout.Root>
+          )}
+          {screenshotMsg?.kind === "error" && (
+            <Callout.Root color="red">
+              <Callout.Text>{screenshotMsg.message}</Callout.Text>
+            </Callout.Root>
+          )}
         </Flex>
+        </Morph>
 
         <Flex gap="3" mt="5" justify="end">
           <Dialog.Close>
             <Button variant="soft" color="gray" disabled={working}>
-              Cancel
+              {t("common.cancel")}
             </Button>
           </Dialog.Close>
           <Button onClick={submit} disabled={!canSubmit}>
             {converting
-              ? "Converting…"
+              ? t("upload.gif.convertingShort")
               : busy
-                ? "Uploading…"
+                ? t("upload.gif.uploading")
                 : outputKind === "mp4"
-                  ? "Convert & upload"
-                  : "Upload GIF"}
+                  ? t("upload.gif.convertAndUpload")
+                  : t("upload.gif.upload")}
           </Button>
         </Flex>
       </Dialog.Content>

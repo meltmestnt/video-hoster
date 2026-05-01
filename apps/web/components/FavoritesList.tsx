@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Flex, Text } from "@radix-ui/themes";
 import { trpc } from "@/lib/trpc";
+import { useT } from "@/lib/i18n";
 import { VideoCard } from "./VideoCard";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@repo/api";
@@ -10,6 +11,7 @@ import type { AppRouter } from "@repo/api";
 type FavoritesResult = inferRouterOutputs<AppRouter>["videos"]["favorites"];
 
 export function FavoritesList({ initial }: { initial: FavoritesResult }) {
+  const t = useT();
   const { data } = trpc.videos.favorites.useQuery(
     { limit: 24 },
     { initialData: initial },
@@ -31,12 +33,12 @@ export function FavoritesList({ initial }: { initial: FavoritesResult }) {
           border: "1px dashed var(--gray-5)",
         }}
       >
-        <Text color="gray">No favorites yet.</Text>
+        <Text color="gray">{t("favorites.empty")}</Text>
         <Text size="2" color="gray">
-          Open a video and tap the star to save it here.
+          {t("favorites.empty.hint")}
         </Text>
         <Link href="/" style={{ color: "var(--accent-9)" }}>
-          Browse videos →
+          {t("favorites.empty.cta")}
         </Link>
       </Flex>
     );

@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getServerTrpc } from "@/lib/trpc-server";
 import { FavoritesList } from "@/components/FavoritesList";
+import { T } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -18,10 +19,10 @@ export default async function FavoritesPage() {
     <>
       <div className="page-header">
         <Heading size="6" mb="1">
-          Favorites
+          <T k="page.favorites.heading" />
         </Heading>
         <Text as="p" color="gray" size="2" mb="5">
-          Videos you've saved for later.
+          <T k="page.favorites.subtitle" />
         </Text>
       </div>
       <FavoritesList initial={initial} />

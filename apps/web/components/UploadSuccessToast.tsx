@@ -5,16 +5,18 @@ import { Cross1Icon } from "@radix-ui/react-icons";
 import Link from "next/link";
 import { useEffect } from "react";
 import { useUpload } from "@/lib/upload-context";
+import { useT } from "@/lib/i18n";
 
 const AUTO_DISMISS_MS = 6000;
 
 export function UploadSuccessToast() {
   const { lastSuccess, dismissSuccess } = useUpload();
+  const t = useT();
 
   useEffect(() => {
     if (!lastSuccess) return;
-    const t = setTimeout(dismissSuccess, AUTO_DISMISS_MS);
-    return () => clearTimeout(t);
+    const handle = setTimeout(dismissSuccess, AUTO_DISMISS_MS);
+    return () => clearTimeout(handle);
   }, [lastSuccess, dismissSuccess]);
 
   if (!lastSuccess) return null;
@@ -46,7 +48,7 @@ export function UploadSuccessToast() {
             weight="bold"
             style={{ color: "var(--crimson-12)" }}
           >
-            Upload complete
+            {t("upload.success.heading")}
           </Text>
           <Text
             as="div"
@@ -59,14 +61,14 @@ export function UploadSuccessToast() {
               style={{ color: "var(--crimson-12)", textDecoration: "underline" }}
             >
               {lastSuccess.title}
-            </Link>{" "}
-            was uploaded.
+            </Link>
+            {t("upload.success.suffix")}
           </Text>
         </Box>
         <IconButton
           size="1"
           variant="ghost"
-          aria-label="Dismiss"
+          aria-label={t("upload.success.dismiss")}
           onClick={dismissSuccess}
           style={{ color: "var(--crimson-11)" }}
         >

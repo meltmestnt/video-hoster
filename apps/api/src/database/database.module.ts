@@ -11,6 +11,8 @@ import { CommentReaction } from "../reactions/comment-reaction.entity";
 import { GifReaction } from "../reactions/gif-reaction.entity";
 import { VideoFavorite } from "../favorites/favorite.entity";
 import { Gif } from "../gifs/gif.entity";
+import { Notification } from "../notifications/notification.entity";
+import { Subscription } from "../subscriptions/subscription.entity";
 
 @Module({
   imports: [
@@ -35,6 +37,8 @@ import { Gif } from "../gifs/gif.entity";
           GifReaction,
           VideoFavorite,
           Gif,
+          Notification,
+          Subscription,
         ],
         synchronize: true,
         logging: ["error", "warn"],

@@ -72,6 +72,19 @@ interface StartOptions {
   thumbnailBlob?: Blob;
 }
 
+export interface ScreenshotUploadResult {
+  screenshotId: string;
+  title: string;
+}
+
+export interface ScreenshotUploadMeta {
+  title: string;
+  visibility: "public" | "private";
+  source: "video" | "gif" | "manual";
+  width: number;
+  height: number;
+}
+
 interface UploadContextValue extends UploadState {
   start: (
     file: File,
@@ -84,6 +97,14 @@ interface UploadContextValue extends UploadState {
     durationSeconds: number,
     fileNameHint?: string,
   ) => Promise<void>;
+  // Captures a still image and uploads it as a screenshot. Returns the new
+  // record so callers can navigate to it or show inline confirmation.
+  // Independent of the main upload pipeline — does not set the
+  // compressing/preparing/uploading state on UploadContext.
+  uploadScreenshot: (
+    blob: Blob,
+    meta: ScreenshotUploadMeta,
+  ) => Promise<ScreenshotUploadResult>;
   reset: () => void;
   dismissSuccess: () => void;
   otherTabUploading: boolean;
@@ -109,6 +130,10 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
   const finalizeUpload = trpc.videos.finalizeUpload.useMutation();
   const createGifUpload = trpc.gifs.createUpload.useMutation();
   const finalizeGifUpload = trpc.gifs.finalizeUpload.useMutation();
+  const createScreenshotUpload =
+    trpc.screenshots.createUpload.useMutation();
+  const finalizeScreenshotUpload =
+    trpc.screenshots.finalizeUpload.useMutation();
 
   // Cross-tab coordination state.
   const tabIdRef = useRef<string>("");
@@ -481,16 +506,61 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     ],
   );
 
+  const uploadScreenshot = useCallback(
+    async (
+      blob: Blob,
+      meta: ScreenshotUploadMeta,
+    ): Promise<ScreenshotUploadResult> => {
+      const mimeType = (
+        blob.type === "image/png"
+          ? "image/png"
+          : blob.type === "image/webp"
+            ? "image/webp"
+            : "image/jpeg"
+      ) as "image/jpeg" | "image/png" | "image/webp";
+      const created = await createScreenshotUpload.mutateAsync({
+        title: meta.title,
+        mimeType,
+        sizeBytes: blob.size,
+        width: Math.max(1, Math.round(meta.width)),
+        height: Math.max(1, Math.round(meta.height)),
+        visibility: meta.visibility,
+        source: meta.source,
+      });
+      await putToS3(created.uploadUrl, blob, mimeType);
+      await finalizeScreenshotUpload.mutateAsync({
+        screenshotId: created.screenshotId,
+      });
+      await utils.screenshots.list.invalidate().catch(() => {});
+      return { screenshotId: created.screenshotId, title: meta.title };
+    },
+    [
+      createScreenshotUpload,
+      finalizeScreenshotUpload,
+      putToS3,
+      utils.screenshots.list,
+    ],
+  );
+
   const value = useMemo<UploadContextValue>(
     () => ({
       ...state,
       start,
       startGif,
+      uploadScreenshot,
       reset,
       dismissSuccess,
       otherTabUploading,
     }),
-    [state, start, startGif, reset, dismissSuccess, otherTabUploading],
+    [
+      state,
+      start,
+      startGif,
+      uploadScreenshot,
+      reset,
+      dismissSuccess,
+      otherTabUploading,
+    ],
   );
 
   return (
