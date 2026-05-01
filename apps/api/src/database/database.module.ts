@@ -15,6 +15,7 @@ import { Notification } from "../notifications/notification.entity";
 import { Subscription } from "../subscriptions/subscription.entity";
 import { AudioTemplate } from "../audio/audio-template.entity";
 import { VideoAudioTrack } from "../audio/video-audio-track.entity";
+import { Screenshot } from "../screenshots/screenshot.entity";
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { VideoAudioTrack } from "../audio/video-audio-track.entity";
           Subscription,
           AudioTemplate,
           VideoAudioTrack,
+          Screenshot,
         ],
         synchronize: true,
         logging: ["error", "warn"],
