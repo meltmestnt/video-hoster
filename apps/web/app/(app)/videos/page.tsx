@@ -3,7 +3,7 @@ import { Flex, Heading, Text } from "@radix-ui/themes";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getServerTrpc } from "@/lib/trpc-server";
-import { VideoCard } from "@/components/VideoCard";
+import { VideosInfiniteList } from "@/components/VideosInfiniteList";
 import { VideoSortSelect } from "@/components/VideoSortSelect";
 import { DropTile } from "@/components/DropTile";
 import type { VideoSort } from "@repo/shared";
@@ -43,7 +43,7 @@ export default async function VideosPage({
   const session = await getServerSession(authOptions);
   const signedIn = !!session?.user;
   const trpc = await getServerTrpc();
-  const result = await trpc.videos.list.query({ limit: 24, sort });
+  const initial = await trpc.videos.list.query({ limit: 20, sort });
 
   return (
     <>
@@ -61,29 +61,7 @@ export default async function VideosPage({
         </Flex>
       </div>
       <DropTile mode="video" signedIn={signedIn} />
-
-      {result.items.length === 0 ? (
-        <Flex
-          align="center"
-          justify="center"
-          style={{
-            padding: "64px 24px",
-            background: "var(--gray-2)",
-            borderRadius: "var(--radius-3)",
-            border: "1px dashed var(--gray-5)",
-          }}
-        >
-          <Text color="gray">
-            <T k="page.videos.empty" />
-          </Text>
-        </Flex>
-      ) : (
-        <div className="dashboard-grid">
-          {result.items.map((v, i) => (
-            <VideoCard key={v.id} video={v} index={i} />
-          ))}
-        </div>
-      )}
+      <VideosInfiniteList initial={initial} sort={sort} />
     </>
   );
 }

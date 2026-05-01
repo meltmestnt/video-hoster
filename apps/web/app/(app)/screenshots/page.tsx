@@ -4,7 +4,7 @@ import { getServerSession } from "next-auth";
 import { Flex, Heading, Text } from "@radix-ui/themes";
 import { authOptions } from "@/lib/auth";
 import { getServerTrpc } from "@/lib/trpc-server";
-import { ScreenshotCard } from "@/components/ScreenshotCard";
+import { ScreenshotsInfiniteList } from "@/components/ScreenshotsInfiniteList";
 import { absoluteUrl } from "@/lib/site";
 import { T } from "@/lib/i18n";
 
@@ -26,7 +26,7 @@ export default async function ScreenshotsPage() {
     redirect(`/login?callbackUrl=${encodeURIComponent("/screenshots")}`);
   }
   const trpc = await getServerTrpc();
-  const result = await trpc.screenshots.list.query({ limit: 24 });
+  const initial = await trpc.screenshots.list.query({ limit: 20 });
 
   return (
     <>
@@ -42,29 +42,7 @@ export default async function ScreenshotsPage() {
           </div>
         </Flex>
       </div>
-
-      {result.items.length === 0 ? (
-        <Flex
-          align="center"
-          justify="center"
-          style={{
-            padding: "64px 24px",
-            background: "var(--gray-2)",
-            borderRadius: "var(--radius-3)",
-            border: "1px dashed var(--gray-5)",
-          }}
-        >
-          <Text color="gray">
-            <T k="screenshots.empty" />
-          </Text>
-        </Flex>
-      ) : (
-        <div className="dashboard-grid">
-          {result.items.map((s, i) => (
-            <ScreenshotCard key={s.id} shot={s} index={i} />
-          ))}
-        </div>
-      )}
+      <ScreenshotsInfiniteList initial={initial} />
     </>
   );
 }

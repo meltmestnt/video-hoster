@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { getServerSession } from "next-auth";
-import { Button, Flex, Heading, Text } from "@radix-ui/themes";
+import { Flex, Heading, Text } from "@radix-ui/themes";
 import { authOptions } from "@/lib/auth";
 import { getServerTrpc } from "@/lib/trpc-server";
-import { GifCard } from "@/components/GifCard";
+import { GifsInfiniteList } from "@/components/GifsInfiniteList";
 import { VideoSortSelect } from "@/components/VideoSortSelect";
 import { DropTile } from "@/components/DropTile";
 import type { VideoSort } from "@repo/shared";
@@ -44,7 +43,7 @@ export default async function GifsPage({
   const session = await getServerSession(authOptions);
   const signedIn = !!session?.user;
   const trpc = await getServerTrpc();
-  const result = await trpc.gifs.list.query({ limit: 24, sort });
+  const initial = await trpc.gifs.list.query({ limit: 20, sort });
 
   return (
     <>
@@ -62,40 +61,7 @@ export default async function GifsPage({
         </Flex>
       </div>
       <DropTile mode="gif" signedIn={signedIn} />
-
-      {result.items.length === 0 ? (
-        <Flex
-          align="center"
-          justify="center"
-          direction="column"
-          gap="3"
-          style={{
-            padding: "64px 24px",
-            background: "var(--gray-2)",
-            borderRadius: "var(--radius-3)",
-            border: "1px dashed var(--gray-5)",
-          }}
-        >
-          <Text color="gray">
-            <T
-              k={signedIn ? "page.gifs.empty" : "page.gifs.empty.anon"}
-            />
-          </Text>
-          {!signedIn && (
-            <Button asChild size="2">
-              <Link href="/signup">
-                <T k="topbar.signUp" />
-              </Link>
-            </Button>
-          )}
-        </Flex>
-      ) : (
-        <div className="dashboard-grid">
-          {result.items.map((g, i) => (
-            <GifCard key={g.id} gif={g} index={i} />
-          ))}
-        </div>
-      )}
+      <GifsInfiniteList initial={initial} sort={sort} signedIn={signedIn} />
     </>
   );
 }

@@ -52,8 +52,8 @@ export default async function DashboardPage({
 
   const trpc = await getServerTrpc();
   const [initial, initialGifs] = await Promise.all([
-    trpc.videos.list.query({ limit: 24, sort }),
-    trpc.gifs.list.query({ limit: 24, sort }),
+    trpc.videos.list.query({ limit: 20, sort }),
+    trpc.gifs.list.query({ limit: 20, sort }),
   ]);
 
   return (
