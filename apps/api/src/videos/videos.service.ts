@@ -502,18 +502,21 @@ export class VideosService {
 
   /**
    * Newest-first list of a single owner's videos. Public-only when the
-   * viewer isn't the owner. Powers the /@username profile page.
+   * viewer isn't the owner (or an admin moderating). Powers the
+   * /@username profile page.
    */
   async listByOwner({
     ownerId,
     cursor,
     limit,
     viewerId,
+    isAdmin = false,
   }: {
     ownerId: string;
     cursor?: string;
     limit: number;
     viewerId?: string | null;
+    isAdmin?: boolean;
   }) {
     const qb = this.videos
       .createQueryBuilder("v")
@@ -525,7 +528,7 @@ export class VideosService {
       .addOrderBy("v.id", "DESC")
       .take(limit + 1);
 
-    if (viewerId !== ownerId) {
+    if (viewerId !== ownerId && !isAdmin) {
       qb.andWhere("v.visibility = :pub", { pub: "public" });
     }
 
@@ -729,13 +732,13 @@ export class VideosService {
     return { viewCount: result[0]?.viewCount ?? 0 };
   }
 
-  async byId(id: string, viewerId?: string | null) {
+  async byId(id: string, viewerId?: string | null, isAdmin = false) {
     const v = await this.videos.findOne({
       where: { id },
       relations: ["owner", "tags"],
     });
     if (!v) throw new NotFoundException("Video not found");
-    if (v.visibility === "private" && v.ownerId !== viewerId) {
+    if (v.visibility === "private" && v.ownerId !== viewerId && !isAdmin) {
       throw new NotFoundException("Video not found");
     }
 

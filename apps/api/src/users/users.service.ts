@@ -285,6 +285,7 @@ export class UsersService implements OnModuleInit {
   async getProfile(args: {
     username: string;
     viewerId: string | null;
+    viewerIsAdmin?: boolean;
   }): Promise<{
     id: string;
     name: string;
@@ -304,10 +305,11 @@ export class UsersService implements OnModuleInit {
 
     const isSelf = args.viewerId === user.id;
     // Public counts only when viewing someone else's page; the owner
-    // sees their full count including private uploads.
-    const visibilityFilter = isSelf
-      ? ""
-      : `AND visibility = 'public'`;
+    // sees their full count including private uploads, and so do admins
+    // (they can moderate private items, so the count should match what
+    // they're actually about to see in the listings below).
+    const visibilityFilter =
+      isSelf || args.viewerIsAdmin ? "" : `AND visibility = 'public'`;
 
     const [videoCount, gifCount, screenshotCount, followerCount] =
       await Promise.all([

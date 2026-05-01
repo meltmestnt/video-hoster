@@ -272,11 +272,13 @@ export class GifsService {
     cursor,
     limit,
     viewerId,
+    isAdmin = false,
   }: {
     ownerId: string;
     cursor?: string;
     limit: number;
     viewerId?: string | null;
+    isAdmin?: boolean;
   }) {
     const qb = this.gifs
       .createQueryBuilder("g")
@@ -288,7 +290,7 @@ export class GifsService {
       .addOrderBy("g.id", "DESC")
       .take(limit + 1);
 
-    if (viewerId !== ownerId) {
+    if (viewerId !== ownerId && !isAdmin) {
       qb.andWhere("g.visibility = :pub", { pub: "public" });
     }
 
@@ -379,13 +381,13 @@ export class GifsService {
     return { viewCount: result[0]?.viewCount ?? 0 };
   }
 
-  async byId(id: string, viewerId?: string | null) {
+  async byId(id: string, viewerId?: string | null, isAdmin = false) {
     const g = await this.gifs.findOne({
       where: { id },
       relations: ["owner", "tags"],
     });
     if (!g) throw new NotFoundException("Gif not found");
-    if (g.visibility === "private" && g.ownerId !== viewerId) {
+    if (g.visibility === "private" && g.ownerId !== viewerId && !isAdmin) {
       throw new NotFoundException("Gif not found");
     }
     const [enriched] = await this.attachExtras([g], viewerId);

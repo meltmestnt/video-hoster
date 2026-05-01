@@ -220,7 +220,11 @@ export const appRouter = router({
             `videos.byId actor=user userId=${ctx.user.id} ip=${ctx.ip} videoId=${input.id}`,
           );
         }
-        return ctx.services.videos.byId(input.id, ctx.user?.id ?? null);
+        return ctx.services.videos.byId(
+          input.id,
+          ctx.user?.id ?? null,
+          ctx.user?.role === "admin",
+        );
       }),
 
     suggested: publicProcedure
@@ -246,6 +250,7 @@ export const appRouter = router({
           cursor: input.cursor,
           limit: input.limit,
           viewerId: ctx.user?.id ?? null,
+          isAdmin: ctx.user?.role === "admin",
         }),
       ),
 
@@ -418,7 +423,11 @@ export const appRouter = router({
             `gifs.byId actor=user userId=${ctx.user.id} ip=${ctx.ip} gifId=${input.id}`,
           );
         }
-        return ctx.services.gifs.byId(input.id, ctx.user?.id ?? null);
+        return ctx.services.gifs.byId(
+          input.id,
+          ctx.user?.id ?? null,
+          ctx.user?.role === "admin",
+        );
       }),
 
     suggested: publicProcedure
@@ -502,6 +511,7 @@ export const appRouter = router({
           cursor: input.cursor,
           limit: input.limit,
           viewerId: ctx.user?.id ?? null,
+          isAdmin: ctx.user?.role === "admin",
         }),
       ),
 
@@ -763,6 +773,7 @@ export const appRouter = router({
         ctx.services.users.getProfile({
           username: input.username,
           viewerId: ctx.user?.id ?? null,
+          viewerIsAdmin: ctx.user?.role === "admin",
         }),
       ),
   }),
