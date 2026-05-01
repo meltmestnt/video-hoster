@@ -9,6 +9,7 @@ import {
   VideoIcon,
 } from "@radix-ui/react-icons";
 import { T } from "@/lib/i18n";
+import { LocaleSwitcher } from "./LocaleSwitcher";
 
 type Icon = typeof VideoIcon;
 
@@ -108,9 +109,32 @@ export function AnonymousIntro() {
         }}
       />
 
+      {/* Anchored to the top-right so signed-out visitors landing here can
+          switch to English without first finding the user menu (which only
+          exists for signed-in users). The choice persists via localStorage
+          inside the i18n provider. */}
+      <Box
+        style={{
+          position: "absolute",
+          top: 16,
+          right: 16,
+          zIndex: 3,
+        }}
+      >
+        <LocaleSwitcher size="1" />
+      </Box>
+
       <Box
         className="intro-heading-block"
-        style={{ position: "relative", zIndex: 2, maxWidth: 720 }}
+        style={{
+          position: "relative",
+          zIndex: 2,
+          maxWidth: 720,
+          // Reserve space on the right so the heading text doesn't slide
+          // under the absolutely-positioned LocaleSwitcher on narrow
+          // viewports.
+          paddingRight: 110,
+        }}
       >
         <Heading
           size="8"
