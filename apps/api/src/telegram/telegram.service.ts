@@ -5,12 +5,14 @@ import {
   OnApplicationShutdown,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { Bot, InlineKeyboard } from "grammy";
+import { Bot, type Context, InlineKeyboard } from "grammy";
 import type { InlineQueryResultMpeg4Gif } from "grammy/types";
 import { GifsService } from "../gifs/gifs.service";
 import { MediaService } from "../media/media.service";
 import { S3Service } from "../s3/s3.service";
 import { UsersService } from "../users/users.service";
+import { TranscoderService } from "../transcoder/transcoder.service";
+import { looksLikeGif, looksLikeVideo } from "../s3/file-signatures";
 import { TelegramLinkService } from "./telegram-link.service";
 import { TelegramPrefService } from "./telegram-pref.service";
 import type { BotLocale } from "./telegram-pref.entity";
@@ -45,6 +47,7 @@ export class TelegramService
     private readonly users: UsersService,
     private readonly links: TelegramLinkService,
     private readonly prefs: TelegramPrefService,
+    private readonly transcoder: TranscoderService,
   ) {}
 
   /**
@@ -118,13 +121,24 @@ export class TelegramService
       } catch (err) {
         const message = (err as Error).message ?? "";
         const is409 = /\b409\b/.test(message) || /Conflict/i.test(message);
+        // 409 specifically: Telegram's long-poll waits up to ~50s before
+        // releasing the slot to a new consumer, so retrying before that
+        // is a guaranteed re-fail. Wait 60s minimum, then back off
+        // further on repeated conflicts (5 min cap). After ~5 conflicts
+        // in a row we log a hint about multi-instance setups (typical
+        // cause: local pnpm dev running with the prod token).
         const delaySec = is409
-          ? Math.min(30, 5 * 2 ** Math.min(attempt, 3))
+          ? Math.min(300, 60 * Math.max(1, attempt - 1))
           : Math.min(60, 10 * 2 ** Math.min(attempt, 3));
         if (is409) {
           this.logger.warn(
-            `telegram.bot 409 conflict (another instance is polling). Retrying in ${delaySec}s. ${message}`,
+            `telegram.bot 409 conflict (another instance is polling) attempt=${attempt + 1}; retrying in ${delaySec}s.`,
           );
+          if (attempt >= 5) {
+            this.logger.warn(
+              `telegram.bot persistent 409 — check that no other process is using TELEGRAM_BOT_TOKEN (typical cause: pnpm dev locally pointing at the prod token, or a stale Railway replica that hasn't shut down).`,
+            );
+          }
         } else {
           this.logger.error(
             `telegram.bot polling failed: ${message}; retrying in ${delaySec}s`,
@@ -503,79 +517,32 @@ export class TelegramService
     });
 
     // ─── Document upload ───
+    // No mime gate at the entry point: Telegram tags forwarded GIFs and
+    // GIFs from non-mobile clients with whatever Content-Type the source
+    // had ("application/octet-stream", "video/mp4", "" — all observed in
+    // the wild), and the strict equality check used to reject all of
+    // them. We download first, then let uploadFromTelegram sniff the
+    // actual bytes and decide whether to store as GIF or transcode.
     bot.on("message:document", async (ctx) => {
-      const tgUser = ctx.from;
-      if (!tgUser) return;
-      const locale = await this.resolveLocale(tgUser.id);
-      const link = await this.links.findByTelegramUserId(String(tgUser.id));
-      const botName = this.botUsername ?? "vidsandgifsbot";
-      if (!link) {
-        await ctx.reply(t(locale, "upload.notLinked", { bot: botName }));
-        return;
-      }
       const doc = ctx.message.document;
-      if (doc.mime_type !== "image/gif") {
-        await ctx.reply(t(locale, "upload.notGif"));
-        return;
-      }
-      if ((doc.file_size ?? 0) > MAX_TELEGRAM_FILE_BYTES) {
-        await ctx.reply(t(locale, "upload.tooBig"));
-        return;
-      }
-      try {
-        const file = await ctx.api.getFile(doc.file_id);
-        if (!file.file_path) {
-          throw new Error("Telegram getFile returned no file_path");
-        }
-        const downloadUrl = `https://api.telegram.org/file/bot${this.bot!.token}/${file.file_path}`;
-        const response = await fetch(downloadUrl);
-        if (!response.ok) {
-          throw new Error(`download failed: ${response.status}`);
-        }
-        const buffer = Buffer.from(await response.arrayBuffer());
-
-        const account = await this.users.findById(link.userId);
-        if (!account) {
-          await ctx.reply(t(locale, "upload.linkedAccountGone"));
-          return;
-        }
-
-        const title =
-          (ctx.message.caption ?? doc.file_name ?? "Untitled GIF")
-            .replace(/\.gif$/i, "")
-            .slice(0, 200) || "Untitled GIF";
-
-        const gif = await this.gifs.createFromBuffer({
-          ownerId: account.id,
-          ownerStatus: account.status,
-          ownerApproved: account.role === "admin" || account.approved,
-          title,
-          buffer,
-        });
-        const webOrigin =
-          this.config.get<string>("WEB_ORIGIN") ?? "https://vidsandgifs.xyz";
-        await ctx.reply(
-          t(locale, "upload.success", {
-            title,
-            url: `${webOrigin}/gifs/${gif.id}`,
-          }),
-          { link_preview_options: { is_disabled: false } },
-        );
-      } catch (err) {
-        this.logger.warn(
-          `telegram.upload failed userId=${link.userId}: ${(err as Error).message}`,
-        );
-        await ctx.reply(
-          t(locale, "upload.failed", {
-            message: (err as Error).message ?? "unknown error",
-          }),
-        );
-      }
+      await this.uploadFromTelegram(ctx, {
+        fileId: doc.file_id,
+        fileSize: doc.file_size,
+        fileName: doc.file_name,
+      });
     });
 
+    // ─── Animation upload ───
+    // Telegram silently re-encodes user-sent GIFs to MP4 and labels
+    // them as Animation. We accept those too — uploadFromTelegram's
+    // byte sniffer routes them through the MP4 → GIF transcode path.
     bot.on("message:animation", async (ctx) => {
-      const locale = await this.resolveLocale(ctx.from?.id);
-      await ctx.reply(t(locale, "animation.hint"));
+      const anim = ctx.message.animation;
+      await this.uploadFromTelegram(ctx, {
+        fileId: anim.file_id,
+        fileSize: anim.file_size,
+        fileName: anim.file_name,
+      });
     });
 
     bot.catch((err) => {
@@ -584,5 +551,137 @@ export class TelegramService
         err.stack,
       );
     });
+  }
+
+  /**
+   * Shared upload pipeline for both `message:document` and
+   * `message:animation`. Downloads the file Telegram is offering, sniffs
+   * the magic bytes, and routes:
+   *
+   *   • GIF87a/89a header → use the buffer as-is (createFromBuffer
+   *     compresses to SD internally).
+   *   • Video container (MP4/MOV ftyp, WebM/MKV EBML) → transcode to
+   *     GIF first via the palette pipeline, then upload the result.
+   *   • Anything else → reject with a clear "not a video or GIF" message.
+   *
+   * Mime types reported by Telegram are unreliable across clients
+   * (forwarded GIFs, web client documents, copy-paste flows all use
+   * different Content-Type values), so we ignore them entirely and
+   * trust the bytes.
+   *
+   * Failures here are scoped to the conversation — we reply to the user
+   * with a localized message and log the cause for the operator. Never
+   * throws back into the grammY handler dispatcher.
+   */
+  private async uploadFromTelegram(
+    ctx: Context,
+    args: {
+      fileId: string;
+      fileSize: number | undefined;
+      fileName: string | undefined;
+    },
+  ): Promise<void> {
+    const tgUser = ctx.from;
+    if (!tgUser) return;
+    const locale = await this.resolveLocale(tgUser.id);
+    const link = await this.links.findByTelegramUserId(String(tgUser.id));
+    const botName = this.botUsername ?? "vidsandgifsbot";
+    if (!link) {
+      await ctx.reply(t(locale, "upload.notLinked", { bot: botName }));
+      return;
+    }
+    if ((args.fileSize ?? 0) > MAX_TELEGRAM_FILE_BYTES) {
+      await ctx.reply(t(locale, "upload.tooBig"));
+      return;
+    }
+
+    try {
+      const file = await ctx.api.getFile(args.fileId);
+      if (!file.file_path) {
+        throw new Error("Telegram getFile returned no file_path");
+      }
+      const downloadUrl = `https://api.telegram.org/file/bot${this.bot!.token}/${file.file_path}`;
+      const response = await fetch(downloadUrl);
+      if (!response.ok) {
+        throw new Error(`download failed: ${response.status}`);
+      }
+      const downloaded = Buffer.from(await response.arrayBuffer());
+
+      // Byte-sniff first 16 bytes to decide between "store as-is" (real
+      // GIF) and "transcode" (any video container). Mime types from
+      // Telegram are unreliable, so the bytes are the source of truth.
+      // Explicit Buffer type — TS 5.7+ tightened Buffer's generic to
+      // <ArrayBuffer> while transcoder.compressGifToSd's return is
+      // <ArrayBufferLike>; without the annotation the inferred init
+      // type from `downloaded` won't accept the transcoded reassignment.
+      const head16 = downloaded.subarray(0, 16);
+      let gifBuffer: Buffer = downloaded;
+      let kind: "gif" | "video" | "unknown";
+      if (looksLikeGif(head16)) {
+        kind = "gif";
+      } else if (looksLikeVideo(head16)) {
+        kind = "video";
+        try {
+          gifBuffer = await this.transcoder.compressGifToSd(downloaded);
+        } catch (err) {
+          this.logger.warn(
+            `telegram.upload video→gif failed userId=${link.userId}: ${(err as Error).message}`,
+          );
+          await ctx.reply(
+            t(locale, "upload.failed", {
+              message: t(locale, "upload.convertFailed"),
+            }),
+          );
+          return;
+        }
+      } else {
+        kind = "unknown";
+        this.logger.warn(
+          `telegram.upload rejected unknown bytes userId=${link.userId} firstByte=0x${head16[0]?.toString(16) ?? "??"}`,
+        );
+        await ctx.reply(t(locale, "upload.notGif"));
+        return;
+      }
+
+      const account = await this.users.findById(link.userId);
+      if (!account) {
+        await ctx.reply(t(locale, "upload.linkedAccountGone"));
+        return;
+      }
+
+      const title =
+        (ctx.message?.caption ?? args.fileName ?? "Untitled GIF")
+          .replace(/\.(gif|mp4)$/i, "")
+          .slice(0, 200) || "Untitled GIF";
+
+      const gif = await this.gifs.createFromBuffer({
+        ownerId: account.id,
+        ownerStatus: account.status,
+        ownerApproved: account.role === "admin" || account.approved,
+        title,
+        buffer: gifBuffer,
+      });
+      const webOrigin =
+        this.config.get<string>("WEB_ORIGIN") ?? "https://vidsandgifs.xyz";
+      this.logger.log(
+        `telegram.upload ok kind=${kind} userId=${link.userId} gifId=${gif.id} downloaded=${downloaded.length} stored=${gifBuffer.length}`,
+      );
+      await ctx.reply(
+        t(locale, "upload.success", {
+          title,
+          url: `${webOrigin}/gifs/${gif.id}`,
+        }),
+        { link_preview_options: { is_disabled: false } },
+      );
+    } catch (err) {
+      this.logger.warn(
+        `telegram.upload failed userId=${link.userId}: ${(err as Error).message}`,
+      );
+      await ctx.reply(
+        t(locale, "upload.failed", {
+          message: (err as Error).message ?? "unknown error",
+        }),
+      );
+    }
   }
 }

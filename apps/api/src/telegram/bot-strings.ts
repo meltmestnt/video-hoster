@@ -43,7 +43,7 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
     "upload.notLinked":
       "Спочатку підʼєднайте акаунт vids&gifs. Відкрийте vidsandgifs.xyz/settings, натисніть «Підʼєднати Telegram» і поверніться сюди до @{bot}.",
     "upload.notGif":
-      "Поки що підтримуються лише .gif файли. Надішліть GIF як Файл (Документ), а не як Анімацію.",
+      "Це не схоже на GIF. Надішліть .gif як Файл (Документ) або як Анімацію — обидва варіанти працюють.",
     "upload.tooBig":
       "Цей GIF більше 20 МБ — занадто великий, щоб завантажити.",
     "upload.linkedAccountGone":
@@ -51,8 +51,10 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
     "upload.success":
       'Завантажено як «{title}».\n{url}',
     "upload.failed": "Не вдалося завантажити: {message}",
+    "upload.convertFailed":
+      "не вдалося перекодувати анімацію в GIF",
     "animation.hint":
-      'Це надійшло як Анімація. Щоб завантажити, надішліть GIF як Файл (Документ) — натисніть та утримуйте GIF у Telegram і виберіть «Надіслати як файл».',
+      "Анімацію прийнято — конвертую у GIF і завантажую…",
     "lang.choose": "Оберіть мову.",
     "lang.set": "Мову оновлено.",
     "lang.button.uk": "🇺🇦 Українська",
@@ -96,14 +98,15 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
     "upload.notLinked":
       'You need to link your vids&gifs account first. Open vidsandgifs.xyz/settings, click "Connect Telegram", and follow the link back to @{bot}.',
     "upload.notGif":
-      "Only .gif files are supported right now. Send the GIF as a File (Document), not as Animation.",
+      "That doesn't look like a GIF. Send a .gif file (Document) or an Animation — both work.",
     "upload.tooBig": "That GIF is over 20 MB — too big to upload.",
     "upload.linkedAccountGone":
       "Your linked account doesn't exist anymore. Run /unlink and re-link from the website.",
     "upload.success": 'Uploaded as "{title}".\n{url}',
     "upload.failed": "Upload failed: {message}",
+    "upload.convertFailed": "couldn't transcode the animation to GIF",
     "animation.hint":
-      'That came through as an Animation. To upload, please send the GIF as a File (Document) — long-press the GIF in Telegram and pick "Send as File".',
+      "Animation received — converting to GIF and uploading…",
     "lang.choose": "Choose your language.",
     "lang.set": "Language updated.",
     "lang.button.uk": "🇺🇦 Українська",

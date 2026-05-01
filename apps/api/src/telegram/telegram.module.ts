@@ -8,6 +8,7 @@ import { TelegramService } from "./telegram.service";
 import { GifsModule } from "../gifs/gifs.module";
 import { MediaModule } from "../media/media.module";
 import { S3Module } from "../s3/s3.module";
+import { TranscoderModule } from "../transcoder/transcoder.module";
 import { UsersModule } from "../users/users.module";
 
 @Module({
@@ -16,6 +17,7 @@ import { UsersModule } from "../users/users.module";
     GifsModule,
     MediaModule,
     S3Module,
+    TranscoderModule,
     UsersModule,
   ],
   providers: [TelegramLinkService, TelegramPrefService, TelegramService],

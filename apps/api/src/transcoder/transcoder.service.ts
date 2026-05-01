@@ -92,7 +92,12 @@ export class TranscoderService {
       throw new Error("ffmpeg binary unavailable");
     }
     const workDir = await mkdtemp(join(tmpdir(), "gif-compress-"));
-    const inputPath = join(workDir, "input.gif");
+    // No extension on the input path — ffmpeg auto-detects from magic
+    // bytes, which lets the same pipeline accept either a GIF *or* an
+    // MP4. Telegram silently converts user-sent GIFs to MP4 (it stores
+    // animations as MP4 internally), so the bot's animation handler
+    // pipes the downloaded MP4 straight in here and gets a GIF out.
+    const inputPath = join(workDir, "input");
     const outputPath = join(workDir, "output.gif");
     try {
       if (typeof input === "string") {

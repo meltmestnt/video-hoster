@@ -167,6 +167,7 @@ export const uk: EnDict = {
   "user.profile.telegram.connectedAs": "Підʼєднано як {handle}.",
   "user.profile.telegram.connect": "Підʼєднати",
   "user.profile.telegram.connecting": "Відкриваємо…",
+  "user.profile.telegram.refresh": "Оновити статус",
   "user.profile.telegram.unlink": "Відʼєднати",
   "user.profile.telegram.unlinking": "Відʼєднуємо…",
 

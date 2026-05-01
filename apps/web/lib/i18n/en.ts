@@ -165,6 +165,7 @@ export const en = {
   "user.profile.telegram.connectedAs": "Connected as {handle}.",
   "user.profile.telegram.connect": "Connect",
   "user.profile.telegram.connecting": "Opening…",
+  "user.profile.telegram.refresh": "Check status",
   "user.profile.telegram.unlink": "Unlink",
   "user.profile.telegram.unlinking": "Unlinking…",
 

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Box, Button, Flex, Text } from "@radix-ui/themes";
+import { useEffect, useState } from "react";
+import { Box, Button, Flex, IconButton, Text, Tooltip } from "@radix-ui/themes";
+import { ReloadIcon } from "@radix-ui/react-icons";
 import { trpc } from "@/lib/trpc";
 import { useT } from "@/lib/i18n";
 
@@ -26,6 +27,21 @@ export function TelegramConnectRow() {
     refetchInterval: (query) =>
       query.state.data?.linked ? false : 5000,
   });
+
+  // TanStack's refetchOnWindowFocus only fires on the focus event, which
+  // some browsers (especially mobile Safari and PWA contexts) don't emit
+  // when switching apps. visibilitychange is the more universal signal
+  // for "user came back to this page" and is what we actually want here.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void utils.telegram.status.invalidate();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [utils]);
   const startLink = trpc.telegram.startLink.useMutation();
   const unlink = trpc.telegram.unlink.useMutation({
     onSuccess: () => utils.telegram.status.invalidate(),
@@ -103,17 +119,42 @@ export function TelegramConnectRow() {
             : t("user.profile.telegram.unlink")}
         </Button>
       ) : (
-        <Button
-          size="1"
-          variant="soft"
-          color="iris"
-          onClick={onConnect}
-          disabled={startLink.isPending}
-        >
-          {startLink.isPending
-            ? t("user.profile.telegram.connecting")
-            : t("user.profile.telegram.connect")}
-        </Button>
+        <Flex gap="1" align="center">
+          {/* Manual re-check escape hatch for users who got past the
+              Telegram /start flow but the polling somehow missed the
+              update (mobile background-tab throttling, slow network on
+              the bot's API call, etc.). Forces a fresh status query
+              right now. */}
+          <Tooltip content={t("user.profile.telegram.refresh")}>
+            <IconButton
+              size="1"
+              variant="soft"
+              color="gray"
+              onClick={() => void utils.telegram.status.invalidate()}
+              disabled={status.isFetching}
+              aria-label={t("user.profile.telegram.refresh")}
+            >
+              <ReloadIcon
+                style={
+                  status.isFetching
+                    ? { animation: "spin 700ms linear infinite" }
+                    : undefined
+                }
+              />
+            </IconButton>
+          </Tooltip>
+          <Button
+            size="1"
+            variant="soft"
+            color="iris"
+            onClick={onConnect}
+            disabled={startLink.isPending}
+          >
+            {startLink.isPending
+              ? t("user.profile.telegram.connecting")
+              : t("user.profile.telegram.connect")}
+          </Button>
+        </Flex>
       )}
     </Flex>
   );

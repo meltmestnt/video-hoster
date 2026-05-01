@@ -453,6 +453,14 @@ button:disabled,
   }
 }
 
+/* Generic spinner — used by inline refresh-status icons (Telegram link
+ * row in /settings, etc.) that briefly rotate while a query is fetching. */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @keyframes introFadeUp {
   from {
     opacity: 0;
