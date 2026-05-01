@@ -577,7 +577,11 @@ export class GifsService {
           thumbnailUrl: url,
           likeCount: c.likes,
           dislikeCount: c.dislikes,
-          viewCount: g.viewCount,
+          // Floor with reactions — every reactor saw it, so views can
+          // never legitimately be lower. Catches old rows that predate
+          // the viewCount column and reload-loops blocked by the
+          // per-session client-side dedupe. Raw column stays in the DB.
+          viewCount: Math.max(g.viewCount ?? 0, c.likes + c.dislikes),
           viewerReaction: viewerReactions.get(g.id) ?? null,
         };
       }),

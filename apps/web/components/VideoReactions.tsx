@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button, Flex } from "@radix-ui/themes";
 import { trpc } from "@/lib/trpc";
 import { useEnsureVerified } from "@/lib/verify-action";
+import { ReactorsHoverCard } from "./ReactorsHoverCard";
 
 interface Props {
   videoId: string;
@@ -74,26 +75,40 @@ export function VideoReactions({
 
   return (
     <Flex gap="2" align="center">
-      <Button
-        size="2"
-        variant={reaction === "like" ? "solid" : "soft"}
-        color={reaction === "like" ? "iris" : "gray"}
-        onClick={() => click("like")}
-        disabled={react.isPending}
-        aria-pressed={reaction === "like"}
+      <ReactorsHoverCard
+        kind="video"
+        targetId={videoId}
+        type="like"
+        count={likes}
       >
-        👍 {likes}
-      </Button>
-      <Button
-        size="2"
-        variant={reaction === "dislike" ? "solid" : "soft"}
-        color={reaction === "dislike" ? "red" : "gray"}
-        onClick={() => click("dislike")}
-        disabled={react.isPending}
-        aria-pressed={reaction === "dislike"}
+        <Button
+          size="2"
+          variant={reaction === "like" ? "solid" : "soft"}
+          color={reaction === "like" ? "iris" : "gray"}
+          onClick={() => click("like")}
+          disabled={react.isPending}
+          aria-pressed={reaction === "like"}
+        >
+          👍 {likes}
+        </Button>
+      </ReactorsHoverCard>
+      <ReactorsHoverCard
+        kind="video"
+        targetId={videoId}
+        type="dislike"
+        count={dislikes}
       >
-        👎 {dislikes}
-      </Button>
+        <Button
+          size="2"
+          variant={reaction === "dislike" ? "solid" : "soft"}
+          color={reaction === "dislike" ? "red" : "gray"}
+          onClick={() => click("dislike")}
+          disabled={react.isPending}
+          aria-pressed={reaction === "dislike"}
+        >
+          👎 {dislikes}
+        </Button>
+      </ReactorsHoverCard>
     </Flex>
   );
 }

@@ -158,6 +158,7 @@ export const en = {
     "Send a notification to your subscribers when you publish a new video or GIF.",
   "user.profile.notifySubs.toggleAria":
     "Toggle subscriber notifications on upload",
+  "user.profile.viewProfile": "View my profile",
   "user.profile.favorites": "Favorites",
   "user.profile.subscriptions": "Subscriptions",
   "user.profile.signOut": "Sign out",
@@ -553,6 +554,14 @@ export const en = {
   "profile.empty.videos": "No public videos yet.",
   "profile.empty.gifs": "No public GIFs yet.",
   "profile.empty.screenshots": "No public screenshots yet.",
+
+  // ─── Reactors hover card ───
+  "reactors.likedBy": "Liked by",
+  "reactors.dislikedBy": "Disliked by",
+  "reactors.empty.like": "No likes yet — be the first.",
+  "reactors.empty.dislike": "No dislikes yet.",
+  "reactors.more": "+{n} more",
+  "reactors.loading": "Loading…",
 
   // ─── View counts ───
   "views.count": "{n} views",

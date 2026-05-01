@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  OnModuleInit,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -47,7 +48,7 @@ export type SignUpResult =
     };
 
 @Injectable()
-export class UsersService {
+export class UsersService implements OnModuleInit {
   private readonly logger = new Logger(UsersService.name);
 
   constructor(
@@ -57,6 +58,53 @@ export class UsersService {
     private readonly s3: S3Service,
     private readonly media: MediaService,
   ) {}
+
+  /**
+   * One-shot backfill on app startup. ensureUsername is idempotent and
+   * only writes the column when it's currently NULL, so this is a safe
+   * no-op once everyone has a slug. Logs the count so a deploy that
+   * adds the column for the first time leaves a paper trail. Without
+   * this, owner.username stays null for any user who hasn't re-auth'd
+   * since the column was added — and every video/gif/screenshot in their
+   * collection renders a non-clickable name.
+   */
+  async onModuleInit() {
+    try {
+      const orphans = await this.users.find({
+        where: { username: IsNull() },
+        select: ["id", "name", "email"],
+        take: 5000,
+      });
+      if (orphans.length === 0) return;
+      this.logger.log(
+        `users.backfillUsernames found ${orphans.length} users without a username — backfilling`,
+      );
+      let ok = 0;
+      for (const partial of orphans) {
+        const full = await this.users.findOne({ where: { id: partial.id } });
+        if (!full) continue;
+        try {
+          await this.ensureUsername(full);
+          ok++;
+        } catch (err) {
+          this.logger.warn(
+            `users.backfillUsernames failed for ${partial.id}: ${(err as Error).message}`,
+          );
+        }
+      }
+      this.logger.log(
+        `users.backfillUsernames done filled=${ok}/${orphans.length}`,
+      );
+    } catch (err) {
+      // Backfill is best-effort. A DB error here shouldn't keep the
+      // module from booting — every login path also calls ensureUsername
+      // lazily, so the column will fill in over time even if startup
+      // backfill fails.
+      this.logger.warn(
+        `users.backfillUsernames failed: ${(err as Error).message}`,
+      );
+    }
+  }
 
   async resolveAvatarUrl(user: User): Promise<string | null> {
     if (user.avatarS3Key) {
@@ -166,6 +214,10 @@ export class UsersService {
         dirty = true;
       }
       if (dirty) await this.users.save(existing);
+      // Lazy-fill the URL slug for users who signed up before the column
+      // existed. Idempotent — no-op if already set.
+      await this.ensureUsername(existing);
+      await this.syncRoleFromEnv(existing);
       return existing;
     }
 
@@ -190,7 +242,10 @@ export class UsersService {
       status: "verified",
     });
     try {
-      return await this.users.save(created);
+      const saved = await this.users.save(created);
+      await this.ensureUsername(saved);
+      await this.syncRoleFromEnv(saved);
+      return saved;
     } catch (err) {
       // Race: a concurrent OAuth callback for the same user just inserted.
       // The unique index on email/googleId throws a 23505 unique_violation;
@@ -200,7 +255,10 @@ export class UsersService {
         const winner = await this.users.findOne({
           where: { googleId: payload.sub },
         });
-        if (winner) return winner;
+        if (winner) {
+          await this.ensureUsername(winner);
+          return winner;
+        }
       }
       throw err;
     }
@@ -628,6 +686,10 @@ export class UsersService {
       confirmationTokenExpiresAt: expiresAt,
     });
     await this.users.save(user);
+    // Generate the URL-safe handle now so a brand-new user already has
+    // a /@profile reachable (their own page would be empty but at least
+    // the link works from any other user's content they appear on).
+    await this.ensureUsername(user);
 
     this.logger.log(
       `users.signUp ok email=${email} userId=${user.id} mailSent=${mailSent}`,

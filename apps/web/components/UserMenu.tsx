@@ -17,7 +17,7 @@ import { signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { StarIcon } from "@radix-ui/react-icons";
+import { PersonIcon, StarIcon } from "@radix-ui/react-icons";
 import { trpc } from "@/lib/trpc";
 import { useLocale, useSetLocale, useT } from "@/lib/i18n";
 import { usePushSubscription } from "@/lib/push";
@@ -411,6 +411,16 @@ function ProfilePane({
         }}
       />
       <Flex direction="column" gap="2">
+        {/* Quick path to your own /@username page so you can see what
+            other people see. Only shows once auth.me has resolved and we
+            actually have a username slug — otherwise the link would 404. */}
+        {me.data?.username && (
+          <Button asChild variant="soft" color="iris">
+            <Link href={`/@${me.data.username}`}>
+              <PersonIcon /> {t("user.profile.viewProfile")}
+            </Link>
+          </Button>
+        )}
         <Button asChild variant="soft" color="amber">
           <Link href="/favorites">
             <StarIcon /> {t("user.profile.favorites")}

@@ -5,6 +5,7 @@ import { ReactionType, VideoReaction } from "./reaction.entity";
 import { CommentReaction } from "./comment-reaction.entity";
 import { GifReaction } from "./gif-reaction.entity";
 import { NotificationsService } from "../notifications/notifications.service";
+import { MediaService } from "../media/media.service";
 
 export interface VideoReactionCounts {
   likes: number;
@@ -23,7 +24,66 @@ export class ReactionsService {
     @InjectRepository(GifReaction)
     private readonly gifReactions: Repository<GifReaction>,
     private readonly notifications: NotificationsService,
+    private readonly media: MediaService,
   ) {}
+
+  /**
+   * Newest-first list of users who reacted with a given type to a video or
+   * gif. Used by the hover card on the like/dislike buttons. Caps the
+   * result so a 100k-like row doesn't ship a megabyte of avatars to a
+   * mouse hover — the bell UI shows up to `limit` and the remainder is
+   * exposed via the count alone.
+   */
+  async listReactors(args: {
+    kind: "video" | "gif";
+    targetId: string;
+    type: ReactionType;
+    limit: number;
+  }): Promise<{
+    items: Array<{
+      id: string;
+      name: string;
+      username: string | null;
+      avatarUrl: string | null;
+    }>;
+    total: number;
+  }> {
+    const repo =
+      args.kind === "video" ? this.reactions : this.gifReactions;
+    const fkColumn = args.kind === "video" ? "videoId" : "gifId";
+    const total = await repo
+      .createQueryBuilder("r")
+      .where(`r.${fkColumn} = :id`, { id: args.targetId })
+      .andWhere("r.type = :t", { t: args.type })
+      .getCount();
+    if (total === 0) return { items: [], total: 0 };
+
+    const rows = await repo
+      .createQueryBuilder("r")
+      .leftJoinAndSelect("r.user", "user")
+      .where(`r.${fkColumn} = :id`, { id: args.targetId })
+      .andWhere("r.type = :t", { t: args.type })
+      .orderBy("r.createdAt", "DESC")
+      .take(args.limit)
+      .getMany();
+
+    const items = await Promise.all(
+      rows.map(async (r) => {
+        const u = r.user;
+        const avatarUrl = u.avatarS3Key
+          ? await this.media.signUrl({ kind: "avatar", id: u.id })
+          : (u.avatarUrl ?? null);
+        return {
+          id: u.id,
+          name: u.name,
+          username: u.username ?? null,
+          avatarUrl,
+        };
+      }),
+    );
+
+    return { items, total };
+  }
 
   async setReaction(videoId: string, userId: string, type: ReactionType) {
     const existing = await this.reactions.findOne({

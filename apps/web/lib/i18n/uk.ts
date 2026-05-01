@@ -160,6 +160,7 @@ export const uk: EnDict = {
     "Надсилати сповіщення підписникам, коли ви публікуєте нове відео чи GIF.",
   "user.profile.notifySubs.toggleAria":
     "Перемкнути сповіщення підписників про завантаження",
+  "user.profile.viewProfile": "Мій профіль",
   "user.profile.favorites": "Обране",
   "user.profile.subscriptions": "Підписки",
   "user.profile.signOut": "Вийти",
@@ -568,6 +569,14 @@ export const uk: EnDict = {
   "profile.empty.videos": "Ще немає публічних відео.",
   "profile.empty.gifs": "Ще немає публічних GIF.",
   "profile.empty.screenshots": "Ще немає публічних скріншотів.",
+
+  // ─── Hover-картка реакцій ───
+  "reactors.likedBy": "Сподобалось",
+  "reactors.dislikedBy": "Не сподобалось",
+  "reactors.empty.like": "Ще немає лайків — будьте першим.",
+  "reactors.empty.dislike": "Ще немає дизлайків.",
+  "reactors.more": "+ще {n}",
+  "reactors.loading": "Завантаження…",
 
   // ─── Перегляди ───
   "views.count": "{n} переглядів",

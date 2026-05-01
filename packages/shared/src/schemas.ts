@@ -376,6 +376,23 @@ export const listByOwnerInputSchema = z.object({
 });
 export type ListByOwnerInput = z.infer<typeof listByOwnerInputSchema>;
 
+// Hover-card listing of who reacted with a given type to a video/gif.
+// Capped at 30 — anything past that is summarized as "+N more" by the
+// client; there's no pagination beyond the first page because the use
+// case is a quick on-hover preview, not a full audience browser.
+export const reactorsInputSchema = z.object({
+  type: z.enum(["like", "dislike"]),
+  limit: z.number().int().min(1).max(30).default(12),
+});
+export const videoReactorsInputSchema = reactorsInputSchema.extend({
+  videoId: z.string().uuid(),
+});
+export type VideoReactorsInput = z.infer<typeof videoReactorsInputSchema>;
+export const gifReactorsInputSchema = reactorsInputSchema.extend({
+  gifId: z.string().uuid(),
+});
+export type GifReactorsInput = z.infer<typeof gifReactorsInputSchema>;
+
 // ─── Audio templates ───
 export const createAudioUploadInputSchema = z.object({
   title: z.string().trim().min(1).max(120),

@@ -853,7 +853,14 @@ export class VideosService {
           videoUrl,
           likeCount: c.likes,
           dislikeCount: c.dislikes,
-          viewCount: v.viewCount,
+          // Display floor: anyone who reacted obviously also viewed, so
+          // `views >= likes + dislikes` is a logical invariant. Cheap fix
+          // for two cases: rows that predate the viewCount column (still
+          // 0 in the DB but with old reactions) and rows where a quick
+          // reload sat behind the per-session sessionStorage guard so
+          // the increment never fired. Raw viewCount stays in the DB —
+          // only the surfaced number is floored.
+          viewCount: Math.max(v.viewCount ?? 0, c.likes + c.dislikes),
           viewerReaction: viewerReactions.get(v.id) ?? null,
           viewerFavorited: favoritedSet.has(v.id),
           mainAudioMuted: v.mainAudioMuted,

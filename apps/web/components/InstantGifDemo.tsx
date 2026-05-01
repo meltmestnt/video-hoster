@@ -174,6 +174,11 @@ export function InstantGifDemo({ signedIn }: Props) {
 
   return (
     <Box
+      // intro-card brings back the conic-gradient crimson highlight that
+      // travels around the perimeter — same effect that lived on the old
+      // marketing hero. Defined globally in globals.css and respects
+      // prefers-reduced-motion.
+      className="intro-card"
       style={{
         position: "relative",
         overflow: "hidden",

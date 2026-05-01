@@ -52,6 +52,8 @@ import {
   pushUnsubscribeInputSchema,
   usernameInputSchema,
   listByOwnerInputSchema,
+  videoReactorsInputSchema,
+  gifReactorsInputSchema,
 } from "@repo/shared";
 import {
   router,
@@ -75,6 +77,11 @@ export const appRouter = router({
         id: ctx.user.id,
         email: ctx.user.email,
         name: ctx.user.name,
+        // The URL-safe handle for /@profile. ensureUsername runs on every
+        // auth context, so this is populated for any user that has hit
+        // the API since the column was added — onModuleInit also
+        // backfills the rest at startup.
+        username: ctx.user.username ?? null,
         avatarUrl,
         status: ctx.user.status,
         role: ctx.user.role,
@@ -215,6 +222,28 @@ export const appRouter = router({
       .input(videoIdInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.videos.incrementView(input.id),
+      ),
+
+    // Hover-card list of who liked / disliked. Public — anonymous
+    // browsers see avatars and names too. Rate-limited generously
+    // since the popover lazy-loads on every hover.
+    reactors: publicProcedure
+      .use(
+        rateLimit({
+          name: "videos.reactors",
+          keyBy: "ip",
+          max: 120,
+          windowMs: MIN,
+        }),
+      )
+      .input(videoReactorsInputSchema)
+      .query(({ ctx, input }) =>
+        ctx.services.reactions.listReactors({
+          kind: "video",
+          targetId: input.videoId,
+          type: input.type,
+          limit: input.limit,
+        }),
       ),
 
     uploadQuota: protectedProcedure.query(({ ctx }) =>
@@ -420,6 +449,25 @@ export const appRouter = router({
       .input(gifIdInputSchema)
       .mutation(({ ctx, input }) =>
         ctx.services.gifs.incrementView(input.id),
+      ),
+
+    reactors: publicProcedure
+      .use(
+        rateLimit({
+          name: "gifs.reactors",
+          keyBy: "ip",
+          max: 120,
+          windowMs: MIN,
+        }),
+      )
+      .input(gifReactorsInputSchema)
+      .query(({ ctx, input }) =>
+        ctx.services.reactions.listReactors({
+          kind: "gif",
+          targetId: input.gifId,
+          type: input.type,
+          limit: input.limit,
+        }),
       ),
   }),
 
