@@ -7,6 +7,7 @@ import { S3Module } from "../s3/s3.module";
 import { ReactionsModule } from "../reactions/reactions.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { MediaModule } from "../media/media.module";
+import { TranscoderModule } from "../transcoder/transcoder.module";
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { MediaModule } from "../media/media.module";
     ReactionsModule,
     NotificationsModule,
     MediaModule,
+    TranscoderModule,
   ],
   providers: [GifsService],
   exports: [GifsService],

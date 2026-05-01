@@ -25,6 +25,7 @@ import { ReactionsService } from "../reactions/reactions.service";
 import type { ReactionType } from "../reactions/reaction.entity";
 import { NotificationsService } from "../notifications/notifications.service";
 import { MediaService } from "../media/media.service";
+import { TranscoderService } from "../transcoder/transcoder.service";
 import { looksLikeGif } from "../s3/file-signatures";
 
 
@@ -63,7 +64,15 @@ export class GifsService {
     private readonly reactionsService: ReactionsService,
     private readonly notificationsService: NotificationsService,
     private readonly media: MediaService,
+    private readonly transcoder: TranscoderService,
   ) {}
+
+  // In-process dedupe so two near-simultaneous inline queries for the
+  // same un-backfilled GIF don't both kick off the ffmpeg job. Survives
+  // only the lifetime of one Nest process — that's fine: in the worst
+  // case two replicas race and the second upload wins; both end with a
+  // valid mp4 in S3.
+  private readonly mp4InFlight = new Set<string>();
 
   async createUpload(args: CreateUploadArgs) {
     if (args.sizeBytes > MAX_GIF_BYTES) {
@@ -180,11 +189,48 @@ export class GifsService {
         "Uploaded file does not look like a real GIF",
       );
     }
-    gif.sizeBytes = head.size;
+
+    // Re-encode every uploaded GIF to SD via the transcoder's two-pass
+    // palette pipeline (≤ 480px wide, 15 fps). Replace the S3 object in
+    // place when the result is smaller; if compression makes the file
+    // bigger (rare, mostly for already-tiny GIFs) we keep the original.
+    // Failures are non-fatal — the GIF stays usable as uploaded.
+    let finalSize = head.size;
+    try {
+      const compressed = await this.transcoder.compressGifToSd(gif.s3Key);
+      if (compressed.length > 0 && compressed.length < head.size) {
+        await this.s3.uploadBuffer(gif.s3Key, compressed, "image/gif");
+        finalSize = compressed.length;
+        this.logger.log(
+          `gifs.finalizeUpload compressed gifId=${gif.id} ${head.size}→${compressed.length} bytes (${Math.round(
+            (1 - compressed.length / head.size) * 100,
+          )}% saved)`,
+        );
+      } else {
+        this.logger.log(
+          `gifs.finalizeUpload skipped compression gifId=${gif.id} original=${head.size} compressed=${compressed.length}`,
+        );
+      }
+    } catch (err) {
+      this.logger.warn(
+        `gifs.finalizeUpload compression failed gifId=${gif.id}: ${(err as Error).message}; keeping original`,
+      );
+    }
+
+    gif.sizeBytes = finalSize;
     gif.status = "ready";
     await this.gifs.save(gif);
     this.logger.log(
       `gifs.finalizeUpload ok ownerId=${gif.ownerId} gifId=${gif.id} size=${gif.sizeBytes}`,
+    );
+    // Fire-and-forget MP4 transcode for the Telegram inline-query path.
+    // We don't block finalize on it: the GIF is already usable on the
+    // website, and the inline handler retries on demand for rows where
+    // the mp4 isn't there yet.
+    void this.ensureMp4(gif.id).catch((err) =>
+      this.logger.warn(
+        `gifs.ensureMp4 failed gifId=${gif.id}: ${(err as Error).message}`,
+      ),
     );
     if (gif.visibility === "public") {
       await this.notificationsService
@@ -243,13 +289,29 @@ export class GifsService {
       }
     }
 
+    // Compress the Telegram-supplied buffer to SD before storage —
+    // mirrors the website upload path. Failures fall back to the
+    // original buffer; we'd rather host a slightly larger file than
+    // reject a Telegram upload over an ffmpeg blip.
+    let storedBuffer = args.buffer;
+    try {
+      const compressed = await this.transcoder.compressGifToSd(args.buffer);
+      if (compressed.length > 0 && compressed.length < args.buffer.length) {
+        storedBuffer = compressed;
+      }
+    } catch (err) {
+      this.logger.warn(
+        `gifs.createFromBuffer compression failed: ${(err as Error).message}; keeping original`,
+      );
+    }
+
     const slug = slugify(args.title);
     const draft = this.gifs.create({
       ownerId: args.ownerId,
       title: args.title,
       description: "",
       s3Key: "",
-      sizeBytes: args.buffer.length,
+      sizeBytes: storedBuffer.length,
       // Telegram doesn't tell us the duration of a GIF document. We don't
       // use it for any quota — leaving 0 is safe and lets the row pass the
       // not-null constraint.
@@ -263,12 +325,17 @@ export class GifsService {
     });
     const saved = await this.gifs.save(draft);
     const s3Key = `gifs/${saved.id}/${slug}.gif`;
-    await this.s3.uploadBuffer(s3Key, args.buffer, "image/gif");
+    await this.s3.uploadBuffer(s3Key, storedBuffer, "image/gif");
     saved.s3Key = s3Key;
     saved.status = "ready";
     await this.gifs.save(saved);
     this.logger.log(
       `gifs.createFromBuffer ok ownerId=${args.ownerId} gifId=${saved.id} size=${args.buffer.length} source=telegram`,
+    );
+    void this.ensureMp4(saved.id).catch((err) =>
+      this.logger.warn(
+        `gifs.ensureMp4 failed gifId=${saved.id}: ${(err as Error).message}`,
+      ),
     );
     this.notificationsService
       .onGifUploaded(saved.id, saved.ownerId)
@@ -281,6 +348,35 @@ export class GifsService {
   }
 
   /**
+   * Ensure the GIF has an MP4 sibling in S3 + a populated `mp4S3Key`.
+   * Idempotent: returns immediately if the column is already set, and
+   * dedupes concurrent calls for the same id within this process so two
+   * inline queries don't run the same ffmpeg job twice.
+   *
+   * The Telegram inline-query handler relies on this column to render
+   * mpeg4_gif results — InlineQueryResultGif silently drops items > 1MB.
+   */
+  async ensureMp4(gifId: string): Promise<string | null> {
+    if (this.mp4InFlight.has(gifId)) return null;
+    const gif = await this.gifs.findOne({
+      where: { id: gifId },
+      select: ["id", "s3Key", "mp4S3Key", "status"],
+    });
+    if (!gif || gif.status !== "ready" || !gif.s3Key) return null;
+    if (gif.mp4S3Key) return gif.mp4S3Key;
+
+    this.mp4InFlight.add(gifId);
+    try {
+      const result = await this.transcoder.gifToMp4(gif.s3Key);
+      if (!result) return null;
+      await this.gifs.update({ id: gifId }, { mp4S3Key: result.key });
+      return result.key;
+    } finally {
+      this.mp4InFlight.delete(gifId);
+    }
+  }
+
+  /**
    * Lightweight projection used by the Telegram bot's inline-query handler.
    * Public + ready only, optional title/tag substring filter, no extras
    * computed (we don't need likes/views to render the inline gif card).
@@ -288,10 +384,10 @@ export class GifsService {
   async searchInlineForBot(args: {
     q: string;
     limit: number;
-  }): Promise<Array<{ id: string; title: string }>> {
+  }): Promise<Array<{ id: string; title: string; mp4S3Key: string | null }>> {
     const qb = this.gifs
       .createQueryBuilder("g")
-      .select(["g.id", "g.title"])
+      .select(["g.id", "g.title", "g.mp4S3Key"])
       .where("g.status = :s", { s: "ready" })
       .andWhere("g.visibility = :pub", { pub: "public" })
       .orderBy("g.createdAt", "DESC")
@@ -323,6 +419,13 @@ export class GifsService {
       await this.s3.deleteObject(gif.s3Key).catch((err) => {
         this.logger.warn(
           `Failed to delete gif S3 object ${gif.s3Key}: ${(err as Error).message}`,
+        );
+      });
+    }
+    if (gif.mp4S3Key) {
+      await this.s3.deleteObject(gif.mp4S3Key).catch((err) => {
+        this.logger.warn(
+          `Failed to delete gif mp4 ${gif.mp4S3Key}: ${(err as Error).message}`,
         );
       });
     }

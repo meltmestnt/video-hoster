@@ -1,7 +1,7 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
-import { mkdtemp, rm, stat } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import ffmpeg from "fluent-ffmpeg";
@@ -74,6 +74,190 @@ export class TranscoderService {
     } finally {
       await rm(workDir, { recursive: true, force: true }).catch(() => {});
     }
+  }
+
+  /**
+   * Re-encode a GIF to SD (≤ 480px wide) with a 2-pass palette pipeline
+   * — the standard ffmpeg trick for shrinking GIFs without obvious
+   * banding. Caps frame rate to 15 fps too. Returns the compressed
+   * Buffer; the caller decides whether to keep it (we sometimes get
+   * larger output for already-tiny GIFs).
+   *
+   * Idempotent and isolated: runs entirely in a temp dir which gets
+   * removed on every exit path, so a poison input or an OOM can't
+   * leak files into the runner's tmp.
+   */
+  async compressGifToSd(input: Buffer | string): Promise<Buffer> {
+    if (!ffmpegStatic) {
+      throw new Error("ffmpeg binary unavailable");
+    }
+    const workDir = await mkdtemp(join(tmpdir(), "gif-compress-"));
+    const inputPath = join(workDir, "input.gif");
+    const outputPath = join(workDir, "output.gif");
+    try {
+      if (typeof input === "string") {
+        // S3 key — download. Same defensive download dance the video
+        // transcoder uses; ffmpeg over signed URLs is flaky.
+        await this.s3.downloadToFile(input, inputPath);
+      } else {
+        await writeFile(inputPath, input);
+      }
+      await this.runGifFfmpeg(inputPath, outputPath);
+      return await readFile(outputPath);
+    } finally {
+      await rm(workDir, { recursive: true, force: true }).catch(() => {});
+    }
+  }
+
+  private runGifFfmpeg(
+    inputPath: string,
+    outputPath: string,
+  ): Promise<void> {
+    // GIF compression is bounded by file size (we already cap at 20 MB
+    // per upload) and by frame count, but a pathological input could
+    // still blow the cap — kill the job after 2 minutes either way.
+    const TIMEOUT_MS = 2 * 60 * 1000;
+    return new Promise((resolve, reject) => {
+      const cmd = ffmpeg(inputPath)
+        // Two-pass palette pipeline. fps=15 caps frame rate (most GIFs
+        // are 10-30 fps; 15 reads as smooth without being expensive),
+        // scale clamps width to 480 keeping aspect ratio (-2 = round
+        // height to even number, required for some encoders), and the
+        // palette generation + use produces dramatically smaller output
+        // than naive single-pass GIF re-encoding.
+        .complexFilter([
+          "fps=15,scale='min(480,iw)':-2:flags=lanczos,split[s0][s1]",
+          "[s0]palettegen=stats_mode=diff[p]",
+          "[s1][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle",
+        ])
+        .outputOptions(["-loop", "0"])
+        .format("gif");
+      const timer = setTimeout(() => {
+        try {
+          cmd.kill("SIGKILL");
+        } catch {
+          // best-effort kill, the reject below is the contract
+        }
+        reject(
+          new Error(
+            `ffmpeg gif compress timed out after ${TIMEOUT_MS / 1000}s`,
+          ),
+        );
+      }, TIMEOUT_MS);
+      cmd
+        .on("end", () => {
+          clearTimeout(timer);
+          resolve();
+        })
+        .on("error", (err) => {
+          clearTimeout(timer);
+          reject(new Error(`gif compress failed: ${err.message}`));
+        })
+        .save(outputPath);
+    });
+  }
+
+  /**
+   * Transcode a stored GIF to a silent H.264 MP4 next to the source.
+   * The Telegram inline-query handler hands Telegram the resulting URL
+   * as `mpeg4_url` — InlineQueryResultGif silently drops items above
+   * 1 MB while mpeg4_gif accepts much larger files (Telegram stores
+   * "gifs" as MP4 internally anyway).
+   *
+   * Returns null when ffmpeg isn't available so callers can fall back
+   * gracefully (the inline handler will skip rows without an mp4).
+   */
+  async gifToMp4(
+    sourceKey: string,
+    outputKey?: string,
+  ): Promise<TranscodeResult | null> {
+    if (!ffmpegStatic) {
+      this.logger.warn("ffmpeg unavailable; skipping gif → mp4 transcode");
+      return null;
+    }
+
+    const workDir = await mkdtemp(join(tmpdir(), "gif-to-mp4-"));
+    const inputPath = join(workDir, "input.gif");
+    const outputPath = join(workDir, "output.mp4");
+
+    try {
+      await this.s3.downloadToFile(sourceKey, inputPath);
+      await this.runGifToMp4(inputPath, outputPath);
+
+      const outKey = outputKey ?? this.deriveMp4Key(sourceKey);
+      const stats = await stat(outputPath);
+      this.logger.log(
+        `transcoder.gifToMp4 src=${sourceKey} → ${outKey} (${stats.size} bytes)`,
+      );
+      await this.s3.uploadFile(outKey, outputPath, "video/mp4");
+      return { key: outKey, sizeBytes: stats.size, mimeType: "video/mp4" };
+    } finally {
+      await rm(workDir, { recursive: true, force: true }).catch(() => {});
+    }
+  }
+
+  private runGifToMp4(
+    inputPath: string,
+    outputPath: string,
+  ): Promise<void> {
+    // GIFs are bounded to 20 MB and 20 s on upload, so the encode is
+    // always cheap. Two-minute cap mirrors the GIF-compress path; if a
+    // pathological input does manage to hang ffmpeg, we'd rather fail
+    // the job than hold a worker forever.
+    const TIMEOUT_MS = 2 * 60 * 1000;
+    return new Promise((resolve, reject) => {
+      const cmd = ffmpeg(inputPath)
+        .noAudio()
+        .videoCodec("libx264")
+        // H.264 requires even dimensions — round both width and height
+        // down to the nearest even pixel. yuv420p for the same broad
+        // compatibility reason, faststart so the moov atom lands at the
+        // top and Telegram (and browsers) can start playback before the
+        // full file downloads.
+        .outputOptions([
+          "-vf",
+          "scale=trunc(iw/2)*2:trunc(ih/2)*2",
+          "-pix_fmt",
+          "yuv420p",
+          "-movflags",
+          "+faststart",
+          "-preset",
+          "veryfast",
+          "-crf",
+          "26",
+        ])
+        .format("mp4");
+
+      const timer = setTimeout(() => {
+        try {
+          cmd.kill("SIGKILL");
+        } catch {
+          // best-effort kill, reject below is the contract
+        }
+        reject(
+          new Error(
+            `ffmpeg gif→mp4 timed out after ${TIMEOUT_MS / 1000}s`,
+          ),
+        );
+      }, TIMEOUT_MS);
+
+      cmd
+        .on("end", () => {
+          clearTimeout(timer);
+          resolve();
+        })
+        .on("error", (err) => {
+          clearTimeout(timer);
+          reject(new Error(`gif→mp4 failed: ${err.message}`));
+        })
+        .save(outputPath);
+    });
+  }
+
+  private deriveMp4Key(sourceKey: string): string {
+    const lastSlash = sourceKey.lastIndexOf("/");
+    const dir = lastSlash >= 0 ? sourceKey.slice(0, lastSlash) : "";
+    return dir ? `${dir}/animation.mp4` : "animation.mp4";
   }
 
   async compressTo480p(sourceKey: string): Promise<TranscodeResult> {

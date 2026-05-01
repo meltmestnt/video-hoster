@@ -6,7 +6,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Bot, InlineKeyboard } from "grammy";
-import type { InlineQueryResultGif } from "grammy/types";
+import type { InlineQueryResultMpeg4Gif } from "grammy/types";
 import { GifsService } from "../gifs/gifs.service";
 import { MediaService } from "../media/media.service";
 import { S3Service } from "../s3/s3.service";
@@ -18,6 +18,10 @@ import { STRINGS, t } from "./bot-strings";
 
 const INLINE_RESULTS_MAX = 50;
 const INLINE_CACHE_SECONDS = 60;
+// /search renders previews into chat one animation per message — enough
+// to surface the best matches without flooding the conversation. The
+// "see more" link covers the long tail.
+const SEARCH_PREVIEW_LIMIT = 5;
 // Telegram bots can `getFile` payloads up to 20 MiB without resorting to
 // the local Bot API server. Matches our existing GIF size cap.
 const MAX_TELEGRAM_FILE_BYTES = 20 * 1024 * 1024;
@@ -121,6 +125,23 @@ export class TelegramService
     const short = STRINGS.uk["bot.description.short"];
     const longEn = STRINGS.en["bot.description.long"];
     const shortEn = STRINGS.en["bot.description.short"];
+    // Slash-command menu — keeps Telegram's "/" autocomplete in sync
+    // with the handlers registered in registerHandlers(). Order here is
+    // the order shown in the menu.
+    const commandsUk = [
+      { command: "search", description: "Знайти GIF на vids&gifs" },
+      { command: "upload", description: "Завантажити свій GIF" },
+      { command: "help", description: "Як користуватися ботом" },
+      { command: "lang", description: "Змінити мову" },
+      { command: "unlink", description: "Відʼєднати акаунт" },
+    ];
+    const commandsEn = [
+      { command: "search", description: "Search GIFs on vids&gifs" },
+      { command: "upload", description: "Upload your own GIF" },
+      { command: "help", description: "How to use the bot" },
+      { command: "lang", description: "Change language" },
+      { command: "unlink", description: "Detach account" },
+    ];
     await Promise.all([
       // Display name is the same in both locales — it's a brand. The two
       // calls register the same value as both the language-agnostic
@@ -133,6 +154,8 @@ export class TelegramService
       bot.api.setMyDescription(longEn, { language_code: "en" }),
       bot.api.setMyShortDescription(short),
       bot.api.setMyShortDescription(shortEn, { language_code: "en" }),
+      bot.api.setMyCommands(commandsUk),
+      bot.api.setMyCommands(commandsEn, { language_code: "en" }),
     ]);
     this.logger.log(`telegram.applyMetadata ok name="${name}"`);
   }
@@ -190,6 +213,90 @@ export class TelegramService
       await ctx.reply(t(locale, "help", { bot: botName }));
     });
 
+    // ─── /search <query> ───
+    // The same projection inline mode uses, but rendered into chat for
+    // users who'd rather type /search than @-mention the bot. Sends up
+    // to SEARCH_PREVIEW_LIMIT GIFs as animations (Telegram's media-group
+    // API doesn't support type:"animation", so we send them one at a
+    // time) plus a "see more" link to vidsandgifs.xyz/search.
+    bot.command("search", async (ctx) => {
+      const locale = await this.resolveLocale(ctx.from?.id);
+      const webOrigin =
+        this.config.get<string>("WEB_ORIGIN") ?? "https://vidsandgifs.xyz";
+      const q = (ctx.match ?? "").trim();
+      if (!q) {
+        await ctx.reply(t(locale, "search.usage", { webOrigin }));
+        return;
+      }
+      const qEncoded = encodeURIComponent(q);
+      try {
+        const items = await this.gifs.searchInlineForBot({
+          q,
+          limit: SEARCH_PREVIEW_LIMIT,
+        });
+        this.logger.log(
+          `telegram.search from=${ctx.from?.id ?? "?"} q="${q}" matched=${items.length}`,
+        );
+        if (items.length === 0) {
+          await ctx.reply(
+            t(locale, "search.empty", { q, qEncoded, webOrigin }),
+            { link_preview_options: { is_disabled: true } },
+          );
+          return;
+        }
+        // Send each preview separately so they actually animate inline.
+        // Failures on individual items don't abort the loop — partial
+        // results are better than zero.
+        for (const item of items) {
+          const url = await this.media.signUrl({ kind: "gif", id: item.id });
+          if (!url) continue;
+          const itemUrl = `${webOrigin}/gifs/${item.id}`;
+          try {
+            await ctx.replyWithAnimation(url, {
+              caption: t(locale, "search.itemCaption", {
+                title: item.title,
+                url: itemUrl,
+              }),
+            });
+          } catch (err) {
+            this.logger.warn(
+              `telegram.search send failed gifId=${item.id}: ${(err as Error).message}`,
+            );
+          }
+        }
+        await ctx.reply(
+          t(locale, "search.more", { qEncoded, webOrigin }),
+          { link_preview_options: { is_disabled: true } },
+        );
+      } catch (err) {
+        this.logger.warn(
+          `telegram.search failed q="${q}": ${(err as Error).message}`,
+        );
+        await ctx.reply(
+          t(locale, "search.failed", { q, qEncoded, webOrigin }),
+          { link_preview_options: { is_disabled: true } },
+        );
+      }
+    });
+
+    // ─── /upload ───
+    // Standalone how-to. The actual upload flow runs through the
+    // message:document handler below — this command is the discovery
+    // hook and a guided message for users who try /upload first.
+    bot.command("upload", async (ctx) => {
+      const tgId = ctx.from?.id;
+      const locale = await this.resolveLocale(tgId);
+      const webOrigin =
+        this.config.get<string>("WEB_ORIGIN") ?? "https://vidsandgifs.xyz";
+      const link = tgId
+        ? await this.links.findByTelegramUserId(String(tgId))
+        : null;
+      const key = link ? "upload.help.linked" : "upload.help.notLinked";
+      await ctx.reply(t(locale, key, { webOrigin }), {
+        link_preview_options: { is_disabled: true },
+      });
+    });
+
     bot.command("unlink", async (ctx) => {
       const tgId = ctx.from?.id;
       if (!tgId) return;
@@ -240,28 +347,51 @@ export class TelegramService
           q,
           limit: INLINE_RESULTS_MAX,
         });
-        const results: InlineQueryResultGif[] = await Promise.all(
-          items.map(async (g) => {
-            const url = await this.media.signUrl({ kind: "gif", id: g.id });
-            return {
-              type: "gif" as const,
-              id: g.id,
-              gif_url: url ?? "",
-              thumbnail_url: url ?? "",
-              thumbnail_mime_type: "image/gif" as const,
-              title: g.title,
-            };
-          }),
-        );
-        const filtered = results.filter((r) => r.gif_url.length > 0);
+        const results: InlineQueryResultMpeg4Gif[] = [];
+        const pendingBackfill: string[] = [];
+        for (const g of items) {
+          // Telegram silently drops InlineQueryResultGif > 1 MB, so we
+          // hand it the H.264 MP4 transcode as mpeg4_gif (Telegram stores
+          // every "gif" as MP4 internally anyway). Rows without mp4S3Key
+          // are pre-backfill — kick off the transcode in the background
+          // and skip them this time round; the next query will pick
+          // them up once the column is populated.
+          if (!g.mp4S3Key) {
+            pendingBackfill.push(g.id);
+            continue;
+          }
+          const url = await this.media.signUrl({ kind: "mpeg4", id: g.id });
+          if (!url) continue;
+          results.push({
+            type: "mpeg4_gif",
+            id: g.id,
+            mpeg4_url: url,
+            thumbnail_url: url,
+            thumbnail_mime_type: "video/mp4",
+            title: g.title,
+          });
+        }
         // Confirms Telegram is actually forwarding inline queries to us
         // (handler running) and how many results we returned. If you
         // search and don't see this line, inline mode isn't enabled in
         // @BotFather → /setinline.
         this.logger.log(
-          `telegram.inline_query from=${fromId} q="${q}" matched=${items.length} returned=${filtered.length}`,
+          `telegram.inline_query from=${fromId} q="${q}" matched=${items.length} returned=${results.length} backfill=${pendingBackfill.length}`,
         );
-        await ctx.answerInlineQuery(filtered, {
+        // Don't await — ffmpeg can take a couple of seconds per gif and
+        // Telegram only gives us a short window to answer the query.
+        for (const id of pendingBackfill) {
+          void this.gifs.ensureMp4(id).catch((err) =>
+            this.logger.warn(
+              `telegram.inline_query backfill failed gifId=${id}: ${(err as Error).message}`,
+            ),
+          );
+        }
+        await ctx.answerInlineQuery(results, {
+          // Personal cache: results are gated on visibility filters that
+          // could differ per user once we add private-to-followers, and
+          // in the meantime keeps Telegram from caching empty results
+          // across users while backfill is filling in.
           cache_time: INLINE_CACHE_SECONDS,
           is_personal: true,
         });

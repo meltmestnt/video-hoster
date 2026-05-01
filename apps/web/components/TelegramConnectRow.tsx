@@ -14,7 +14,18 @@ import { useT } from "@/lib/i18n";
 export function TelegramConnectRow() {
   const t = useT();
   const utils = trpc.useUtils();
-  const status = trpc.telegram.status.useQuery();
+  // The link gets created in another tab/app (Telegram), so the settings
+  // page needs to actively pick the change up: refetch on focus, refetch
+  // on every mount, and poll while we're still showing "Connect" so the
+  // row flips to "Linked" within seconds of the user finishing the bot
+  // /start step. Once linked we stop polling — the user can still hit
+  // Unlink to clear, which triggers a normal invalidate.
+  const status = trpc.telegram.status.useQuery(undefined, {
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchInterval: (query) =>
+      query.state.data?.linked ? false : 5000,
+  });
   const startLink = trpc.telegram.startLink.useMutation();
   const unlink = trpc.telegram.unlink.useMutation({
     onSuccess: () => utils.telegram.status.invalidate(),
@@ -29,6 +40,10 @@ export function TelegramConnectRow() {
       // the deep-link token to the bot. If Telegram isn't installed the
       // user falls through to the web client at the same URL.
       window.open(url, "_blank", "noopener,noreferrer");
+      // Kick the status query immediately too — if the bot finishes
+      // linking before the next 5s poll tick, the row flips on the
+      // user's next focus return without waiting.
+      void utils.telegram.status.invalidate();
     } catch (err) {
       setError((err as Error).message);
     }

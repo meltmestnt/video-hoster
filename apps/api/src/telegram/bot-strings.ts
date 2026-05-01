@@ -18,7 +18,20 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
     "start.linked":
       "Підʼєднано до {name}. Надішліть мені GIF як файл (Документ, не Анімацію) — і я завантажу його на vids&gifs.",
     help:
-      "Інлайн-пошук: @{bot} <запит> — знайти GIF для будь-якого чату.\nЗавантаження: надішліть мені .gif як файл (Документ) тут після підʼєднання акаунту на vidsandgifs.xyz/settings.\n/lang — змінити мову.\n/unlink — відʼєднати Telegram від акаунту.",
+      "/search <запит> — знайти GIF на vids&gifs прямо тут.\n/upload — як додати власний GIF на сайт.\nІнлайн-пошук: @{bot} <запит> — у будь-якому чаті.\n/lang — змінити мову.\n/unlink — відʼєднати Telegram від акаунту.",
+    "search.usage":
+      "Скористайтеся так: /search кошеня\nАбо повний пошук на сайті: {webOrigin}/search",
+    "search.empty":
+      "Нічого не знайдено за запитом «{q}».\nПовний пошук: {webOrigin}/search?q={qEncoded}",
+    "search.more":
+      "Більше результатів: {webOrigin}/search?q={qEncoded}",
+    "search.itemCaption": "{title}\n{url}",
+    "search.failed":
+      "Пошук не вдався. Спробуйте ще раз або відкрийте {webOrigin}/search?q={qEncoded}",
+    "upload.help.notLinked":
+      "Спочатку підʼєднайте акаунт vids&gifs на {webOrigin}/settings, потім поверніться сюди.",
+    "upload.help.linked":
+      "Надішліть мені .gif як Файл (Документ — натисніть і утримуйте GIF у Telegram → «Надіслати як файл»). До 20 МБ. Підпис до файлу стане заголовком на сайті.",
     "unlink.notLinked":
       "Цей Telegram не підʼєднано до жодного акаунту.",
     "unlink.success":
@@ -55,7 +68,20 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
     "start.linked":
       "Linked to {name}. Send me a GIF file (as a Document, not as Animation) and I'll upload it to vids&gifs.",
     help:
-      "Inline search: @{bot} <query> — find GIFs to send in any chat.\nUpload: send me a .gif file (as Document) in this chat after linking your account at vidsandgifs.xyz/settings.\n/lang — change language.\n/unlink — detach this Telegram from your account.",
+      "/search <query> — find GIFs on vids&gifs right here.\n/upload — how to add your own GIF to the site.\nInline search: @{bot} <query> — works in any chat.\n/lang — change language.\n/unlink — detach this Telegram from your account.",
+    "search.usage":
+      "Try it like: /search kitten\nOr full search on the site: {webOrigin}/search",
+    "search.empty":
+      'No matches for "{q}".\nFull search: {webOrigin}/search?q={qEncoded}',
+    "search.more":
+      "More results: {webOrigin}/search?q={qEncoded}",
+    "search.itemCaption": "{title}\n{url}",
+    "search.failed":
+      "Search failed. Try again or open {webOrigin}/search?q={qEncoded}",
+    "upload.help.notLinked":
+      "Link your vids&gifs account first at {webOrigin}/settings, then come back here.",
+    "upload.help.linked":
+      "Send me a .gif as a File (Document — long-press the GIF in Telegram → \"Send as File\"). Up to 20 MB. Any caption you add becomes the title on the site.",
     "unlink.notLinked": "This Telegram isn't linked to any account.",
     "unlink.success":
       "Unlinked. Inline search still works without an account.",
