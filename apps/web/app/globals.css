@@ -800,14 +800,13 @@ body[data-morphing] .page-header {
 /* ───── lock background scroll while a dialog is open ─────
  * Triggered by the data-scroll-locked="1" attribute that the
  * <ScrollLock> client component sets on <body> whenever any Radix
- * Dialog or AlertDialog is in the open state. Drops the previous
- * :has() rule and the desktop/mobile split — applying the same lock
- * everywhere is more reliable than gating by viewport width and
- * matches the behavior every modal library converges on.
+ * Dialog or AlertDialog is in the open state.
  *
- * <ScrollLock> also sets an inline `top: -<savedScrollY>px` on body,
- * so the fixed position below appears visually in place. On close it
- * restores the saved position via window.scrollTo().
+ * <ScrollLock> also sets matching inline styles for belt-and-suspenders
+ * specificity (Radix Theme's wrapper has higher specificity than this
+ * stylesheet alone could win against), and an inline `top: -<savedY>px`
+ * so the fixed position appears visually in place. On close it restores
+ * the saved position via window.scrollTo().
  */
 html:has(body[data-scroll-locked="1"]) {
   overflow: hidden;
@@ -821,5 +820,33 @@ body[data-scroll-locked="1"] {
   /* Stop touch-scroll bubbling out of the dialog content into the
    * (now-fixed) page underneath. */
   overscroll-behavior: contain;
+}
+
+/* ───── tame Radix Themes' dialog wrapper ─────
+ * @radix-ui/themes wraps every Dialog/AlertDialog body in
+ * .rt-BaseDialogScroll (overflow:auto, inset:0) and pads it via
+ * .rt-BaseDialogScrollPadding. Two side effects we don't want:
+ *
+ *   1. The wrapper scrolls *inside* the viewport even when our body
+ *      is locked, so users still see a scrollbar and can drag the
+ *      popup around its own padding.
+ *   2. The padding (var(--space-6) at top + max(var(--space-6), 6vh)
+ *      at bottom + var(--space-4) on the sides) eats screen real
+ *      estate on phones, leaving a wide gray bar around the popup.
+ *
+ * Strip the padding so the dialog goes edge-to-edge (Radix's own
+ * `maxWidth` prop still constrains how wide it gets), and on
+ * sub-tablet widths drop the wrapper's overflow:auto so the
+ * scrollbar disappears with it. Above 768px we keep auto so an
+ * unusually tall dialog can still scroll when the user opens it on
+ * a short window. */
+.rt-BaseDialogScrollPadding {
+  padding: 0 !important;
+}
+
+@media (max-width: 768px) {
+  .rt-BaseDialogScroll {
+    overflow: hidden !important;
+  }
 }
 

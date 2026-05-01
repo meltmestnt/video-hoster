@@ -27,17 +27,48 @@ export function ScrollLock() {
     let savedScrollY = 0;
     let openCount = 0;
 
+    // Save the original style values so we can restore them on unlock —
+    // important so we don't blow away anything else that was setting them.
+    const original = {
+      htmlOverflow: "",
+      bodyOverflow: "",
+      bodyPosition: "",
+      bodyTop: "",
+      bodyWidth: "",
+      bodyOverscroll: "",
+    };
+
     const lock = () => {
       savedScrollY = window.scrollY;
       document.body.dataset.scrollLocked = "1";
-      // The CSS sets position:fixed on mobile; the inline top compensates
-      // for it so the visible content doesn't jump to the top of the page.
+
+      // Snapshot pre-lock styles.
+      original.htmlOverflow = document.documentElement.style.overflow;
+      original.bodyOverflow = document.body.style.overflow;
+      original.bodyPosition = document.body.style.position;
+      original.bodyTop = document.body.style.top;
+      original.bodyWidth = document.body.style.width;
+      original.bodyOverscroll = document.body.style.overscrollBehavior;
+
+      // Apply via inline styles too — that beats any wrapper element's
+      // own overflow rules on specificity, which the CSS-only version
+      // can lose to (e.g. Radix Theme's root, body's parent containers).
+      document.documentElement.style.overflow = "hidden";
+      document.body.style.overflow = "hidden";
+      document.body.style.position = "fixed";
       document.body.style.top = `-${savedScrollY}px`;
+      document.body.style.width = "100%";
+      document.body.style.overscrollBehavior = "contain";
     };
 
     const unlock = () => {
       delete document.body.dataset.scrollLocked;
-      document.body.style.top = "";
+      document.documentElement.style.overflow = original.htmlOverflow;
+      document.body.style.overflow = original.bodyOverflow;
+      document.body.style.position = original.bodyPosition;
+      document.body.style.top = original.bodyTop;
+      document.body.style.width = original.bodyWidth;
+      document.body.style.overscrollBehavior = original.bodyOverscroll;
       // Restore scroll synchronously so the user sees no flicker.
       window.scrollTo(0, savedScrollY);
     };
