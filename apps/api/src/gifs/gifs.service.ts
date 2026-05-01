@@ -87,15 +87,30 @@ export class GifsService implements OnApplicationBootstrap {
    * production is confirmed back-filled with the new pipeline.
    */
   async onApplicationBootstrap(): Promise<void> {
-    const cleared = await this.gifs
-      .createQueryBuilder()
-      .update()
-      .set({ mp4S3Key: null, thumbS3Key: null })
-      .where("mp4S3Key IS NOT NULL OR thumbS3Key IS NOT NULL")
-      .execute();
-    if (cleared.affected && cleared.affected > 0) {
-      this.logger.log(
-        `gifs.onApplicationBootstrap cleared mp4/thumb keys on ${cleared.affected} rows for re-encode`,
+    // Raw SQL with explicitly quoted camelCase identifiers — Postgres
+    // lowercases unquoted identifiers, so `mp4S3Key` would silently
+    // become `mp4s3key` (which doesn't exist) and the migration would
+    // error out without a visible log. Idempotent UPDATE: rows that
+    // already have NULLs in both columns stay NULL.
+    try {
+      const rows = await this.gifs.query(
+        `UPDATE gifs SET "mp4S3Key" = NULL, "thumbS3Key" = NULL
+         WHERE "mp4S3Key" IS NOT NULL OR "thumbS3Key" IS NOT NULL
+         RETURNING id`,
+      );
+      const affected = Array.isArray(rows) ? rows.length : 0;
+      if (affected > 0) {
+        this.logger.log(
+          `gifs.onApplicationBootstrap cleared mp4/thumb keys on ${affected} rows for re-encode`,
+        );
+      } else {
+        this.logger.log(
+          `gifs.onApplicationBootstrap nothing to clear (mp4/thumb columns already null)`,
+        );
+      }
+    } catch (err) {
+      this.logger.warn(
+        `gifs.onApplicationBootstrap migration failed: ${(err as Error).message}`,
       );
     }
   }
@@ -394,25 +409,45 @@ export class GifsService implements OnApplicationBootstrap {
     this.mp4InFlight.add(gifId);
     try {
       // Generate whichever asset(s) are missing. Telegram needs both
-      // the MP4 (mpeg4_url) and the JPEG (thumbnail_url) to render the
-      // inline result — the picker silently drops a result whose
-      // thumbnail can't load. Run them in parallel since they each
-      // ffmpeg the same source independently.
-      const [mp4, thumb] = await Promise.all([
+      // the MP4 (mpeg4_url) and the JPEG (thumbnail_url) to render
+      // the inline result — the picker silently drops a result whose
+      // thumbnail can't load.
+      //
+      // Each transcode catches its own error so one failure can't
+      // throw away the other's output. Plain Promise.all here would
+      // mean a hung thumb encode forfeits the (already-finished) mp4
+      // as well, leaving the row stuck in "missing both forever".
+      const [mp4Key, thumbKey] = await Promise.all([
         gif.mp4S3Key
-          ? Promise.resolve({ key: gif.mp4S3Key })
-          : this.transcoder.gifToMp4(gif.s3Key),
+          ? Promise.resolve(gif.mp4S3Key)
+          : this.transcoder
+              .gifToMp4(gif.s3Key)
+              .then((r) => r?.key ?? null)
+              .catch((err) => {
+                this.logger.warn(
+                  `gifs.ensureMp4 mp4 transcode failed gifId=${gifId}: ${(err as Error).message}`,
+                );
+                return null;
+              }),
         gif.thumbS3Key
-          ? Promise.resolve({ key: gif.thumbS3Key })
-          : this.transcoder.gifFirstFrameJpeg(gif.s3Key),
+          ? Promise.resolve(gif.thumbS3Key)
+          : this.transcoder
+              .gifFirstFrameJpeg(gif.s3Key)
+              .then((r) => r?.key ?? null)
+              .catch((err) => {
+                this.logger.warn(
+                  `gifs.ensureMp4 thumb extract failed gifId=${gifId}: ${(err as Error).message}`,
+                );
+                return null;
+              }),
       ]);
       const updates: Partial<Gif> = {};
-      if (mp4 && !gif.mp4S3Key) updates.mp4S3Key = mp4.key;
-      if (thumb && !gif.thumbS3Key) updates.thumbS3Key = thumb.key;
+      if (mp4Key && !gif.mp4S3Key) updates.mp4S3Key = mp4Key;
+      if (thumbKey && !gif.thumbS3Key) updates.thumbS3Key = thumbKey;
       if (Object.keys(updates).length > 0) {
         await this.gifs.update({ id: gifId }, updates);
       }
-      return mp4?.key ?? null;
+      return mp4Key ?? null;
     } finally {
       this.mp4InFlight.delete(gifId);
     }
