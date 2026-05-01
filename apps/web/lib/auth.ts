@@ -1,7 +1,23 @@
 import type { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { SignJWT } from "jose";
+import { SignJWT, decodeJwt } from "jose";
+
+// Re-mint the API token once it's within this many seconds of expiring so
+// in-flight requests don't race the deadline.
+const API_TOKEN_REFRESH_LEEWAY_SECONDS = 5 * 60;
+
+const apiTokenNeedsRefresh = (token: string | undefined): boolean => {
+  if (!token) return true;
+  try {
+    const { exp } = decodeJwt(token);
+    if (typeof exp !== "number") return true;
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    return exp - nowSeconds <= API_TOKEN_REFRESH_LEEWAY_SECONDS;
+  } catch {
+    return true;
+  }
+};
 
 const apiTokenSecret = () =>
   new TextEncoder().encode(process.env.NEXTAUTH_SECRET ?? "");
@@ -120,8 +136,12 @@ export const authOptions: NextAuthOptions = {
         token.provider = "credentials";
       }
 
-      const needsRefresh = !token.apiToken;
-      if (needsRefresh && token.sub && token.email && token.name) {
+      if (
+        apiTokenNeedsRefresh(token.apiToken) &&
+        token.sub &&
+        token.email &&
+        token.name
+      ) {
         token.apiToken = await mintApiToken({
           sub: token.sub,
           email: token.email,
