@@ -6,6 +6,7 @@ import { getServerTrpc } from "@/lib/trpc-server";
 import { Dashboard } from "@/components/Dashboard";
 import { VideoSortSelect } from "@/components/VideoSortSelect";
 import { AnonymousIntro } from "@/components/AnonymousIntro";
+import { DropTile } from "@/components/DropTile";
 import type { VideoSort } from "@repo/shared";
 import { absoluteUrl } from "@/lib/site";
 import { T } from "@/lib/i18n";
@@ -70,6 +71,7 @@ export default async function DashboardPage({
           <VideoSortSelect value={sort} />
         </Flex>
       </div>
+      <DropTile mode="any" signedIn />
       <Dashboard initial={initial} initialGifs={initialGifs} sort={sort} />
     </>
   );

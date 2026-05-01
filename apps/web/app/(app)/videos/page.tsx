@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import { Flex, Heading, Text } from "@radix-ui/themes";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { getServerTrpc } from "@/lib/trpc-server";
 import { VideoCard } from "@/components/VideoCard";
 import { VideoSortSelect } from "@/components/VideoSortSelect";
+import { DropTile } from "@/components/DropTile";
 import type { VideoSort } from "@repo/shared";
 import { absoluteUrl } from "@/lib/site";
 import { T } from "@/lib/i18n";
@@ -37,6 +40,8 @@ export default async function VideosPage({
   const { sort: sortRaw } = await searchParams;
   const sort = normalizeSort(sortRaw);
 
+  const session = await getServerSession(authOptions);
+  const signedIn = !!session?.user;
   const trpc = await getServerTrpc();
   const result = await trpc.videos.list.query({ limit: 24, sort });
 
@@ -55,6 +60,7 @@ export default async function VideosPage({
           <VideoSortSelect value={sort} />
         </Flex>
       </div>
+      <DropTile mode="video" signedIn={signedIn} />
 
       {result.items.length === 0 ? (
         <Flex

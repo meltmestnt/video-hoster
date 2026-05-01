@@ -477,6 +477,19 @@ export const en = {
     "Unsupported file type. Drop a video or GIF instead.",
   "dropzone.resumed": "Resumed your upload from before sign-in.",
 
+  // ─── Inline drop tile ───
+  "droptile.title.any": "Drag and drop a video or GIF here",
+  "droptile.title.video": "Drag and drop a video here",
+  "droptile.title.gif": "Drag and drop a GIF here",
+  "droptile.subtitle.any":
+    "Or click to browse — videos and GIFs both supported.",
+  "droptile.subtitle.video": "Or click to browse — MP4, WebM, MOV, MKV.",
+  "droptile.subtitle.gif": "Or click to browse — GIFs only.",
+  "droptile.error.notVideo":
+    "That's a GIF — drag it to the GIFs page or use the Upload button.",
+  "droptile.error.notGif":
+    "That's a video — drag it to the Videos page or use the Upload button.",
+
   // ─── Video editor ───
   "editor.title": "Edit video",
   "editor.subtitle":

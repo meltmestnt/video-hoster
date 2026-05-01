@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { getServerTrpc } from "@/lib/trpc-server";
 import { GifCard } from "@/components/GifCard";
 import { VideoSortSelect } from "@/components/VideoSortSelect";
+import { DropTile } from "@/components/DropTile";
 import type { VideoSort } from "@repo/shared";
 import { absoluteUrl } from "@/lib/site";
 import { T } from "@/lib/i18n";
@@ -60,6 +61,7 @@ export default async function GifsPage({
           <VideoSortSelect value={sort} />
         </Flex>
       </div>
+      <DropTile mode="gif" signedIn={signedIn} />
 
       {result.items.length === 0 ? (
         <Flex

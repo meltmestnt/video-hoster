@@ -492,6 +492,20 @@ export const uk: EnDict = {
   "dropzone.resumed":
     "Продовжуємо завантаження файлу, який ви додали до входу.",
 
+  // ─── Inline drop tile ───
+  "droptile.title.any": "Перетягніть відео або GIF сюди",
+  "droptile.title.video": "Перетягніть відео сюди",
+  "droptile.title.gif": "Перетягніть GIF сюди",
+  "droptile.subtitle.any":
+    "Або натисніть, щоб вибрати — підтримуються відео та GIF.",
+  "droptile.subtitle.video":
+    "Або натисніть, щоб вибрати — MP4, WebM, MOV, MKV.",
+  "droptile.subtitle.gif": "Або натисніть, щоб вибрати — лише GIF.",
+  "droptile.error.notVideo":
+    "Це GIF — перетягніть його на сторінку GIF або скористайтеся кнопкою «Завантажити».",
+  "droptile.error.notGif":
+    "Це відео — перетягніть його на сторінку відео або скористайтеся кнопкою «Завантажити».",
+
   // ─── Video editor ───
   "editor.title": "Редагувати відео",
   "editor.subtitle":
