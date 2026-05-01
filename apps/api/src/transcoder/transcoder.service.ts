@@ -206,25 +206,35 @@ export class TranscoderService {
     // the job than hold a worker forever.
     const TIMEOUT_MS = 2 * 60 * 1000;
     return new Promise((resolve, reject) => {
+      // Settings tuned for InlineQueryResultMpeg4Gif. Telegram's preview
+      // pipeline is stricter than a plain <video> tag — output that
+      // Chrome shows as "0:00 with no duration" gets silently dropped
+      // there. Three things matter:
+      //
+      //   • Baseline profile, level 3.0 — broadest decoder support;
+      //     High profile sometimes fails to render in inline previews.
+      //   • fps filter normalizes the wonky per-frame durations GIFs
+      //     carry into a clean constant frame rate, so mvhd.duration
+      //     ends up as a sensible number instead of 0.
+      //   • format=yuv420p inside the same filter chain as scale so
+      //     the pixel format doesn't get reverted by the scaler.
+      //
+      // Even-pixel scale is still required (H.264 hard rule); faststart
+      // moves moov to the top so Telegram and browsers can begin
+      // playback before fully downloading.
       const cmd = ffmpeg(inputPath)
         .noAudio()
         .videoCodec("libx264")
-        // H.264 requires even dimensions — round both width and height
-        // down to the nearest even pixel. yuv420p for the same broad
-        // compatibility reason, faststart so the moov atom lands at the
-        // top and Telegram (and browsers) can start playback before the
-        // full file downloads.
+        .videoFilter(
+          "scale=trunc(iw/2)*2:trunc(ih/2)*2,fps=24,format=yuv420p",
+        )
         .outputOptions([
-          "-vf",
-          "scale=trunc(iw/2)*2:trunc(ih/2)*2",
-          "-pix_fmt",
-          "yuv420p",
-          "-movflags",
-          "+faststart",
-          "-preset",
-          "veryfast",
-          "-crf",
-          "26",
+          "-preset veryfast",
+          "-crf 23",
+          "-profile:v baseline",
+          "-level 3.0",
+          "-pix_fmt yuv420p",
+          "-movflags +faststart",
         ])
         .format("mp4");
 
