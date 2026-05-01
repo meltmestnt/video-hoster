@@ -9,9 +9,11 @@ import { VideoPlayer } from "@/components/VideoPlayer";
 import { CommentsSection } from "@/components/CommentsSection";
 import { SuggestedList } from "@/components/SuggestedList";
 import { DeleteVideoButton } from "@/components/DeleteVideoButton";
+import { VideoDownloadButtons } from "@/components/VideoDownloadButtons";
 import { VideoReactions } from "@/components/VideoReactions";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { SubscribeButton } from "@/components/SubscribeButton";
+import { VideoAudioControls } from "@/components/VideoAudioControls";
 import { ShareButton } from "@/components/ShareButton";
 import { MorphLandingSignal } from "@/components/MorphLandingSignal";
 import { absoluteUrl } from "@/lib/site";
@@ -181,6 +183,13 @@ export default async function VideoPage({
             thumbnailUrl={video.thumbnailUrl}
             videoId={video.id}
             title={video.title}
+            audioTracks={video.audioTracks?.map((t) => ({
+              id: t.id,
+              url: t.audioTemplate.url,
+              startSeconds: t.startSeconds,
+              volume: t.volume,
+            }))}
+            mainAudioMuted={video.mainAudioMuted}
           />
         ) : (
           <Box className="player-frame">
@@ -217,6 +226,14 @@ export default async function VideoPage({
               path={`/videos/${video.id}`}
               title={video.title}
             />
+            {video.videoUrl && video.downloadPolicy !== "none" && (
+              <VideoDownloadButtons
+                videoUrl={video.videoUrl}
+                videoMimeType={video.mimeType}
+                baseFilename={video.title}
+                policy={video.downloadPolicy}
+              />
+            )}
             {isOwner && (
               <DeleteVideoButton videoId={video.id} title={video.title} />
             )}
@@ -252,6 +269,13 @@ export default async function VideoPage({
           <Text as="p" size="3" mb="5" style={{ whiteSpace: "pre-wrap" }}>
             {video.description}
           </Text>
+        )}
+        {isOwner && (
+          <VideoAudioControls
+            videoId={video.id}
+            initialMainMuted={video.mainAudioMuted}
+            initialTracks={video.audioTracks ?? []}
+          />
         )}
         <div className="fade-in-delayed">
           <CommentsSection videoId={video.id} initial={comments} />

@@ -352,6 +352,25 @@ export const uk: EnDict = {
   "delete.gif.body":
     '«{title}» буде остаточно видалено. Це не можна скасувати.',
 
+  // ─── Upload — download policy ───
+  "upload.video.download.label": "Дозволити завантаження",
+  "upload.video.download.full": "Відео + аудіо",
+  "upload.video.download.audio": "Лише аудіо",
+  "upload.video.download.none": "Вимкнено",
+  "upload.video.download.hint.full":
+    "Глядачі можуть завантажити і відео, і аудіо.",
+  "upload.video.download.hint.audio":
+    "Глядачі можуть завантажити лише аудіодоріжку, без відео.",
+  "upload.video.download.hint.none":
+    "Кнопка завантаження не відображається.",
+
+  // ─── Video page — download ───
+  "video.download.video": "Завантажити відео",
+  "video.download.audio": "Завантажити аудіо",
+  "video.download.preparingAudio": "Витягуємо аудіо…",
+  "video.download.preparingVideo": "Підготовка завантаження…",
+  "video.download.failed": "Не вдалося завантажити: {message}",
+
   // ─── Screenshots ───
   "screenshots.page.title": "Скріншоти",
   "screenshots.page.subtitle":

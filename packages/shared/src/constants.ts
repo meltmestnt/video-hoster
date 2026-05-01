@@ -47,6 +47,31 @@ export const ALLOWED_AVATAR_MIME_TYPES = [
 export const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 export const AVATAR_OUTPUT_SIZE = 512;
 
+// Audio templates a user can layer on top of their videos.
+export const ALLOWED_AUDIO_MIME_TYPES = [
+  "audio/mpeg", // .mp3
+  "audio/mp4", // .m4a
+  "audio/aac",
+  "audio/wav",
+  "audio/x-wav",
+  "audio/ogg",
+  "audio/webm",
+] as const;
+export type AllowedAudioMimeType = (typeof ALLOWED_AUDIO_MIME_TYPES)[number];
+
+export const AUDIO_EXT_BY_MIME: Record<AllowedAudioMimeType, string> = {
+  "audio/mpeg": "mp3",
+  "audio/mp4": "m4a",
+  "audio/aac": "aac",
+  "audio/wav": "wav",
+  "audio/x-wav": "wav",
+  "audio/ogg": "ogg",
+  "audio/webm": "webm",
+};
+
+export const MAX_AUDIO_BYTES = 20 * 1024 * 1024;
+export const MAX_AUDIO_MB = 20;
+
 export type AllowedVideoMimeType = (typeof ALLOWED_VIDEO_MIME_TYPES)[number];
 export type AllowedThumbnailMimeType =
   (typeof ALLOWED_THUMBNAIL_MIME_TYPES)[number];

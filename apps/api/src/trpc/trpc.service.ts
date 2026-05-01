@@ -10,6 +10,7 @@ import { ReactionsService } from "../reactions/reactions.service";
 import { FavoritesService } from "../favorites/favorites.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { SubscriptionsService } from "../subscriptions/subscriptions.service";
+import { AudioService } from "../audio/audio.service";
 import { S3Service } from "../s3/s3.service";
 import { AuthService } from "../auth/auth.service";
 import { appRouter, type AppRouter } from "./router";
@@ -30,6 +31,7 @@ export class TrpcService {
     private readonly favorites: FavoritesService,
     private readonly notifications: NotificationsService,
     private readonly subscriptions: SubscriptionsService,
+    private readonly audio: AudioService,
     private readonly s3: S3Service,
     private readonly auth: AuthService,
   ) {}
@@ -48,6 +50,7 @@ export class TrpcService {
       favorites: this.favorites,
       notifications: this.notifications,
       subscriptions: this.subscriptions,
+      audio: this.audio,
       s3: this.s3,
       auth: this.auth,
     };

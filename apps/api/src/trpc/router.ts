@@ -32,6 +32,13 @@ import {
   notificationIdInputSchema,
   setNotifySubscribersOnUploadInputSchema,
   userIdInputSchema,
+  createAudioUploadInputSchema,
+  finalizeAudioUploadInputSchema,
+  audioTemplateIdInputSchema,
+  attachAudioInputSchema,
+  updateAudioTrackInputSchema,
+  audioTrackIdInputSchema,
+  setMainAudioMutedInputSchema,
   signInInputSchema,
   signUpInputSchema,
   tagSearchInputSchema,
@@ -148,6 +155,7 @@ export const appRouter = router({
           sizeBytes: input.sizeBytes,
           tagNames: input.tags,
           visibility: input.visibility,
+          downloadPolicy: input.downloadPolicy,
         }),
       ),
 
@@ -493,6 +501,80 @@ export const appRouter = router({
           input.userId ?? ctx.user.id,
           input.cursor,
           input.limit,
+        ),
+      ),
+  }),
+
+  audio: router({
+    // The signed-in user's library of audio templates.
+    listMine: protectedProcedure.query(({ ctx }) =>
+      ctx.services.audio.listMine(ctx.user.id),
+    ),
+
+    createUpload: protectedProcedure
+      .input(createAudioUploadInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.audio.createUpload({
+          ownerId: ctx.user.id,
+          title: input.title,
+          mimeType: input.mimeType,
+          sizeBytes: input.sizeBytes,
+          durationSeconds: input.durationSeconds,
+        }),
+      ),
+
+    finalizeUpload: protectedProcedure
+      .input(finalizeAudioUploadInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.audio.finalizeUpload({
+          ownerId: ctx.user.id,
+          audioTemplateId: input.audioTemplateId,
+        }),
+      ),
+
+    delete: protectedProcedure
+      .input(audioTemplateIdInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.audio.deleteTemplate(input.id, ctx.user.id),
+      ),
+
+    // Attach an existing template as an overlay on one of your videos.
+    attach: protectedProcedure
+      .input(attachAudioInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.audio.attachToVideo({
+          ownerId: ctx.user.id,
+          videoId: input.videoId,
+          audioTemplateId: input.audioTemplateId,
+          startSeconds: input.startSeconds,
+          volume: input.volume,
+        }),
+      ),
+
+    update: protectedProcedure
+      .input(updateAudioTrackInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.audio.updateAttachment({
+          ownerId: ctx.user.id,
+          trackId: input.trackId,
+          startSeconds: input.startSeconds,
+          volume: input.volume,
+        }),
+      ),
+
+    detach: protectedProcedure
+      .input(audioTrackIdInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.audio.detach(input.trackId, ctx.user.id),
+      ),
+
+    setMainMuted: protectedProcedure
+      .input(setMainAudioMutedInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.audio.setMainMuted(
+          input.videoId,
+          ctx.user.id,
+          input.muted,
         ),
       ),
   }),

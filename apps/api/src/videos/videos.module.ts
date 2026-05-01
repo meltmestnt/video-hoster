@@ -9,6 +9,7 @@ import { TranscoderModule } from "../transcoder/transcoder.module";
 import { ReactionsModule } from "../reactions/reactions.module";
 import { FavoritesModule } from "../favorites/favorites.module";
 import { NotificationsModule } from "../notifications/notifications.module";
+import { AudioModule } from "../audio/audio.module";
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { NotificationsModule } from "../notifications/notifications.module";
     ReactionsModule,
     FavoritesModule,
     NotificationsModule,
+    AudioModule,
   ],
   providers: [VideosService],
   exports: [VideosService],

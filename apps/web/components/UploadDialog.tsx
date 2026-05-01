@@ -45,6 +45,9 @@ export function UploadDialog({ open, onOpenChange }: Props) {
   const [description, setDescription] = useState("");
   const [tagsRaw, setTagsRaw] = useState("");
   const [visibility, setVisibility] = useState<"public" | "private">("public");
+  const [downloadPolicy, setDownloadPolicy] = useState<
+    "full" | "audio" | "none"
+  >("full");
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
@@ -65,6 +68,7 @@ export function UploadDialog({ open, onOpenChange }: Props) {
       setDescription("");
       setTagsRaw("");
       setVisibility("public");
+      setDownloadPolicy("full");
       setFile(null);
       setError(null);
       setEditorOpen(false);
@@ -215,6 +219,7 @@ export function UploadDialog({ open, onOpenChange }: Props) {
             tags,
             mimeType: file.type,
             visibility,
+            downloadPolicy,
           },
           { edit: output.edit, thumbnailBlob: thumbBlob ?? undefined },
         );
@@ -303,6 +308,35 @@ export function UploadDialog({ open, onOpenChange }: Props) {
               {visibility === "public"
                 ? t("upload.visibility.publicHint")
                 : t("upload.visibility.privateHint")}
+            </Text>
+          </Flex>
+
+          <Flex direction="column" gap="1">
+            <Text size="2" weight="medium">
+              {t("upload.video.download.label")}
+            </Text>
+            <SegmentedControl.Root
+              value={downloadPolicy}
+              onValueChange={(v) =>
+                setDownloadPolicy(v as "full" | "audio" | "none")
+              }
+            >
+              <SegmentedControl.Item value="full">
+                {t("upload.video.download.full")}
+              </SegmentedControl.Item>
+              <SegmentedControl.Item value="audio">
+                {t("upload.video.download.audio")}
+              </SegmentedControl.Item>
+              <SegmentedControl.Item value="none">
+                {t("upload.video.download.none")}
+              </SegmentedControl.Item>
+            </SegmentedControl.Root>
+            <Text size="1" color="gray">
+              {downloadPolicy === "full"
+                ? t("upload.video.download.hint.full")
+                : downloadPolicy === "audio"
+                  ? t("upload.video.download.hint.audio")
+                  : t("upload.video.download.hint.none")}
             </Text>
           </Flex>
 

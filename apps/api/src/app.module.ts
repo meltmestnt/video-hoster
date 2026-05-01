@@ -14,6 +14,7 @@ import { FavoritesModule } from "./favorites/favorites.module";
 import { TranscoderModule } from "./transcoder/transcoder.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { SubscriptionsModule } from "./subscriptions/subscriptions.module";
+import { AudioModule } from "./audio/audio.module";
 import { TrpcModule } from "./trpc/trpc.module";
 
 @Module({
@@ -33,6 +34,7 @@ import { TrpcModule } from "./trpc/trpc.module";
     TranscoderModule,
     NotificationsModule,
     SubscriptionsModule,
+    AudioModule,
     TrpcModule,
   ],
 })

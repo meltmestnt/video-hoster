@@ -44,6 +44,7 @@ export interface UploadMeta {
   tags: string[];
   mimeType: string;
   visibility: "public" | "private";
+  downloadPolicy?: "full" | "audio" | "none";
 }
 
 export interface UploadSuccess {
@@ -362,6 +363,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
           mimeType: payloadMime,
           sizeBytes: payload.size,
           visibility: meta.visibility,
+          downloadPolicy: meta.downloadPolicy ?? "full",
         });
 
         setState((s) => ({

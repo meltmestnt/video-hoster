@@ -9,6 +9,7 @@ import { ReactionsModule } from "../reactions/reactions.module";
 import { FavoritesModule } from "../favorites/favorites.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { SubscriptionsModule } from "../subscriptions/subscriptions.module";
+import { AudioModule } from "../audio/audio.module";
 import { S3Module } from "../s3/s3.module";
 import { AuthModule } from "../auth/auth.module";
 import { TrpcService } from "./trpc.service";
@@ -25,6 +26,7 @@ import { TrpcService } from "./trpc.service";
     FavoritesModule,
     NotificationsModule,
     SubscriptionsModule,
+    AudioModule,
     S3Module,
     AuthModule,
   ],

@@ -13,6 +13,8 @@ import { VideoFavorite } from "../favorites/favorite.entity";
 import { Gif } from "../gifs/gif.entity";
 import { Notification } from "../notifications/notification.entity";
 import { Subscription } from "../subscriptions/subscription.entity";
+import { AudioTemplate } from "../audio/audio-template.entity";
+import { VideoAudioTrack } from "../audio/video-audio-track.entity";
 
 @Module({
   imports: [
@@ -39,6 +41,8 @@ import { Subscription } from "../subscriptions/subscription.entity";
           Gif,
           Notification,
           Subscription,
+          AudioTemplate,
+          VideoAudioTrack,
         ],
         synchronize: true,
         logging: ["error", "warn"],

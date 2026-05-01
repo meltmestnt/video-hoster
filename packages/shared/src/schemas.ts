@@ -1,8 +1,10 @@
 import { z } from "zod";
 import {
+  ALLOWED_AUDIO_MIME_TYPES,
   ALLOWED_AVATAR_MIME_TYPES,
   ALLOWED_SCREENSHOT_MIME_TYPES,
   ALLOWED_VIDEO_MIME_TYPES,
+  MAX_AUDIO_BYTES,
   MAX_AVATAR_BYTES,
   MAX_SCREENSHOT_BYTES,
   MAX_VIDEO_BYTES,
@@ -18,6 +20,9 @@ export const tagNameSchema = z
 export const videoVisibilitySchema = z.enum(["public", "private"]);
 export type VideoVisibility = z.infer<typeof videoVisibilitySchema>;
 
+export const videoDownloadPolicySchema = z.enum(["full", "audio", "none"]);
+export type VideoDownloadPolicy = z.infer<typeof videoDownloadPolicySchema>;
+
 export const createUploadInputSchema = z.object({
   title: z.string().trim().min(1).max(200),
   description: z.string().trim().max(5000).default(""),
@@ -27,6 +32,7 @@ export const createUploadInputSchema = z.object({
     message: `File exceeds the ${MAX_VIDEO_BYTES} byte limit (1.5 GiB)`,
   }),
   visibility: videoVisibilitySchema.default("public"),
+  downloadPolicy: videoDownloadPolicySchema.default("full"),
 });
 export type CreateUploadInput = z.infer<typeof createUploadInputSchema>;
 
@@ -190,6 +196,13 @@ export const userIdInputSchema = z.object({
 });
 export type UserIdInput = z.infer<typeof userIdInputSchema>;
 
+export const adminListUsersInputSchema = z.object({
+  cursor: z.string().uuid().optional(),
+  limit: z.number().int().min(1).max(100).default(50),
+  q: z.string().trim().max(120).optional(),
+});
+export type AdminListUsersInput = z.infer<typeof adminListUsersInputSchema>;
+
 export const listSubscriptionsInputSchema = z.object({
   userId: z.string().uuid().optional(),
   cursor: z.string().uuid().optional(),
@@ -292,3 +305,60 @@ export const notificationIdInputSchema = z.object({
   id: z.string().uuid(),
 });
 export type NotificationIdInput = z.infer<typeof notificationIdInputSchema>;
+
+// ─── Audio templates ───
+export const createAudioUploadInputSchema = z.object({
+  title: z.string().trim().min(1).max(120),
+  mimeType: z.enum(ALLOWED_AUDIO_MIME_TYPES),
+  sizeBytes: z.number().int().positive().max(MAX_AUDIO_BYTES, {
+    message: `Audio exceeds ${MAX_AUDIO_BYTES} byte limit`,
+  }),
+  durationSeconds: z.number().positive().max(60 * 60).optional(),
+});
+export type CreateAudioUploadInput = z.infer<
+  typeof createAudioUploadInputSchema
+>;
+
+export const finalizeAudioUploadInputSchema = z.object({
+  audioTemplateId: z.string().uuid(),
+});
+export type FinalizeAudioUploadInput = z.infer<
+  typeof finalizeAudioUploadInputSchema
+>;
+
+export const audioTemplateIdInputSchema = z.object({
+  id: z.string().uuid(),
+});
+export type AudioTemplateIdInput = z.infer<
+  typeof audioTemplateIdInputSchema
+>;
+
+export const attachAudioInputSchema = z.object({
+  videoId: z.string().uuid(),
+  audioTemplateId: z.string().uuid(),
+  startSeconds: z.number().min(0).max(60 * 60).default(0),
+  volume: z.number().min(0).max(1).default(1),
+});
+export type AttachAudioInput = z.infer<typeof attachAudioInputSchema>;
+
+export const updateAudioTrackInputSchema = z.object({
+  trackId: z.string().uuid(),
+  startSeconds: z.number().min(0).max(60 * 60).optional(),
+  volume: z.number().min(0).max(1).optional(),
+});
+export type UpdateAudioTrackInput = z.infer<
+  typeof updateAudioTrackInputSchema
+>;
+
+export const audioTrackIdInputSchema = z.object({
+  trackId: z.string().uuid(),
+});
+export type AudioTrackIdInput = z.infer<typeof audioTrackIdInputSchema>;
+
+export const setMainAudioMutedInputSchema = z.object({
+  videoId: z.string().uuid(),
+  muted: z.boolean(),
+});
+export type SetMainAudioMutedInput = z.infer<
+  typeof setMainAudioMutedInputSchema
+>;

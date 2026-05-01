@@ -7,6 +7,7 @@ import {
 } from "typeorm";
 
 export type UserStatus = "verified" | "unverified";
+export type UserRole = "admin" | "user";
 
 @Entity("users")
 export class User {
@@ -36,6 +37,10 @@ export class User {
   @Index()
   @Column({ type: "varchar", length: 16, default: "unverified" })
   status: UserStatus;
+
+  @Index()
+  @Column({ type: "varchar", length: 16, default: "user" })
+  role: UserRole;
 
   @Index()
   @Column({ type: "varchar", length: 64, nullable: true })

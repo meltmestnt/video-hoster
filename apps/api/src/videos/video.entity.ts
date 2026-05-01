@@ -16,6 +16,11 @@ import { Thumbnail } from "../thumbnails/thumbnail.entity";
 
 export type VideoStatus = "uploading" | "ready";
 export type VideoVisibility = "public" | "private";
+// Per-video toggle for who can grab a copy:
+//   "full"  → audio + video both downloadable
+//   "audio" → audio-only download (server strips video on the way out)
+//   "none"  → no download button shown
+export type VideoDownloadPolicy = "full" | "audio" | "none";
 
 const bigintToNumber = {
   from: (v: string | null) => (v == null ? null : Number(v)),
@@ -68,6 +73,15 @@ export class Video {
 
   @OneToMany(() => Thumbnail, (t) => t.video, { cascade: true })
   thumbnails: Thumbnail[];
+
+  // When true, the player mutes the video's built-in audio so only attached
+  // overlays play. Stored on the video, not on a track row, because the
+  // file's native audio isn't an attachment.
+  @Column({ type: "boolean", default: false })
+  mainAudioMuted: boolean;
+
+  @Column({ type: "varchar", length: 8, default: "full" })
+  downloadPolicy: VideoDownloadPolicy;
 
   @Index()
   @CreateDateColumn()

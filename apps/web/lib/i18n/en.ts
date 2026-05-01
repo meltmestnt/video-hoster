@@ -340,6 +340,25 @@ export const en = {
   "delete.gif.body":
     '"{title}" will be permanently removed. This cannot be undone.',
 
+  // ─── Upload — download policy ───
+  "upload.video.download.label": "Allow downloads",
+  "upload.video.download.full": "Video + audio",
+  "upload.video.download.audio": "Audio only",
+  "upload.video.download.none": "Disabled",
+  "upload.video.download.hint.full":
+    "Viewers can download both the video and audio.",
+  "upload.video.download.hint.audio":
+    "Viewers can grab the audio track only — no video file.",
+  "upload.video.download.hint.none":
+    "No download button is shown.",
+
+  // ─── Video page — download ───
+  "video.download.video": "Download video",
+  "video.download.audio": "Download audio",
+  "video.download.preparingAudio": "Extracting audio…",
+  "video.download.preparingVideo": "Preparing download…",
+  "video.download.failed": "Download failed: {message}",
+
   // ─── Screenshots ───
   "screenshots.page.title": "Screenshots",
   "screenshots.page.subtitle":

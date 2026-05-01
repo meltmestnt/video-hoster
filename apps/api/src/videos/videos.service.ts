@@ -15,7 +15,7 @@ import {
   MAX_VIDEO_BYTES,
   type VideoSort,
 } from "@repo/shared";
-import { Video, VideoVisibility } from "./video.entity";
+import { Video, VideoDownloadPolicy, VideoVisibility } from "./video.entity";
 import { Thumbnail } from "../thumbnails/thumbnail.entity";
 import { TagsService } from "../tags/tags.service";
 import { S3Service } from "../s3/s3.service";
@@ -24,6 +24,7 @@ import { ReactionsService } from "../reactions/reactions.service";
 import type { ReactionType } from "../reactions/reaction.entity";
 import { FavoritesService } from "../favorites/favorites.service";
 import { NotificationsService } from "../notifications/notifications.service";
+import { AudioService } from "../audio/audio.service";
 
 interface CreateUploadArgs {
   ownerId: string;
@@ -33,6 +34,7 @@ interface CreateUploadArgs {
   sizeBytes: number;
   tagNames: string[];
   visibility: VideoVisibility;
+  downloadPolicy: VideoDownloadPolicy;
 }
 
 interface FinalizeArgs {
@@ -71,6 +73,7 @@ export class VideosService {
     private readonly reactionsService: ReactionsService,
     private readonly favoritesService: FavoritesService,
     private readonly notificationsService: NotificationsService,
+    private readonly audioService: AudioService,
   ) {}
 
   async createUpload(args: CreateUploadArgs) {
@@ -130,6 +133,7 @@ export class VideosService {
       sizeBytes: args.sizeBytes,
       status: "uploading",
       visibility: args.visibility,
+      downloadPolicy: args.downloadPolicy,
       tags,
     });
     const saved = await this.videos.save(draft);
@@ -594,7 +598,7 @@ export class VideosService {
     if (videos.length === 0) return [];
     const ids = videos.map((v) => v.id);
 
-    const [thumbRows, counts, viewerReactions, favoritedSet] =
+    const [thumbRows, counts, viewerReactions, favoritedSet, audioByVideo] =
       await Promise.all([
         this.thumbnails.manager.query<
           Array<{ videoId: string; s3Key: string }>
@@ -612,6 +616,7 @@ export class VideosService {
         viewerId
           ? this.favoritesService.favoritedSet(ids, viewerId)
           : Promise.resolve(new Set<string>()),
+        this.audioService.tracksForVideos(ids),
       ]);
     const keyByVideo = new Map(thumbRows.map((r) => [r.videoId, r.s3Key]));
 
@@ -633,6 +638,7 @@ export class VideosService {
           sizeBytes: v.sizeBytes,
           status: v.status,
           visibility: v.visibility,
+          downloadPolicy: v.downloadPolicy,
           createdAt: v.createdAt,
           owner: {
             id: v.owner.id,
@@ -646,6 +652,8 @@ export class VideosService {
           dislikeCount: c.dislikes,
           viewerReaction: viewerReactions.get(v.id) ?? null,
           viewerFavorited: favoritedSet.has(v.id),
+          mainAudioMuted: v.mainAudioMuted,
+          audioTracks: audioByVideo.get(v.id) ?? [],
         };
       }),
     );

@@ -9,6 +9,7 @@ import type { ReactionsService } from "../reactions/reactions.service";
 import type { FavoritesService } from "../favorites/favorites.service";
 import type { NotificationsService } from "../notifications/notifications.service";
 import type { SubscriptionsService } from "../subscriptions/subscriptions.service";
+import type { AudioService } from "../audio/audio.service";
 import type { S3Service } from "../s3/s3.service";
 import type { AuthService } from "../auth/auth.service";
 
@@ -23,6 +24,7 @@ export interface Services {
   favorites: FavoritesService;
   notifications: NotificationsService;
   subscriptions: SubscriptionsService;
+  audio: AudioService;
   s3: S3Service;
   auth: AuthService;
 }

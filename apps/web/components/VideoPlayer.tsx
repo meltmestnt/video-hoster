@@ -21,12 +21,69 @@ const ReactPlayer = dynamic(() => import("react-player"), { ssr: false });
 const VOLUME_STEP = 0.05;
 const SEEK_STEP_S = 5;
 const HIDE_DELAY_MS = 2200;
+// Tolerated drift between an overlay's audio.currentTime and the video's
+// clock. Below this we leave the audio alone so we're not constantly
+// thrashing currentTime on every progress tick.
+const OVERLAY_DRIFT_TOLERANCE_S = 0.3;
+
+export interface AudioOverlayTrack {
+  id: string;
+  url: string | null;
+  startSeconds: number;
+  volume: number;
+}
 
 interface VideoPlayerProps {
   url: string;
   thumbnailUrl?: string | null;
   videoId?: string;
   title?: string;
+  // Layered audio tracks that play in sync with this video. Overlay audio
+  // mirrors the player's play/pause/seek/volume state.
+  audioTracks?: AudioOverlayTrack[];
+  // When true, the video's built-in audio is silenced so only overlays
+  // play. Independent from the user's session mute toggle.
+  mainAudioMuted?: boolean;
+}
+
+/**
+ * Pull each overlay's <audio> element into agreement with the video clock.
+ * Pauses tracks whose start point hasn't been reached yet (or whose clip
+ * has already ended), and corrects drift on the rest. Idempotent — safe
+ * to call on every progress tick.
+ */
+function syncOverlayPositions(
+  refs: Map<string, HTMLAudioElement>,
+  tracks: AudioOverlayTrack[],
+  videoTime: number,
+  playing: boolean,
+) {
+  for (const track of tracks) {
+    const audio = refs.get(track.id);
+    if (!audio) continue;
+    const offset = videoTime - track.startSeconds;
+    if (offset < 0) {
+      if (!audio.paused) audio.pause();
+      if (audio.currentTime !== 0) audio.currentTime = 0;
+      continue;
+    }
+    if (Number.isFinite(audio.duration) && offset >= audio.duration) {
+      if (!audio.paused) audio.pause();
+      continue;
+    }
+    if (Math.abs(audio.currentTime - offset) > OVERLAY_DRIFT_TOLERANCE_S) {
+      audio.currentTime = offset;
+    }
+    if (playing && audio.paused) {
+      audio.play().catch(() => {
+        // Autoplay restrictions: a user-initiated play on the video has
+        // already been granted, but a track that resumes async after a
+        // seek can briefly fail. Next sync cycle retries.
+      });
+    } else if (!playing && !audio.paused) {
+      audio.pause();
+    }
+  }
 }
 
 function formatTime(seconds: number) {
@@ -45,11 +102,18 @@ export function VideoPlayer({
   thumbnailUrl,
   videoId,
   title,
+  audioTracks,
+  mainAudioMuted,
 }: VideoPlayerProps) {
   const playerRef = useRef<ReactPlayerType | null>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const hideTimerRef = useRef<number | null>(null);
   const t = useT();
+  // One <audio> ref per overlay, keyed by track id. We mutate currentTime/
+  // volume/muted directly rather than via React props so a 60Hz progress
+  // tick doesn't trigger a state update per overlay.
+  const overlayAudioRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
+  const tracks = audioTracks ?? [];
 
   const mini = useMiniPlayer();
   const restoredTimeRef = useRef<number | null>(null);
@@ -125,6 +189,30 @@ export function VideoPlayer({
     document.addEventListener("fullscreenchange", onChange);
     return () => document.removeEventListener("fullscreenchange", onChange);
   }, []);
+
+  // Mirror the player's volume / mute onto each overlay. Per-track gain is
+  // multiplied with the master volume so the volume slider behaves like a
+  // single slider over the mixed output.
+  useEffect(() => {
+    overlayAudioRefs.current.forEach((audio, id) => {
+      const track = tracks.find((t) => t.id === id);
+      if (!track) return;
+      audio.muted = muted;
+      const v = track.volume * volume;
+      audio.volume = Math.max(0, Math.min(1, v));
+    });
+  }, [muted, volume, tracks]);
+
+  // When playback starts/stops, immediately pause every overlay. Resuming
+  // is left to the next progress tick (which knows the live currentTime
+  // from ReactPlayer) so we don't have to read it ourselves here.
+  useEffect(() => {
+    if (!playing) {
+      overlayAudioRefs.current.forEach((audio) => {
+        if (!audio.paused) audio.pause();
+      });
+    }
+  }, [playing]);
 
   const showControls = () => {
     setControlsVisible(true);
@@ -245,7 +333,9 @@ export function VideoPlayer({
         url={url}
         playing={playing}
         volume={volume}
-        muted={muted}
+        // mainAudioMuted strips the original audio at playback time so
+        // overlays alone are heard. The session mute toggle is OR'd in.
+        muted={muted || !!mainAudioMuted}
         width="100%"
         height="100%"
         controls={false}
@@ -268,6 +358,15 @@ export function VideoPlayer({
           if (videoId && Number.isFinite(s.playedSeconds)) {
             mini.update({ currentTime: s.playedSeconds });
           }
+          // Drift-correct each overlay against the video's clock. Cheap when
+          // already in sync (no DOM mutation), pulls back overlays that have
+          // drifted >300ms — happens after seeks, network stalls, etc.
+          syncOverlayPositions(
+            overlayAudioRefs.current,
+            tracks,
+            s.playedSeconds,
+            playing,
+          );
         }}
         onDuration={(d) => setDuration(d)}
         config={{
@@ -351,6 +450,30 @@ export function VideoPlayer({
           </button>
         </div>
       </div>
+      {tracks.map((track) =>
+        track.url ? (
+          <audio
+            key={track.id}
+            ref={(node) => {
+              if (node) overlayAudioRefs.current.set(track.id, node);
+              else overlayAudioRefs.current.delete(track.id);
+            }}
+            src={track.url}
+            preload="auto"
+            // Hide entirely — these are mixer tracks, not user-controlled.
+            // visibility:hidden keeps them in the layout tree (helps autoplay
+            // policies treat them as part of the user-initiated playback).
+            style={{
+              position: "absolute",
+              width: 0,
+              height: 0,
+              opacity: 0,
+              pointerEvents: "none",
+            }}
+            aria-hidden
+          />
+        ) : null,
+      )}
     </div>
   );
 }
