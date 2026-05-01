@@ -186,6 +186,20 @@ export const uk: EnDict = {
   "share.button": "Поділитися",
   "share.copied": "Скопійовано!",
 
+  // ─── Audio mix (under video player) ───
+  "audio.mix.heading": "Аудіо мікс",
+  "audio.mix.subtitle":
+    "Вимкніть оригінал або накладіть шаблони з вашої бібліотеки.",
+  "audio.mix.muteOriginal": "Вимкнути оригінал",
+  "audio.mix.pickTemplate": "Оберіть аудіошаблон",
+  "audio.mix.noMoreTemplates": "Більше шаблонів немає",
+  "audio.mix.addOverlay": "Додати накладку",
+  "audio.mix.manageLibrary": "Керувати бібліотекою",
+  "audio.mix.empty": "Поки немає накладок.",
+  "audio.mix.start": "Початок",
+  "audio.mix.volume": "Гучність",
+  "audio.mix.removeOverlay": "Видалити накладку",
+
   // ─── Account deletion (self) ───
   "user.profile.deleteAccount": "Видалити акаунт",
   "deleteAccount.title": "Видалити ваш акаунт?",

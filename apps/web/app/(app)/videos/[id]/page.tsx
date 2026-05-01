@@ -209,7 +209,13 @@ export default async function VideoPage({
               <T k="card.private" />
             </Badge>
           )}
-          <Flex align="center" gap="2" wrap="wrap">
+          <Flex
+            align="center"
+            justify="end"
+            gap="2"
+            wrap="wrap"
+            style={{ rowGap: "8px" }}
+          >
             <VideoReactions
               videoId={video.id}
               initialLikes={video.likeCount}

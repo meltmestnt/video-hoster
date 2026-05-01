@@ -178,6 +178,20 @@ export const en = {
   "share.button": "Share",
   "share.copied": "Copied!",
 
+  // ─── Audio mix (under video player) ───
+  "audio.mix.heading": "Audio mix",
+  "audio.mix.subtitle":
+    "Mute the original or layer in templates from your library.",
+  "audio.mix.muteOriginal": "Mute original",
+  "audio.mix.pickTemplate": "Pick an audio template",
+  "audio.mix.noMoreTemplates": "No more templates available",
+  "audio.mix.addOverlay": "Add overlay",
+  "audio.mix.manageLibrary": "Manage library",
+  "audio.mix.empty": "No overlays attached yet.",
+  "audio.mix.start": "Start",
+  "audio.mix.volume": "Volume",
+  "audio.mix.removeOverlay": "Remove overlay",
+
   // ─── Account deletion (self) ───
   "user.profile.deleteAccount": "Delete account",
   "deleteAccount.title": "Delete your account?",

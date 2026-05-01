@@ -16,6 +16,7 @@ import { TrashIcon } from "@radix-ui/react-icons";
 import Link from "next/link";
 import { trpc } from "@/lib/trpc";
 import { formatDuration } from "@/lib/audio-helpers";
+import { useT } from "@/lib/i18n";
 
 interface VideoAudioTrack {
   id: string;
@@ -45,6 +46,7 @@ export function VideoAudioControls({
   initialTracks,
 }: Props) {
   const utils = trpc.useUtils();
+  const t = useT();
   const me = trpc.auth.me.useQuery();
   const myAudio = trpc.audio.listMine.useQuery(undefined, {
     enabled: !!me.data,
@@ -150,14 +152,14 @@ export function VideoAudioControls({
         <Flex justify="between" align="center" gap="3" wrap="wrap">
           <Box>
             <Text size="3" weight="medium" as="div">
-              Audio mix
+              {t("audio.mix.heading")}
             </Text>
             <Text size="1" color="gray" as="div">
-              Mute the original or layer in templates from your library.
+              {t("audio.mix.subtitle")}
             </Text>
           </Box>
           <Flex gap="2" align="center">
-            <Text size="2">Mute original</Text>
+            <Text size="2">{t("audio.mix.muteOriginal")}</Text>
             <Switch
               checked={mainMuted}
               disabled={setMainMutedMut.isPending}
@@ -176,8 +178,8 @@ export function VideoAudioControls({
             <Select.Trigger
               placeholder={
                 availableTemplates.length
-                  ? "Pick an audio template"
-                  : "No more templates available"
+                  ? t("audio.mix.pickTemplate")
+                  : t("audio.mix.noMoreTemplates")
               }
               disabled={availableTemplates.length === 0}
             />
@@ -194,22 +196,22 @@ export function VideoAudioControls({
             disabled={!picked || attach.isPending}
             size="2"
           >
-            Add overlay
+            {t("audio.mix.addOverlay")}
           </Button>
           <Button asChild variant="ghost" color="gray" size="2">
-            <Link href="/audio">Manage library</Link>
+            <Link href="/audio">{t("audio.mix.manageLibrary")}</Link>
           </Button>
         </Flex>
 
         {tracks.length === 0 ? (
           <Text size="2" color="gray">
-            No overlays attached yet.
+            {t("audio.mix.empty")}
           </Text>
         ) : (
           <Flex direction="column" gap="2">
-            {tracks.map((t) => (
+            {tracks.map((track) => (
               <Box
-                key={t.id}
+                key={track.id}
                 style={{
                   border: "1px solid var(--gray-4)",
                   borderRadius: "var(--radius-2)",
@@ -219,18 +221,18 @@ export function VideoAudioControls({
                 <Flex align="center" gap="3" wrap="wrap">
                   <Box style={{ flex: 1, minWidth: 200 }}>
                     <Text size="2" weight="medium" as="div">
-                      {t.audioTemplate.title}
+                      {track.audioTemplate.title}
                     </Text>
                     <Text size="1" color="gray" as="div">
-                      {formatDuration(t.audioTemplate.durationSeconds)}
+                      {formatDuration(track.audioTemplate.durationSeconds)}
                     </Text>
                   </Box>
                   <IconButton
                     variant="soft"
                     color="red"
                     size="1"
-                    onClick={() => onDetach(t.id)}
-                    aria-label="Remove overlay"
+                    onClick={() => onDetach(track.id)}
+                    aria-label={t("audio.mix.removeOverlay")}
                   >
                     <TrashIcon />
                   </IconButton>
@@ -239,46 +241,46 @@ export function VideoAudioControls({
                   <Box style={{ flex: 1, minWidth: 220 }}>
                     <Flex justify="between">
                       <Text size="1" color="gray">
-                        Start
+                        {t("audio.mix.start")}
                       </Text>
                       <Text size="1" color="gray">
-                        {t.startSeconds.toFixed(1)}s
+                        {track.startSeconds.toFixed(1)}s
                       </Text>
                     </Flex>
                     <Slider
                       size="1"
-                      value={[Math.round(t.startSeconds * 10)]}
+                      value={[Math.round(track.startSeconds * 10)]}
                       min={0}
                       max={6000}
                       step={1}
                       onValueChange={(v) =>
-                        onTrackStartChange(t.id, (v[0] ?? 0) / 10)
+                        onTrackStartChange(track.id, (v[0] ?? 0) / 10)
                       }
                       onValueCommit={(v) =>
-                        onTrackStartCommit(t.id, (v[0] ?? 0) / 10)
+                        onTrackStartCommit(track.id, (v[0] ?? 0) / 10)
                       }
                     />
                   </Box>
                   <Box style={{ flex: 1, minWidth: 220 }}>
                     <Flex justify="between">
                       <Text size="1" color="gray">
-                        Volume
+                        {t("audio.mix.volume")}
                       </Text>
                       <Text size="1" color="gray">
-                        {Math.round(t.volume * 100)}%
+                        {Math.round(track.volume * 100)}%
                       </Text>
                     </Flex>
                     <Slider
                       size="1"
-                      value={[Math.round(t.volume * 100)]}
+                      value={[Math.round(track.volume * 100)]}
                       min={0}
                       max={100}
                       step={1}
                       onValueChange={(v) =>
-                        onTrackVolumeChange(t.id, (v[0] ?? 0) / 100)
+                        onTrackVolumeChange(track.id, (v[0] ?? 0) / 100)
                       }
                       onValueCommit={(v) =>
-                        onTrackVolumeCommit(t.id, (v[0] ?? 0) / 100)
+                        onTrackVolumeCommit(track.id, (v[0] ?? 0) / 100)
                       }
                     />
                   </Box>
