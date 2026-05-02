@@ -751,13 +751,25 @@ export class VideosService {
     return { ...enriched, videoUrl };
   }
 
-  async suggested(id: string, limit: number, viewerId?: string | null) {
+  async suggested(
+    id: string,
+    limit: number,
+    viewerId?: string | null,
+    isAdmin = false,
+  ) {
     const v = await this.videos.findOne({
       where: { id },
       relations: ["tags"],
     });
     if (!v) throw new NotFoundException("Video not found");
-    if (v.visibility === "private" && v.ownerId !== viewerId) {
+    // Match byId's admin exemption — without it an admin viewing a
+    // private video gets a 404 on the whole detail page because the
+    // page's Promise.all rejects when suggested throws.
+    if (
+      v.visibility === "private" &&
+      v.ownerId !== viewerId &&
+      !isAdmin
+    ) {
       throw new NotFoundException("Video not found");
     }
     const tagIds = v.tags.map((t) => t.id);

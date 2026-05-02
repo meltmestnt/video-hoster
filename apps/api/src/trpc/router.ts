@@ -242,6 +242,7 @@ export const appRouter = router({
           input.id,
           input.limit,
           ctx.user?.id ?? null,
+          ctx.user?.role === "admin",
         ),
       ),
 
@@ -449,6 +450,7 @@ export const appRouter = router({
           input.id,
           input.limit,
           ctx.user?.id ?? null,
+          ctx.user?.role === "admin",
         ),
       ),
 

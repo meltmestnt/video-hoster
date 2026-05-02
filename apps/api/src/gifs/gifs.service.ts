@@ -668,13 +668,26 @@ export class GifsService {
     return { ...enriched, gifUrl };
   }
 
-  async suggested(id: string, limit: number, viewerId?: string | null) {
+  async suggested(
+    id: string,
+    limit: number,
+    viewerId?: string | null,
+    isAdmin = false,
+  ) {
     const g = await this.gifs.findOne({
       where: { id },
       relations: ["tags"],
     });
     if (!g) throw new NotFoundException("Gif not found");
-    if (g.visibility === "private" && g.ownerId !== viewerId) {
+    // Mirror byId: admins can view any private GIF, so they should also
+    // get suggestions for it. Without this exemption an admin viewing a
+    // private GIF would 404 the whole detail page (byId resolves but
+    // suggested rejects, breaking the page's Promise.all).
+    if (
+      g.visibility === "private" &&
+      g.ownerId !== viewerId &&
+      !isAdmin
+    ) {
       throw new NotFoundException("Gif not found");
     }
     const tagIds = g.tags.map((t) => t.id);
