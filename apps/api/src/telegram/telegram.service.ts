@@ -781,12 +781,16 @@ export class TelegramService
             ),
           );
         }
+        // Folder-restricted results are per-user — caching them globally
+        // would let one user's private folder leak to others, and even
+        // per-user caching would serve stale results across folder
+        // toggles (cache key is just the query string). Disable both
+        // when a folder is active. Unrestricted queries hit a public-
+        // only filter so a shared cache is safe.
+        const folderActive = restrictToFolderId !== null;
         await ctx.answerInlineQuery(results, {
-          // Public-only filter at the SQL layer means every user sees
-          // the same answer for a given query, so a shared cache is
-          // safe and saves us a request per keystroke.
-          cache_time: INLINE_CACHE_SECONDS,
-          is_personal: false,
+          cache_time: folderActive ? 0 : INLINE_CACHE_SECONDS,
+          is_personal: folderActive,
         });
       } catch (err) {
         this.logger.warn(
