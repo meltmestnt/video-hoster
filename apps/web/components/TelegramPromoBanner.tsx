@@ -48,7 +48,11 @@ export function TelegramPromoBanner() {
   }, []);
 
   if (dismissed) return null;
-  if (me.data?.telegramLinked) return null;
+  // Wait until auth.me has resolved before deciding — otherwise the
+  // banner flashes in for the loading window even when the user has
+  // already linked Telegram. Also covers the anon case (me.data === null).
+  if (!me.data) return null;
+  if (me.data.telegramLinked) return null;
   // Bot not configured on this server — no point pitching it.
   if (startLink.error?.data?.code === "PRECONDITION_FAILED") return null;
 
