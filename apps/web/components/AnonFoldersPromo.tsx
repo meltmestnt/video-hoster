@@ -3,6 +3,7 @@ import {
   ArchiveIcon,
   MagnifyingGlassIcon,
   PaperPlaneIcon,
+  Share1Icon,
 } from "@radix-ui/react-icons";
 import { T } from "@/lib/i18n";
 import type { TKey } from "@/lib/i18n";
@@ -30,6 +31,11 @@ const FEATURES: PromoFeature[] = [
     Icon: PaperPlaneIcon,
     titleKey: "anonFolders.feature.autoTag.title",
     descKey: "anonFolders.feature.autoTag.desc",
+  },
+  {
+    Icon: Share1Icon,
+    titleKey: "anonFolders.feature.share.title",
+    descKey: "anonFolders.feature.share.desc",
   },
 ];
 
@@ -120,8 +126,9 @@ export function AnonFoldersPromo() {
           <T k="anonFolders.subtitle" />
         </Text>
 
-        {/* 3-up feature grid — collapses to one column on narrow screens
-            so the icon + copy stay legible on mobile. */}
+        {/* Feature grid — auto-fits 2-4 columns based on width and
+            collapses to one column on narrow screens so the icon +
+            copy stay legible on mobile. */}
         <Box
           mt="4"
           style={{

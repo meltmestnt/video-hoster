@@ -70,6 +70,9 @@ export const en = {
   "anonFolders.feature.autoTag.title": "Bot auto-tagging",
   "anonFolders.feature.autoTag.desc":
     "GIFs uploaded through the bot automatically land in the active folder. Build your library hands-free.",
+  "anonFolders.feature.share.title": "Share read-only",
+  "anonFolders.feature.share.desc":
+    "Send a private folder to a friend with one tap. They see your reaction set live as you add to it — no copy, no manual sync.",
 
   // ─── Instant GIF demo (landing hero) ───
   "instant.badge": "Free, runs in your browser",
@@ -445,6 +448,32 @@ export const en = {
   "folders.userMenu.link": "My folders",
   "folders.error.nameRequired": "Folder name cannot be empty.",
   "folders.error.nameTooLong": "Folder name is too long (80 characters max).",
+  "folderShare.dialog.title": "Share folder",
+  "folderShare.dialog.body":
+    "Anyone you share with gets read-only access — they can view what's inside but only you can add or remove GIFs.",
+  "folderShare.input.placeholder": "Email or username",
+  "folderShare.share": "Share",
+  "folderShare.cancel": "Cancel",
+  "folderShare.shareesHeader": "Currently shared with",
+  "folderShare.empty": "No one yet.",
+  "folderShare.remove": "Remove",
+  "folderShare.success": "Shared with {name}",
+  "folderShare.alreadyShared": "Already shared with {name}",
+  "folderShare.errSelf": "You can't share with yourself.",
+  "folderShare.errNotFound": "No user found matching that handle.",
+  "folderShare.errCap": "This folder is already shared with 50 people.",
+  "sharedFolders.heading": "Folders shared with you",
+  "sharedFolders.subtitle":
+    "Read-only access — only the owner can change what's inside.",
+  "sharedFolders.empty": "No folders shared with you yet.",
+  "sharedFolders.linkBack": "← Back to my folders",
+  "sharedFolders.sharedBy": "Shared by {name}",
+  "sharedFolders.sharedAt": "Shared {date}",
+  "sharedFolders.gifCount": "{count} GIFs",
+  "sharedFolders.leave": "Leave",
+  "sharedFolders.linkFromMyFolders": "Folders shared with you →",
+  "folderDetail.sharedBanner": "Shared by {name} • Read-only",
+  "folderDetail.shareButton": "Share",
   "gifCard.menu.addToFolder": "Add to folder",
   "gifCard.menu.addToFolder.create": "+ New folder…",
   "gifCard.menu.addToFolder.added": "Added",

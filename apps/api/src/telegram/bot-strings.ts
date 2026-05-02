@@ -16,9 +16,9 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
     "start.accountGone":
       "Акаунт, на який вказувало це посилання, більше не існує. Створіть нове посилання на сайті.",
     "start.linked":
-      "✅ Підʼєднано до {name}.\n\nТепер можна:\n🔍 Шукати GIF у будь-якому чаті — @{bot} <запит>.\n⬆️ Завантажувати — надішліть GIF як Файл/Анімацію або URL.\n📁 Створіть папку на сайті, щоб організувати свою колекцію.\n\nКнопки знизу — швидкий доступ.",
+      "✅ Підʼєднано до {name}.\n\nТепер можна:\n🔍 Шукати GIF у будь-якому чаті — @{bot} <запит>.\n⬆️ Завантажувати — надішліть GIF як Файл/Анімацію або URL.\n📁 Створіть папку на сайті, щоб організувати свою колекцію.\n🔗 Спільний доступ: /share <папка> <user> — поділитися лише для читання; /shared — папки, до яких вам відкрито доступ.\n\nКнопки знизу — швидкий доступ.",
     "start.alreadyLinked":
-      "✅ Підʼєднано до {name}.\n\n🔍 Інлайн-пошук: @{bot} <запит> у будь-якому чаті.\n⬆️ Завантаження: надішліть GIF як Файл/Анімацію або вставте публічну URL.\n📁 Папки: /folders — список; /folder set <назва> — обрати активну.\n\nКнопки знизу — швидкий доступ до головного.",
+      "✅ Підʼєднано до {name}.\n\n🔍 Інлайн-пошук: @{bot} <запит> у будь-якому чаті.\n⬆️ Завантаження: надішліть GIF як Файл/Анімацію або вставте публічну URL.\n📁 Папки: /folders — список; /folder set <назва> — обрати активну.\n🔗 Спільний доступ: /share <папка> <user> — поділитися лише для читання; /shared — папки, до яких вам відкрито доступ.\n\nКнопки знизу — швидкий доступ до головного.",
     "start.linkSaveFailed":
       "Не вдалося зберегти підʼєднання. Спробуйте /unlink, потім підʼєднайте знову з /settings.",
     help:
@@ -138,9 +138,9 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
     "start.accountGone":
       "The account this link points to no longer exists. Generate a new link from the website.",
     "start.linked":
-      "✅ Linked to {name}.\n\nYou can now:\n🔍 Search GIFs in any chat — @{bot} <query>.\n⬆️ Upload — send a GIF as a File/Animation or paste a URL.\n📁 Create folders on the site to organize your collection.\n\nButtons below — quick access.",
+      "✅ Linked to {name}.\n\nYou can now:\n🔍 Search GIFs in any chat — @{bot} <query>.\n⬆️ Upload — send a GIF as a File/Animation or paste a URL.\n📁 Create folders on the site to organize your collection.\n🔗 Share: /share <folder> <user> to share read-only; /shared to see folders shared with you.\n\nButtons below — quick access.",
     "start.alreadyLinked":
-      "✅ Linked to {name}.\n\n🔍 Inline search: @{bot} <query> in any chat.\n⬆️ Upload: send a GIF as a File/Animation or paste a public URL.\n📁 Folders: /folders to list, /folder set <name> to scope inline search.\n\nButtons below — quick access to the main flows.",
+      "✅ Linked to {name}.\n\n🔍 Inline search: @{bot} <query> in any chat.\n⬆️ Upload: send a GIF as a File/Animation or paste a public URL.\n📁 Folders: /folders to list, /folder set <name> to scope inline search.\n🔗 Share: /share <folder> <user> to share read-only; /shared to see folders shared with you.\n\nButtons below — quick access to the main flows.",
     "start.linkSaveFailed":
       "Couldn't save the link. Try /unlink, then connect again from /settings.",
     help:

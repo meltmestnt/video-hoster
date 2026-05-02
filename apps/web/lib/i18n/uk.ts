@@ -72,6 +72,9 @@ export const uk: EnDict = {
   "anonFolders.feature.autoTag.title": "Авто-сортування",
   "anonFolders.feature.autoTag.desc":
     "GIF, завантажені через бот, автоматично потрапляють в активну папку. Бібліотека росте без зусиль.",
+  "anonFolders.feature.share.title": "Поділись лише для читання",
+  "anonFolders.feature.share.desc":
+    "Поділись приватною папкою з другом одним тапом. Вони бачать твою колекцію live — без копій і ручної синхронізації.",
 
   // ─── Демо миттєвого GIF (геро на лендінгу) ───
   "instant.badge": "Безкоштовно, працює в браузері",
@@ -456,6 +459,33 @@ export const uk: EnDict = {
   "folders.error.nameRequired": "Назва папки не може бути порожньою.",
   "folders.error.nameTooLong":
     "Назва папки занадто довга (максимум 80 символів).",
+  "folderShare.dialog.title": "Поділитися папкою",
+  "folderShare.dialog.body":
+    "Усі, з ким ви поділились, отримують доступ лише для читання — вони бачать вміст, але додавати чи видаляти GIF можете тільки ви.",
+  "folderShare.input.placeholder": "Email або імʼя користувача",
+  "folderShare.share": "Поділитися",
+  "folderShare.cancel": "Скасувати",
+  "folderShare.shareesHeader": "Зараз доступ мають",
+  "folderShare.empty": "Поки нікого.",
+  "folderShare.remove": "Прибрати",
+  "folderShare.success": "Поділилися з {name}",
+  "folderShare.alreadyShared": "Уже поділилися з {name}",
+  "folderShare.errSelf": "Не можна поділитися із самим собою.",
+  "folderShare.errNotFound": "Користувача за цим запитом не знайдено.",
+  "folderShare.errCap":
+    "Ця папка вже доступна 50 користувачам.",
+  "sharedFolders.heading": "Папки, якими з вами поділились",
+  "sharedFolders.subtitle":
+    "Доступ лише для читання — змінювати вміст може тільки власник.",
+  "sharedFolders.empty": "Поки що з вами не поділились жодною папкою.",
+  "sharedFolders.linkBack": "← До моїх папок",
+  "sharedFolders.sharedBy": "Поділився {name}",
+  "sharedFolders.sharedAt": "Поділилися {date}",
+  "sharedFolders.gifCount": "{count} GIF",
+  "sharedFolders.leave": "Покинути",
+  "sharedFolders.linkFromMyFolders": "Папки, якими з вами поділились →",
+  "folderDetail.sharedBanner": "Поділився {name} • Лише для читання",
+  "folderDetail.shareButton": "Поділитися",
   "gifCard.menu.addToFolder": "Додати в папку",
   "gifCard.menu.addToFolder.create": "+ Нова папка…",
   "gifCard.menu.addToFolder.added": "Додано",
