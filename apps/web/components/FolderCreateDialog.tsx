@@ -11,6 +11,7 @@ import {
 } from "@radix-ui/themes";
 import { trpc } from "@/lib/trpc";
 import { useT } from "@/lib/i18n";
+import { useVerifyRequired } from "./VerifyRequiredDialog";
 
 const NAME_MAX = 80;
 
@@ -24,8 +25,26 @@ export function FolderCreateDialog({ open, onOpenChange, onCreated }: Props) {
   const t = useT();
   const utils = trpc.useUtils();
   const create = trpc.folders.create.useMutation();
+  const me = trpc.auth.me.useQuery();
+  const verifyRequired = useVerifyRequired();
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  // Verify-gate every entry point in one place. When a caller opens this
+  // dialog and the viewer isn't verified, swallow the open transition,
+  // dismiss it back to closed, and surface the standard verify-required
+  // dialog instead. Same kind="action" that Convert uses, so the copy
+  // doesn't talk specifically about uploads. Wait for me to load before
+  // deciding so the bootstrap-race doesn't false-positive a fresh
+  // sign-in.
+  useEffect(() => {
+    if (!open) return;
+    if (me.isLoading || me.data === undefined) return;
+    if (me.data && me.data.status !== "verified") {
+      onOpenChange(false);
+      verifyRequired.show("action", "unverified");
+    }
+  }, [open, me.isLoading, me.data, onOpenChange, verifyRequired]);
 
   // Reset whenever the dialog reopens — leftover input/error from a prior
   // attempt would otherwise be the first thing the user sees.

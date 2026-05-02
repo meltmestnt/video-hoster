@@ -13,6 +13,7 @@ import {
 import { FOLDER_NAME_MAX_LEN } from "@repo/shared";
 import { trpc } from "@/lib/trpc";
 import { useT } from "@/lib/i18n";
+import { useVerifyRequired } from "./VerifyRequiredDialog";
 
 // Radix Select disallows empty-string values, so we use a stable sentinel
 // for the null option and another for the inline-create entry.
@@ -48,6 +49,8 @@ export function FolderPickerSelect({
   const folders = trpc.folders.list.useQuery();
   const utils = trpc.useUtils();
   const create = trpc.folders.create.useMutation();
+  const me = trpc.auth.me.useQuery();
+  const verifyRequired = useVerifyRequired();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [name, setName] = useState("");
@@ -58,6 +61,14 @@ export function FolderPickerSelect({
 
   const onValueChange = (next: string) => {
     if (next === CREATE_VALUE) {
+      // Same verification gate FolderCreateDialog uses — caller picked
+      // "+ New folder…" from the dropdown but the API will reject the
+      // create. Surface the standard verify-required dialog before we
+      // even render the inline dialog here.
+      if (me.data && me.data.status !== "verified") {
+        verifyRequired.show("action", "unverified");
+        return;
+      }
       setName("");
       setError(null);
       setCreateOpen(true);
