@@ -1,5 +1,7 @@
 # vids&gifs
 
+![License: BUSL-1.1](https://img.shields.io/badge/license-BUSL--1.1-orange)
+
 > Drop a video in your browser, get a shareable GIF in 30 seconds. No upload, no install, no waiting room.
 
 **Live:** [vidsandgifs.xyz](https://vidsandgifs.xyz)
