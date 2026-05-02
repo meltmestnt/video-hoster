@@ -14,10 +14,16 @@ import {
   Text,
   TextField,
 } from "@radix-ui/themes";
-import { Cross2Icon, Pencil1Icon, TrashIcon } from "@radix-ui/react-icons";
+import {
+  Cross2Icon,
+  Pencil1Icon,
+  Share1Icon,
+  TrashIcon,
+} from "@radix-ui/react-icons";
 import { trpc } from "@/lib/trpc";
 import { useT } from "@/lib/i18n";
 import { GifCard } from "@/components/GifCard";
+import { FolderShareDialog } from "@/components/FolderShareDialog";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@repo/api";
 
@@ -29,24 +35,33 @@ interface Props {
   folderId: string;
   initialName: string;
   initialGifs: ListGifsResult;
+  isOwner: boolean;
+  ownerName?: string | null;
 }
 
 export function FolderDetailClient({
   folderId,
   initialName,
   initialGifs,
+  isOwner,
+  ownerName,
 }: Props) {
   const t = useT();
   const router = useRouter();
   const utils = trpc.useUtils();
 
-  // Subscribe to the folder list so the rename optimistically reflects in
-  // the title without requiring a refetch.
   const folders = trpc.folders.list.useQuery(undefined, {
+    enabled: isOwner,
     staleTime: 10_000,
   });
-  const liveName =
-    folders.data?.find((f) => f.id === folderId)?.name ?? initialName;
+  const sharedFolders = trpc.folders.listSharedWithMe.useQuery(undefined, {
+    enabled: !isOwner,
+    staleTime: 10_000,
+  });
+
+  const liveName = isOwner
+    ? folders.data?.find((f) => f.id === folderId)?.name ?? initialName
+    : sharedFolders.data?.find((f) => f.id === folderId)?.name ?? initialName;
 
   const gifs = trpc.folders.listGifs.useQuery(
     { folderId, limit: 24 },
@@ -61,13 +76,12 @@ export function FolderDetailClient({
   const rename = trpc.folders.rename.useMutation();
   const remove = trpc.folders.delete.useMutation();
   const removeGif = trpc.folders.removeGif.useMutation();
+  const leaveShare = trpc.folders.leaveShare.useMutation();
 
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameValue, setRenameValue] = useState(liveName);
   const [renameError, setRenameError] = useState<string | null>(null);
 
-  // Re-seed the rename input each time the dialog opens so it reflects the
-  // current name (including any rename done elsewhere this session).
   useEffect(() => {
     if (renameOpen) {
       setRenameValue(liveName);
@@ -114,6 +128,20 @@ export function FolderDetailClient({
     }
   };
 
+  const [shareOpen, setShareOpen] = useState(false);
+
+  const [leaveOpen, setLeaveOpen] = useState(false);
+  const submitLeave = async () => {
+    try {
+      await leaveShare.mutateAsync({ folderId });
+      await utils.folders.listSharedWithMe.invalidate();
+      router.push("/folders/shared");
+      router.refresh();
+    } catch {
+      setLeaveOpen(false);
+    }
+  };
+
   const handleRemoveGif = async (gifId: string) => {
     try {
       await removeGif.mutateAsync({ folderId, gifId });
@@ -131,24 +159,49 @@ export function FolderDetailClient({
     <>
       <div className="page-header">
         <Flex justify="between" align="center" gap="3" wrap="wrap" mb="4">
-          <Heading size="6" style={{ wordBreak: "break-word" }}>
-            {liveName}
-          </Heading>
+          <Box style={{ minWidth: 0 }}>
+            <Heading size="6" style={{ wordBreak: "break-word" }}>
+              {liveName}
+            </Heading>
+            {!isOwner && ownerName && (
+              <Text as="div" size="2" color="gray" mt="1">
+                {t("folderDetail.sharedBanner", { name: ownerName })}
+              </Text>
+            )}
+          </Box>
           <Flex gap="2" align="center" wrap="wrap">
-            <Button
-              variant="soft"
-              color="gray"
-              onClick={() => setRenameOpen(true)}
-            >
-              <Pencil1Icon /> {t("folders.detail.rename")}
-            </Button>
-            <Button
-              variant="soft"
-              color="red"
-              onClick={() => setDeleteOpen(true)}
-            >
-              <TrashIcon /> {t("folders.detail.delete")}
-            </Button>
+            {isOwner ? (
+              <>
+                <Button
+                  variant="soft"
+                  onClick={() => setShareOpen(true)}
+                >
+                  <Share1Icon /> {t("folderDetail.shareButton")}
+                </Button>
+                <Button
+                  variant="soft"
+                  color="gray"
+                  onClick={() => setRenameOpen(true)}
+                >
+                  <Pencil1Icon /> {t("folders.detail.rename")}
+                </Button>
+                <Button
+                  variant="soft"
+                  color="red"
+                  onClick={() => setDeleteOpen(true)}
+                >
+                  <TrashIcon /> {t("folders.detail.delete")}
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="soft"
+                color="gray"
+                onClick={() => setLeaveOpen(true)}
+              >
+                {t("sharedFolders.leave")}
+              </Button>
+            )}
           </Flex>
         </Flex>
       </div>
@@ -175,41 +228,48 @@ export function FolderDetailClient({
           {items.map((g, i) => (
             <Box key={g.id} style={{ position: "relative" }}>
               <GifCard gif={g} index={i} />
-              {/* Overlay sits ABOVE the card's right-edge add-to-folder
-                  affordance and short-circuits its click before the
-                  navigating <a> sees it. Square red badge keeps the
-                  affordance distinct from the bookmark icon. */}
-              <div
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-                onMouseDown={(e) => e.stopPropagation()}
-                style={{
-                  position: "absolute",
-                  top: 8,
-                  right: 44,
-                  zIndex: 3,
-                }}
-              >
-                <IconButton
-                  size="1"
-                  variant="solid"
-                  color="red"
-                  highContrast
-                  aria-label={t("folders.detail.removeGif")}
-                  title={t("folders.detail.removeGif")}
-                  style={{ opacity: 0.92 }}
-                  onClick={() => {
-                    void handleRemoveGif(g.id);
+              {isOwner && (
+                <div
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  style={{
+                    position: "absolute",
+                    top: 8,
+                    right: 44,
+                    zIndex: 3,
                   }}
                 >
-                  <Cross2Icon />
-                </IconButton>
-              </div>
+                  <IconButton
+                    size="1"
+                    variant="solid"
+                    color="red"
+                    highContrast
+                    aria-label={t("folders.detail.removeGif")}
+                    title={t("folders.detail.removeGif")}
+                    style={{ opacity: 0.92 }}
+                    onClick={() => {
+                      void handleRemoveGif(g.id);
+                    }}
+                  >
+                    <Cross2Icon />
+                  </IconButton>
+                </div>
+              )}
             </Box>
           ))}
         </div>
+      )}
+
+      {isOwner && (
+        <FolderShareDialog
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+          folderId={folderId}
+          folderName={liveName}
+        />
       )}
 
       <Dialog.Root open={renameOpen} onOpenChange={setRenameOpen}>
@@ -283,6 +343,35 @@ export function FolderDetailClient({
               disabled={remove.isPending}
             >
               {t("folders.detail.delete.confirm.submit")}
+            </Button>
+          </Flex>
+        </AlertDialog.Content>
+      </AlertDialog.Root>
+
+      <AlertDialog.Root open={leaveOpen} onOpenChange={setLeaveOpen}>
+        <AlertDialog.Content maxWidth="440px">
+          <AlertDialog.Title>{t("sharedFolders.leave")}</AlertDialog.Title>
+          <AlertDialog.Description size="2">
+            {ownerName
+              ? t("folderDetail.sharedBanner", { name: ownerName })
+              : null}
+          </AlertDialog.Description>
+          <Flex gap="3" mt="4" justify="end">
+            <AlertDialog.Cancel>
+              <Button
+                variant="soft"
+                color="gray"
+                disabled={leaveShare.isPending}
+              >
+                {t("common.cancel")}
+              </Button>
+            </AlertDialog.Cancel>
+            <Button
+              color="red"
+              onClick={submitLeave}
+              disabled={leaveShare.isPending}
+            >
+              {t("sharedFolders.leave")}
             </Button>
           </Flex>
         </AlertDialog.Content>

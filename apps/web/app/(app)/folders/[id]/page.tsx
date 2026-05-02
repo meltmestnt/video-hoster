@@ -16,37 +16,62 @@ export default async function FolderDetailPage({
 }) {
   const { id } = await params;
   const session = await getServerSession(authOptions);
-  // The detail page is meaningful only to the owner — anon viewers can't
-  // see anyone else's folders, so push them straight to login rather than
-  // rendering an empty shell.
   if (!session?.user) {
     redirect(`/login?callbackUrl=${encodeURIComponent(`/folders/${id}`)}`);
   }
 
+  const viewerId = session.user.id;
   const trpc = await getServerTrpc();
-  const folders = await trpc.folders.list.query();
-  const folder = folders.find((f) => f.id === id);
-  if (!folder) notFound();
+
+  // The viewer either owns the folder OR is a recipient of a share. We
+  // resolve via the two list endpoints rather than adding a getById
+  // procedure — keeps the surface narrow and reuses the existing ACLs.
+  const owned = await trpc.folders.list.query();
+  let folderName: string | null = null;
+  let ownerId: string = viewerId;
+  let ownerName: string | null = null;
+  const ownedFolder = owned.find((f) => f.id === id);
+  if (ownedFolder) {
+    folderName = ownedFolder.name;
+    ownerId = viewerId;
+  } else {
+    const shared = await trpc.folders.listSharedWithMe.query();
+    const sharedFolder = shared.find((f) => f.id === id);
+    if (sharedFolder) {
+      folderName = sharedFolder.name;
+      ownerId = sharedFolder.owner.id;
+      ownerName = sharedFolder.owner.name;
+    }
+  }
+  if (!folderName) notFound();
 
   const initialGifs = await trpc.folders.listGifs.query({
     folderId: id,
     limit: 24,
   });
 
+  const isOwner = ownerId === viewerId;
+
   return (
     <>
       <Box mb="3">
         <Link
-          href="/folders"
+          href={isOwner ? "/folders" : "/folders/shared"}
           style={{ color: "var(--gray-11)", fontSize: "var(--font-size-2)" }}
         >
-          <T k="folders.detail.back" />
+          {isOwner ? (
+            <T k="folders.detail.back" />
+          ) : (
+            <T k="sharedFolders.linkBack" />
+          )}
         </Link>
       </Box>
       <FolderDetailClient
-        folderId={folder.id}
-        initialName={folder.name}
+        folderId={id}
+        initialName={folderName}
         initialGifs={initialGifs}
+        isOwner={isOwner}
+        ownerName={ownerName}
       />
     </>
   );

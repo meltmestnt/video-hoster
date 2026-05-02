@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Box, Button, Card, Flex, Heading, Text } from "@radix-ui/themes";
+import { Badge, Box, Button, Card, Flex, Heading, Text } from "@radix-ui/themes";
 import { PlusIcon } from "@radix-ui/react-icons";
 import { trpc } from "@/lib/trpc";
 import { useT } from "@/lib/i18n";
@@ -23,6 +23,10 @@ export function FoldersClient({ initial }: Props) {
     initialData: initial,
     staleTime: 10_000,
   });
+  const sharedWithMe = trpc.folders.listSharedWithMe.useQuery(undefined, {
+    staleTime: 10_000,
+  });
+  const sharedCount = sharedWithMe.data?.length ?? 0;
 
   const items = folders.data ?? [];
 
@@ -34,7 +38,24 @@ export function FoldersClient({ initial }: Props) {
 
   return (
     <>
-      <Flex justify="end" mb="4">
+      <Flex justify="between" align="center" mb="4" gap="3" wrap="wrap">
+        <Link
+          href="/folders/shared"
+          style={{
+            color: "var(--accent-11)",
+            fontSize: "var(--font-size-2)",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          {t("sharedFolders.linkFromMyFolders")}
+          {sharedCount > 0 && (
+            <Badge color="blue" variant="soft">
+              {sharedCount}
+            </Badge>
+          )}
+        </Link>
         <Button onClick={() => setCreateOpen(true)}>
           <PlusIcon /> {t("folders.create.button")}
         </Button>
