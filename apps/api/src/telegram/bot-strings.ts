@@ -22,7 +22,7 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
     "start.linkSaveFailed":
       "Не вдалося зберегти підʼєднання. Спробуйте /unlink, потім підʼєднайте знову з /settings.",
     help:
-      "/search <запит> — знайти GIF за назвою або тегом.\n/upload — як додати власний GIF на сайт.\nІнлайн-пошук: @{bot} <запит> — у будь-якому чаті (теж шукає за тегами).\n/lang — змінити мову.\n/unlink — відʼєднати Telegram від акаунту.",
+      "/search <запит> — знайти GIF за назвою або тегом.\n/upload — як додати власний GIF на сайт.\nІнлайн-пошук: @{bot} <запит> — у будь-якому чаті (теж шукає за тегами).\n/folders — показати ваші папки.\n/folder set <назва> — обрати активну папку (інлайн-пошук та завантаження звужуються до неї).\n/folder clear — скинути активну папку.\n/lang — змінити мову.\n/unlink — відʼєднати Telegram від акаунту.",
     "search.usage":
       "Скористайтеся так: /search кошеня\nПошук працює і за назвами, і за тегами.\nАбо повний пошук на сайті: {webOrigin}/search",
     "search.empty":
@@ -116,7 +116,7 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
     "start.linkSaveFailed":
       "Couldn't save the link. Try /unlink, then connect again from /settings.",
     help:
-      "/search <query> — find GIFs by title or tag.\n/upload — how to add your own GIF to the site.\nInline search: @{bot} <query> — works in any chat (also matches tags).\n/lang — change language.\n/unlink — detach this Telegram from your account.",
+      "/search <query> — find GIFs by title or tag.\n/upload — how to add your own GIF to the site.\nInline search: @{bot} <query> — works in any chat (also matches tags).\n/folders — list your folders.\n/folder set <name> — pick an active folder (scopes inline search and uploads to it).\n/folder clear — clear the active folder.\n/lang — change language.\n/unlink — detach this Telegram from your account.",
     "search.usage":
       "Try it like: /search kitten\nSearch matches both titles and tags.\nOr full search on the site: {webOrigin}/search",
     "search.empty":

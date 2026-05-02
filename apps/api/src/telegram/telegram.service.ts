@@ -259,6 +259,8 @@ export class TelegramService
     const commandsUk = [
       { command: "search", description: "Знайти GIF на vids&gifs" },
       { command: "upload", description: "Завантажити свій GIF" },
+      { command: "folders", description: "Показати ваші папки" },
+      { command: "folder", description: "Обрати активну папку" },
       { command: "help", description: "Як користуватися ботом" },
       { command: "lang", description: "Змінити мову" },
       { command: "unlink", description: "Відʼєднати акаунт" },
@@ -266,6 +268,8 @@ export class TelegramService
     const commandsEn = [
       { command: "search", description: "Search GIFs on vids&gifs" },
       { command: "upload", description: "Upload your own GIF" },
+      { command: "folders", description: "List your folders" },
+      { command: "folder", description: "Pick the active folder" },
       { command: "help", description: "How to use the bot" },
       { command: "lang", description: "Change language" },
       { command: "unlink", description: "Detach account" },
