@@ -1254,11 +1254,20 @@ function isPublicIp(ip: string): boolean {
 const ssrfSafeAgent = new Agent({
   connect: {
     timeout: URL_CONNECT_TIMEOUT_MS,
-    lookup(hostname, _opts, callback) {
+    // Undici 8's connector uses happy-eyeballs and calls this with
+    // `options.all = true`, expecting the callback to receive an array
+    // of LookupAddress objects. Older callers (or any with `all: false`)
+    // expect the (err, address, family) form. Honour both — Node's
+    // dns.LookupFunction type allows either return shape.
+    lookup(hostname, options, callback) {
       dnsLookup(hostname, { all: true, verbatim: true })
         .then((addrs) => {
           if (addrs.length === 0) {
-            callback(new Error(`no DNS records for ${hostname}`), "", 0);
+            callback(
+              new Error(`no DNS records for ${hostname}`) as NodeJS.ErrnoException,
+              "" as never,
+              0,
+            );
             return;
           }
           for (const a of addrs) {
@@ -1266,16 +1275,27 @@ const ssrfSafeAgent = new Agent({
               callback(
                 new Error(
                   `refusing to connect: ${hostname} → non-public ${a.address}`,
-                ),
-                "",
+                ) as NodeJS.ErrnoException,
+                "" as never,
                 0,
               );
               return;
             }
           }
-          callback(null, addrs[0].address, addrs[0].family);
+          if (options.all) {
+            // (err, addresses[]) — undici unpacks .address/.family per
+            // entry for happy-eyeballs.
+            (callback as unknown as (
+              err: NodeJS.ErrnoException | null,
+              addresses: Array<{ address: string; family: number }>,
+            ) => void)(null, addrs);
+          } else {
+            callback(null, addrs[0].address, addrs[0].family);
+          }
         })
-        .catch((err) => callback(err as Error, "", 0));
+        .catch((err) =>
+          callback(err as NodeJS.ErrnoException, "" as never, 0),
+        );
     },
   },
   headersTimeout: URL_CONNECT_TIMEOUT_MS,
