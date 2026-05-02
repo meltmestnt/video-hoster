@@ -65,12 +65,12 @@ const SITE_KEYWORDS = [
 
 // Search engine site-verification tokens. These are public values that get
 // emitted into every page's <meta>, so pinning the Google token to the
-// vidsandgifs.xyz property here means a fresh deploy is verified without
+// vidsandgifs.com property here means a fresh deploy is verified without
 // any Railway config. Override via env if you ever rotate the property or
 // need a different token per environment.
 const GOOGLE_SITE_VERIFICATION =
   process.env.GOOGLE_SITE_VERIFICATION ??
-  "nKXIsKwl0ygpSh3BMcTlHKGuvxHeETkh9T-wqlMhcQY";
+  "exYyOg4bejyDiY-EN71yMcqrQROhJ0rd4IgBTplDsiE";
 const BING_SITE_VERIFICATION = process.env.BING_SITE_VERIFICATION;
 const YANDEX_SITE_VERIFICATION = process.env.YANDEX_SITE_VERIFICATION;
 
