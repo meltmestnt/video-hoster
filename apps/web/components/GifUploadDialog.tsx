@@ -277,7 +277,7 @@ export function GifUploadDialog({ open, onOpenChange, initialFile }: Props) {
       // re-compresses the fetched GIF the same way as a normal upload.
       setUrlSubmitting(true);
       try {
-        const result = await uploadFromUrl.mutateAsync({
+        await uploadFromUrl.mutateAsync({
           url: url.trim(),
           title: title.trim(),
           description: description.trim(),
@@ -285,9 +285,11 @@ export function GifUploadDialog({ open, onOpenChange, initialFile }: Props) {
           visibility,
         });
         // Refresh the listings + my-profile counts so the new GIF
-        // appears in the feed without a manual reload, then navigate
-        // straight to its detail page so the user sees the result of
-        // the upload they just kicked off.
+        // shows up wherever the user already is (feed, profile, etc.)
+        // without a manual reload. We deliberately don't navigate to
+        // /gifs/<id> — fresh rows aren't always immediately visible
+        // to a server-rendered detail page, so jumping there can land
+        // on a transient 404.
         await Promise.all([
           utils.gifs.list.invalidate(),
           utils.gifs.search.invalidate().catch(() => {}),
@@ -295,7 +297,6 @@ export function GifUploadDialog({ open, onOpenChange, initialFile }: Props) {
         ]);
         router.refresh();
         onOpenChange(false);
-        router.push(`/gifs/${result.gifId}`);
       } catch (err) {
         setError((err as Error).message);
       } finally {

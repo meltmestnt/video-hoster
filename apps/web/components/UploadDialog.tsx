@@ -282,7 +282,7 @@ export function UploadDialog({ open, onOpenChange, initialFile }: Props) {
     }
     setUrlSubmitting(true);
     try {
-      const result = await uploadFromUrl.mutateAsync({
+      await uploadFromUrl.mutateAsync({
         url: url.trim(),
         title: title.trim(),
         description: description.trim(),
@@ -291,8 +291,10 @@ export function UploadDialog({ open, onOpenChange, initialFile }: Props) {
         downloadPolicy,
       });
       // Refresh listings + my-profile counts so the new video shows
-      // up in the feed without a manual reload, then jump to its
-      // detail page so the user lands on the result they just made.
+      // up wherever the user already is, without a manual reload.
+      // We deliberately don't navigate to /videos/<id> — fresh rows
+      // aren't always immediately visible to a server-rendered
+      // detail page, so jumping there can land on a transient 404.
       await Promise.all([
         utils.videos.list.invalidate(),
         utils.videos.search.invalidate().catch(() => {}),
@@ -300,7 +302,6 @@ export function UploadDialog({ open, onOpenChange, initialFile }: Props) {
       ]);
       router.refresh();
       onOpenChange(false);
-      router.push(`/videos/${result.videoId}`);
     } catch (err) {
       setError((err as Error).message);
     } finally {
