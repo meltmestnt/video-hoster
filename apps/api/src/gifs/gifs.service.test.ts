@@ -12,7 +12,7 @@ import {
 import { GifsService } from "./gifs.service";
 import type { Gif } from "./gif.entity";
 import type { User } from "../users/user.entity";
-import { createMockRepo } from "../../test/mock-repo";
+import { createMockQueryBuilder, createMockRepo } from "../../test/mock-repo";
 
 function makeSvc() {
   const gifs = createMockRepo<Gif>();
@@ -275,5 +275,80 @@ describe("GifsService.createFromBuffer (Telegram path)", () => {
       string,
     ];
     expect(callArgs[1].length).toBe(original.length);
+  });
+});
+
+describe("GifsService.suggested — folder scoping", () => {
+  // Source gif with two tag ids — without tags the method short-circuits
+  // and returns []; we need at least one to reach the queryBuilder path.
+  const sourceGif = {
+    id: "g-source",
+    ownerId: "u-1",
+    visibility: "public",
+    tags: [{ id: "t-1" }, { id: "t-2" }],
+  } as unknown as Gif;
+
+  it("inner-joins folder_gifs and skips visibility filter when folderId is set", async () => {
+    const { svc, gifs } = makeSvc();
+    gifs.findOne.mockResolvedValueOnce(sourceGif);
+    const qb = createMockQueryBuilder();
+    gifs.createQueryBuilder.mockReturnValueOnce(qb);
+    qb.getMany.mockResolvedValueOnce([]);
+
+    await svc.suggested("g-source", 24, "u-2", false, "f-1");
+
+    // Folder membership join applied with the bound folderId.
+    expect(qb.innerJoin).toHaveBeenCalledWith(
+      "folder_gifs",
+      "fg",
+      expect.stringContaining(`fg."folderId" = :folderId`),
+      { folderId: "f-1" },
+    );
+    // No public-visibility filter — folder access implies read perm.
+    const calls = qb.andWhere.mock.calls;
+    expect(
+      calls.some((c) => /visibility = :pub/.test(String(c[0]))),
+    ).toBe(false);
+  });
+
+  it("does not 404 a non-owner viewing similar in a folder of a private gif", async () => {
+    // Folder-scoped suggested is the only path that lets a recipient see
+    // similars to a private gif they have folder access to. The router
+    // validates folder access upstream; the service trusts the folderId
+    // and lifts the visibility 404.
+    const { svc, gifs } = makeSvc();
+    gifs.findOne.mockResolvedValueOnce({
+      ...sourceGif,
+      visibility: "private",
+    } as Gif);
+    const qb = createMockQueryBuilder();
+    gifs.createQueryBuilder.mockReturnValueOnce(qb);
+    qb.getMany.mockResolvedValueOnce([]);
+
+    await expect(
+      svc.suggested("g-source", 24, "u-not-owner", false, "f-1"),
+    ).resolves.toEqual([]);
+  });
+
+  it("applies the visibility filter when folderId is NOT set (existing behavior)", async () => {
+    const { svc, gifs } = makeSvc();
+    gifs.findOne.mockResolvedValueOnce(sourceGif);
+    const qb = createMockQueryBuilder();
+    gifs.createQueryBuilder.mockReturnValueOnce(qb);
+    qb.getMany.mockResolvedValueOnce([]);
+
+    await svc.suggested("g-source", 24, "u-2", false);
+
+    // No folder_gifs join in the global path.
+    const innerJoinCalls = qb.innerJoin.mock.calls;
+    expect(
+      innerJoinCalls.some((c) => c[0] === "folder_gifs"),
+    ).toBe(false);
+    // Visibility filter applied via applyVisibility → andWhere with
+    // either "g.visibility = :pub" alone (anon) or with viewerId branch.
+    const calls = qb.andWhere.mock.calls;
+    expect(
+      calls.some((c) => /visibility = :pub/.test(String(c[0]))),
+    ).toBe(true);
   });
 });

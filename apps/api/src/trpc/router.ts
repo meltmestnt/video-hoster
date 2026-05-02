@@ -61,6 +61,8 @@ import {
   renameFolderInputSchema,
   folderGifInputSchema,
   listFolderGifsInputSchema,
+  listFolderTagsInputSchema,
+  folderSuggestedInputSchema,
   setActiveFolderInputSchema,
   shareFolderInputSchema,
   unshareFolderInputSchema,
@@ -731,10 +733,45 @@ export const appRouter = router({
         const { ids, nextCursor } = await ctx.services.folders.listGifIds(
           ctx.user.id,
           input.folderId,
-          { cursor: input.cursor, limit: input.limit },
+          {
+            cursor: input.cursor,
+            limit: input.limit,
+            q: input.q,
+            tag: input.tag,
+          },
         );
         const items = await ctx.services.gifs.hydrateByIds(ids, ctx.user.id);
         return { items, nextCursor };
+      }),
+
+    // Top-N tags inside a folder, used for the chip row above the
+    // search input. Owner OR shared recipient sees the same chip set.
+    listFolderTags: protectedProcedure
+      .input(listFolderTagsInputSchema)
+      .query(({ ctx, input }) =>
+        ctx.services.folders.listFolderTags(
+          ctx.user.id,
+          input.folderId,
+          input.limit,
+        ),
+      ),
+
+    // Folder-scoped "similar to this gif". Validates folder read
+    // access here, then delegates to GifsService.suggested with the
+    // folderId so the candidate set is restricted to this folder's
+    // members (and the global visibility filter is bypassed — folder
+    // contents already imply read permission).
+    suggested: protectedProcedure
+      .input(folderSuggestedInputSchema)
+      .query(async ({ ctx, input }) => {
+        await ctx.services.folders.findReadable(input.folderId, ctx.user.id);
+        return ctx.services.gifs.suggested(
+          input.gifId,
+          input.limit,
+          ctx.user.id,
+          ctx.user.role === "admin",
+          input.folderId,
+        );
       }),
 
     folderIdsForGif: protectedProcedure

@@ -977,6 +977,13 @@ export class GifsService {
     limit: number,
     viewerId?: string | null,
     isAdmin = false,
+    // When set, restrict candidates to gifs that are members of this
+    // folder. The folders router validates the caller's read access
+    // before invoking — so we can trust the membership join here as a
+    // pure filter without re-checking ownership. The visibility filter
+    // is also lifted in this case: a folder is personal/shared, so a
+    // user browsing one is allowed to see private gifs they put in it.
+    folderId?: string | null,
   ) {
     const g = await this.gifs.findOne({
       where: { id },
@@ -990,7 +997,8 @@ export class GifsService {
     if (
       g.visibility === "private" &&
       g.ownerId !== viewerId &&
-      !isAdmin
+      !isAdmin &&
+      !folderId
     ) {
       throw new NotFoundException("Gif not found");
     }
@@ -1006,7 +1014,19 @@ export class GifsService {
       .andWhere("g.id != :id", { id })
       .andWhere("g.status = :s", { s: "ready" });
 
-    this.applyVisibility(qb, viewerId);
+    if (folderId) {
+      // Inner-join folder_gifs to scope to this folder's contents only.
+      // The router already validated read access, so the folder param
+      // here is trusted.
+      qb.innerJoin(
+        "folder_gifs",
+        "fg",
+        `fg."gifId" = g.id AND fg."folderId" = :folderId`,
+        { folderId },
+      );
+    } else {
+      this.applyVisibility(qb, viewerId);
+    }
 
     const rows = await qb
       .groupBy("g.id")

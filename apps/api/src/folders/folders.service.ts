@@ -222,13 +222,32 @@ export class FoldersService {
   async listGifIds(
     userId: string,
     folderId: string,
-    args: { cursor?: string | null; limit: number },
+    args: {
+      cursor?: string | null;
+      limit: number;
+      // Optional in-folder text filter — title ILIKE OR any tag ILIKE.
+      // Empty string is treated as "no filter" so a cleared search box
+      // doesn't reach the DB as "%%".
+      q?: string | null;
+      // Optional exact-tag filter, lowercased to match how tags are
+      // stored. Combines AND with `q` when both are set, so the user
+      // can chip-filter to "cat" and then search inside that subset.
+      tag?: string | null;
+    },
   ): Promise<{ ids: string[]; nextCursor: string | null }> {
     // Owner OR recipient — share grants read-only access to the same
     // listing. Mutations (addGif/removeGif/rename/delete) still
     // require owner via findOwned.
     await this.findReadable(folderId, userId);
     const limit = Math.max(1, Math.min(args.limit ?? 20, 100));
+    const trimmedQ = (args.q ?? "").trim();
+    const trimmedTag = (args.tag ?? "").trim().toLowerCase();
+    const filtering = trimmedQ.length > 0 || trimmedTag.length > 0;
+
+    // The base list query joins folder_gifs to itself and orders by
+    // addedAt; the filtered variant joins gifs (for the title) plus
+    // optionally gif_tags / tags (for the predicate). Keep them split
+    // so the unfiltered hot path stays the original tight query.
     const qb = this.folderGifs
       .createQueryBuilder("fg")
       .select(["fg.gifId AS \"gifId\"", "fg.addedAt AS \"addedAt\""])
@@ -236,6 +255,34 @@ export class FoldersService {
       .orderBy(`fg."addedAt"`, "DESC")
       .addOrderBy(`fg."gifId"`, "DESC")
       .take(limit + 1);
+
+    if (filtering) {
+      qb.innerJoin("gifs", "g", `g.id = fg."gifId"`);
+      if (trimmedQ.length > 0) {
+        const escaped = trimmedQ.replace(/[\\%_]/g, (c) => `\\${c}`);
+        qb.andWhere(
+          `(g.title ILIKE :qLike OR EXISTS (
+             SELECT 1 FROM gif_tags gt2
+             JOIN tags t2 ON t2.id = gt2."tagId"
+             WHERE gt2."gifId" = g.id AND t2.name ILIKE :qLike
+           ))`,
+          { qLike: `%${escaped}%` },
+        );
+      }
+      if (trimmedTag.length > 0) {
+        // Exact-name match — chips come from listFolderTags, which
+        // returns canonical lowercased names, so a strict equality
+        // here keeps the chip → result mapping deterministic.
+        qb.andWhere(
+          `EXISTS (
+             SELECT 1 FROM gif_tags gt3
+             JOIN tags t3 ON t3.id = gt3."tagId"
+             WHERE gt3."gifId" = g.id AND t3.name = :tagName
+           )`,
+          { tagName: trimmedTag },
+        );
+      }
+    }
 
     if (args.cursor) {
       // Cursor is the last seen `gifId` from the previous page; we paginate
@@ -257,6 +304,38 @@ export class FoldersService {
     const nextCursor =
       hasMore && ids.length > 0 ? ids[ids.length - 1] : null;
     return { ids, nextCursor };
+  }
+
+  /**
+   * Top-N tags inside a folder, ordered by gif count desc then name
+   * asc as a deterministic tiebreaker. Powers the chip row at the top
+   * of the folder detail page — one-tap filters scoped to whatever's
+   * in this folder, instead of the global tag space.
+   *
+   * Read-only via `findReadable` so a recipient with a shared folder
+   * sees the same chip set the owner does.
+   */
+  async listFolderTags(
+    userId: string,
+    folderId: string,
+    limit: number,
+  ): Promise<Array<{ name: string; count: number }>> {
+    await this.findReadable(folderId, userId);
+    const cap = Math.max(1, Math.min(limit ?? 20, 50));
+    const rows = await this.folderGifs.manager.query<
+      Array<{ name: string; count: string }>
+    >(
+      `SELECT t.name AS name, COUNT(*)::int AS count
+         FROM folder_gifs fg
+         JOIN gif_tags gt ON gt."gifId" = fg."gifId"
+         JOIN tags t ON t.id = gt."tagId"
+        WHERE fg."folderId" = $1
+        GROUP BY t.name
+        ORDER BY COUNT(*) DESC, t.name ASC
+        LIMIT $2`,
+      [folderId, cap],
+    );
+    return rows.map((r) => ({ name: r.name, count: Number(r.count) }));
   }
 
   /**

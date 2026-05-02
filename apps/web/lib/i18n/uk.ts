@@ -455,6 +455,16 @@ export const uk: EnDict = {
   "folders.detail.delete.confirm.submit": "Видалити папку",
   "folders.detail.removeGif": "Прибрати з папки",
   "folders.detail.back": "← До папок",
+  "folders.detail.search.placeholder": "Пошук у цій папці…",
+  "folders.detail.search.empty": "У цій папці нічого не знайшлося.",
+  "folders.detail.search.clear": "Очистити пошук",
+  "folders.detail.tags.label": "Фільтр за тегом",
+  "folders.detail.tags.all": "Усі",
+  "folders.detail.similar.title": "Схожі на «{title}» у цій папці",
+  "folders.detail.similar.exit": "Показати всі",
+  "folders.detail.similar.empty":
+    "У цій папці немає інших GIF зі спільними тегами.",
+  "folders.detail.similar.button": "Знайти схожі в папці",
   "folders.userMenu.link": "Мої папки",
   "folders.error.nameRequired": "Назва папки не може бути порожньою.",
   "folders.error.nameTooLong":
