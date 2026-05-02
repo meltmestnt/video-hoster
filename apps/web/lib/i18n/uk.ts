@@ -406,6 +406,54 @@ export const uk: EnDict = {
   "billing.upsell.title": "Функція Pro",
   "billing.upsell.body": "Підпишіться на Pro, щоб розблокувати.",
 
+  // ─── Папки ───
+  "folders.heading.title": "Мої папки",
+  "folders.heading.subtitle":
+    "Особисті колекції GIF. Використовуйте їх для впорядкування бібліотеки або щоб обмежити Telegram-бота вибраним набором.",
+  "folders.empty.title": "Ще немає папок",
+  "folders.empty.body":
+    "Створіть папку й додавайте GIF із будь-якого місця сайту або одразу завантажуйте приватні GIF у неї.",
+  "folders.empty.cta": "Створити першу папку",
+  "folders.create.button": "Нова папка",
+  "folders.create.dialog.title": "Створити папку",
+  "folders.create.dialog.namePlaceholder": "Назва папки",
+  "folders.create.dialog.submit": "Створити",
+  "folders.create.dialog.cancel": "Скасувати",
+  "folders.card.gifs.zero": "0 GIF",
+  "folders.card.gifs.one": "1 GIF",
+  "folders.card.gifs.many": "{n} GIF",
+  "folders.detail.empty.title": "Папка порожня",
+  "folders.detail.empty.body":
+    "Додавайте GIF із будь-якої стрічки через меню «Додати в папку» або завантажуйте нові з вибраною папкою.",
+  "folders.detail.rename": "Перейменувати",
+  "folders.detail.rename.dialog.title": "Перейменувати папку",
+  "folders.detail.rename.dialog.submit": "Зберегти",
+  "folders.detail.delete": "Видалити папку",
+  "folders.detail.delete.confirm.title": "Видалити цю папку?",
+  "folders.detail.delete.confirm.body":
+    "Самі GIF залишаться у вашій бібліотеці — вони просто перестануть бути в цій папці.",
+  "folders.detail.delete.confirm.submit": "Видалити папку",
+  "folders.detail.removeGif": "Прибрати з папки",
+  "folders.detail.back": "← До папок",
+  "folders.userMenu.link": "Мої папки",
+  "folders.error.nameRequired": "Назва папки не може бути порожньою.",
+  "folders.error.nameTooLong":
+    "Назва папки занадто довга (максимум 80 символів).",
+  "gifCard.menu.addToFolder": "Додати в папку",
+  "gifCard.menu.addToFolder.create": "+ Нова папка…",
+  "gifCard.menu.addToFolder.added": "Додано",
+  "gifCard.menu.addToFolder.removed": "Прибрано",
+  "gifCard.menu.addToFolder.signInRequired":
+    "Увійдіть, щоб упорядковувати GIF по папках.",
+  "gifUpload.folder.label": "Додати в папку",
+  "gifUpload.folder.none": "(без папки)",
+  "settings.folders.label": "Активна папка для Telegram",
+  "settings.folders.hint":
+    "Інлайн-пошук у Telegram та GIF, переслані боту, будуть обмежені цією папкою. Виберіть «Усі мої GIF», щоб скинути.",
+  "settings.folders.none": "Усі мої GIF (без фільтра по папці)",
+  "settings.folders.linkRequired":
+    "Спершу підʼєднайте Telegram, щоб обрати активну папку.",
+
   // ─── Unverified-account banner ───
   "unverified.banner.title": "Підтвердьте пошту, щоб діяти на сайті.",
   "unverified.banner.body":

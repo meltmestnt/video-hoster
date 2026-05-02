@@ -396,6 +396,53 @@ export const en = {
   "billing.upsell.title": "Pro feature",
   "billing.upsell.body": "Upgrade to Pro to unlock this.",
 
+  // ─── Folders ───
+  "folders.heading.title": "My folders",
+  "folders.heading.subtitle":
+    "Personal collections of GIFs. Use them to organize your library or scope your Telegram bot to a curated subset.",
+  "folders.empty.title": "No folders yet",
+  "folders.empty.body":
+    "Create one and add GIFs to it from anywhere on the site, or upload private GIFs straight into it.",
+  "folders.empty.cta": "Create your first folder",
+  "folders.create.button": "New folder",
+  "folders.create.dialog.title": "Create folder",
+  "folders.create.dialog.namePlaceholder": "Folder name",
+  "folders.create.dialog.submit": "Create",
+  "folders.create.dialog.cancel": "Cancel",
+  "folders.card.gifs.zero": "0 GIFs",
+  "folders.card.gifs.one": "1 GIF",
+  "folders.card.gifs.many": "{n} GIFs",
+  "folders.detail.empty.title": "This folder is empty",
+  "folders.detail.empty.body":
+    "Add GIFs from any feed via the “Add to folder” menu, or upload new ones with this folder selected.",
+  "folders.detail.rename": "Rename",
+  "folders.detail.rename.dialog.title": "Rename folder",
+  "folders.detail.rename.dialog.submit": "Save",
+  "folders.detail.delete": "Delete folder",
+  "folders.detail.delete.confirm.title": "Delete this folder?",
+  "folders.detail.delete.confirm.body":
+    "The GIFs themselves stay in your library — they're just removed from this folder.",
+  "folders.detail.delete.confirm.submit": "Delete folder",
+  "folders.detail.removeGif": "Remove from folder",
+  "folders.detail.back": "← Back to folders",
+  "folders.userMenu.link": "My folders",
+  "folders.error.nameRequired": "Folder name cannot be empty.",
+  "folders.error.nameTooLong": "Folder name is too long (80 characters max).",
+  "gifCard.menu.addToFolder": "Add to folder",
+  "gifCard.menu.addToFolder.create": "+ New folder…",
+  "gifCard.menu.addToFolder.added": "Added",
+  "gifCard.menu.addToFolder.removed": "Removed",
+  "gifCard.menu.addToFolder.signInRequired":
+    "Sign in to organize GIFs into folders.",
+  "gifUpload.folder.label": "Add to folder",
+  "gifUpload.folder.none": "(no folder)",
+  "settings.folders.label": "Telegram active folder",
+  "settings.folders.hint":
+    "Inline searches in Telegram and GIFs you forward to the bot will be scoped to this folder. Pick “All my GIFs” to clear.",
+  "settings.folders.none": "All my GIFs (no folder filter)",
+  "settings.folders.linkRequired":
+    "Connect your Telegram account first to set an active folder.",
+
   // ─── Unverified-account banner ───
   "unverified.banner.title": "Verify your email to participate.",
   "unverified.banner.body":
