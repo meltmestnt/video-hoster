@@ -159,6 +159,22 @@ function TrpcProviders({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Browser default `history.scrollRestoration = "auto"` makes a reload
+// (and bfcache restore) jump back to whatever scroll position the user
+// was at before — so refreshing a page they'd scrolled down on lands
+// them mid-page instead of at the top. Force "manual" once on mount so
+// Next.js's own scroll-to-top behaviour wins on every navigation. Has
+// to live in a `"use client"` component (this one).
+function ScrollRestorationFix() {
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
+  }, []);
+  return null;
+}
+
 export function Providers({
   children,
   initialLocale,
@@ -169,6 +185,7 @@ export function Providers({
   return (
     <SessionProvider>
       <I18nProvider initialLocale={initialLocale}>
+        <ScrollRestorationFix />
         <TrpcProviders>{children}</TrpcProviders>
       </I18nProvider>
     </SessionProvider>
