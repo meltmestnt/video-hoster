@@ -19,6 +19,8 @@ import { Screenshot } from "../screenshots/screenshot.entity";
 import { PushSubscription } from "../push/push-subscription.entity";
 import { TelegramLink } from "../telegram/telegram-link.entity";
 import { TelegramPref } from "../telegram/telegram-pref.entity";
+import { Folder } from "../folders/folder.entity";
+import { FolderGif } from "../folders/folder-gif.entity";
 
 @Module({
   imports: [
@@ -51,6 +53,8 @@ import { TelegramPref } from "../telegram/telegram-pref.entity";
           PushSubscription,
           TelegramLink,
           TelegramPref,
+          Folder,
+          FolderGif,
         ],
         synchronize: true,
         logging: ["error", "warn"],
