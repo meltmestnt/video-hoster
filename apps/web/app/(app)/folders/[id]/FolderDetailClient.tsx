@@ -26,6 +26,7 @@ import {
 import { trpc } from "@/lib/trpc";
 import { useT } from "@/lib/i18n";
 import { GifCard } from "@/components/GifCard";
+import { InfiniteScrollSpinner } from "@/components/InfiniteScrollSentinel";
 import { FolderShareDialog } from "@/components/FolderShareDialog";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@repo/api";
@@ -377,7 +378,25 @@ export function FolderDetailClient({
         </Callout.Root>
       )}
 
-      {items.length === 0 ? (
+      {items.length === 0 && isLoadingItems ? (
+        // While a search/tag/similar fetch is in flight with no cached
+        // items yet, show a spinner instead of the empty state so the
+        // user doesn't read a stale "no matches" before the request
+        // even returns. Same dashed-border container as the empty
+        // state so layout doesn't jump when it resolves.
+        <Box
+          style={{
+            padding: "64px 24px",
+            background: "var(--gray-2)",
+            borderRadius: "var(--radius-3)",
+            border: "1px dashed var(--gray-5)",
+            display: "flex",
+            justifyContent: "center",
+          }}
+        >
+          <InfiniteScrollSpinner />
+        </Box>
+      ) : items.length === 0 ? (
         <Box
           style={{
             padding: "64px 24px",
