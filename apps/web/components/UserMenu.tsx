@@ -437,6 +437,11 @@ function ProfilePane({
             <Link href="/manage">{t("user.profile.manage")}</Link>
           </Button>
         )}
+        {(me.data ? me.data.role === "admin" : isAdmin) && (
+          <Button asChild variant="soft" color="red">
+            <Link href="/admin/folders">{t("userMenu.admin.folders")}</Link>
+          </Button>
+        )}
         <Button variant="soft" onClick={onChangeAvatar}>
           {t("user.profile.changeAvatar")}
         </Button>

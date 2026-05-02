@@ -596,6 +596,35 @@ export const uk: EnDict = {
   "manage.forbidden":
     "Потрібен доступ адміністратора, щоб переглядати цю сторінку.",
 
+  // ─── Admin folder moderation ───
+  "adminFolders.heading": "Усі папки",
+  "adminFolders.subtitle":
+    "Переглядайте та модеруйте папки всіх користувачів.",
+  "adminFolders.searchPlaceholder":
+    "Пошук за назвою папки, власником або email",
+  "adminFolders.empty": "Жодної папки не знайдено.",
+  "adminFolders.loadMore": "Завантажити ще",
+  "adminFolders.column.folder": "Папка",
+  "adminFolders.column.owner": "Власник",
+  "adminFolders.column.gifs": "GIF",
+  "adminFolders.column.shares": "Поділилися",
+  "adminFolders.column.created": "Створено",
+  "adminFolders.actions.browse": "Переглянути",
+  "adminFolders.actions.delete": "Видалити",
+  "adminFolders.delete.confirmTitle": "Видалити папку?",
+  "adminFolders.delete.confirmBody":
+    "Це назавжди видалить папку та всі надані доступи. Самі GIF-файли не видаляються.",
+  "adminFolders.delete.confirm": "Видалити папку",
+  "adminFolders.delete.cancel": "Скасувати",
+  "adminFolderDetail.heading": "Папка: {name}",
+  "adminFolderDetail.owner": "Власник: {name} <{email}>",
+  "adminFolderDetail.gifCount": "{count} GIF",
+  "adminFolderDetail.shareCount": "Доступ надано {count} користувачам",
+  "adminFolderDetail.removeGif": "Видалити з папки",
+  "adminFolderDetail.empty": "Ця папка порожня.",
+  "adminFolderDetail.back": "← Усі папки",
+  "userMenu.admin.folders": "Усі папки",
+
   // ─── Comments ───
   "comments.count.one": "{n} коментар",
   "comments.count.many": "{n} коментарів",

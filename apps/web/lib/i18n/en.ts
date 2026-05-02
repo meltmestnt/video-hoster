@@ -584,6 +584,34 @@ export const en = {
   "manage.forbidden":
     "You need admin access to view this page.",
 
+  // ─── Admin folder moderation ───
+  "adminFolders.heading": "All folders",
+  "adminFolders.subtitle": "Browse and moderate every user's folders.",
+  "adminFolders.searchPlaceholder":
+    "Search by folder name, owner, or email",
+  "adminFolders.empty": "No folders match the search.",
+  "adminFolders.loadMore": "Load more",
+  "adminFolders.column.folder": "Folder",
+  "adminFolders.column.owner": "Owner",
+  "adminFolders.column.gifs": "GIFs",
+  "adminFolders.column.shares": "Shares",
+  "adminFolders.column.created": "Created",
+  "adminFolders.actions.browse": "Browse",
+  "adminFolders.actions.delete": "Delete",
+  "adminFolders.delete.confirmTitle": "Delete folder?",
+  "adminFolders.delete.confirmBody":
+    "This permanently removes the folder and all share grants. The GIFs themselves are not deleted.",
+  "adminFolders.delete.confirm": "Delete folder",
+  "adminFolders.delete.cancel": "Cancel",
+  "adminFolderDetail.heading": "Folder: {name}",
+  "adminFolderDetail.owner": "Owner: {name} <{email}>",
+  "adminFolderDetail.gifCount": "{count} GIFs",
+  "adminFolderDetail.shareCount": "Shared with {count} people",
+  "adminFolderDetail.removeGif": "Remove from folder",
+  "adminFolderDetail.empty": "This folder has no GIFs.",
+  "adminFolderDetail.back": "← All folders",
+  "userMenu.admin.folders": "All folders",
+
   // ─── Comments ───
   "comments.count.one": "{n} comment",
   "comments.count.many": "{n} comments",
