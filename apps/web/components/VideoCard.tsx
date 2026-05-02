@@ -144,10 +144,23 @@ export function VideoCard({
     // its own preview cap and sign-in CTA. Letting the click through here
     // means they actually reach the page they tried to open.
     const thumb = thumbRef.current;
-    const dest = thumb ? computePlayerRect() : null;
-    if (!thumb || !dest) return; // let the <a> navigate normally
+    if (!thumb) return; // let the <a> navigate normally
 
     e.preventDefault();
+    // Snap the listing to the top before measuring so the destination
+    // page lands at scrollY=0 and the overlay's document-anchored math
+    // lines up with where the destination .player-frame will actually
+    // render. Otherwise a click made deep in the list morphs to a point
+    // far below where Next.js then scroll-resets to. Both src and dest
+    // must be measured AFTER the scroll so they share the same viewport
+    // coordinate system.
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    const dest = computePlayerRect();
+    if (!dest) {
+      // Probe failed — give up on the morph and just navigate.
+      router.push(href);
+      return;
+    }
     const src = thumb.getBoundingClientRect();
     // Anchor the overlay in page coordinates (not viewport) so the scroll
     // reset that Next.js performs on navigation doesn't dislocate it from

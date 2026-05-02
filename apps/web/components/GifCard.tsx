@@ -71,6 +71,12 @@ export function GifCard({
     const thumb = thumbRef.current;
     if (!thumb) return; // let the <a> navigate normally
     e.preventDefault();
+    // Snap the listing to the top before measuring/morphing so the
+    // destination page lands at scrollY=0 and the overlay's document-
+    // anchored math lines up with where the destination .player-frame
+    // will actually render. Without this, a click made deep in the list
+    // morphs to a point far below where Next.js then scroll-resets to.
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
     // Push the route from inside onMorphStart so the destination page
     // begins streaming as the overlay starts moving — same staging
     // VideoCard uses.
