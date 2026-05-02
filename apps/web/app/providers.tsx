@@ -43,6 +43,13 @@ function TrpcProviders({ children }: { children: React.ReactNode }) {
   // failing at once would each call signOut(), causing redirect thrash
   // and wedging next-auth's CSRF flow.
   const signedOutOnceRef = useRef(false);
+  // Wall-clock timestamp of the moment apiToken first became available.
+  // Used to skip 401s that come from the bootstrap race: useSession
+  // resolves async, so any queries that fire BEFORE the token populates
+  // go out anonymously and rightfully 401 — but those 401s arrive AFTER
+  // the token is set, which would otherwise look identical to a stale
+  // session and bounce the user to /login moments after they signed in.
+  const tokenLoadedAtRef = useRef<number | null>(null);
   const handleAuthError = useCallback((err: unknown) => {
     // Only treat 401 as an "expired session" if we currently believe
     // we have one. An anonymous viewer hitting a protected procedure
@@ -51,6 +58,13 @@ function TrpcProviders({ children }: { children: React.ReactNode }) {
     if (!tokenRef.current) return;
     if (!isUnauthorized(err)) return;
     if (signedOutOnceRef.current) return;
+    // Bootstrap-race guard: hold off the first ~3s after the token
+    // becomes available so leftover anonymous queries from the
+    // pre-token mount don't masquerade as a stale session. A real
+    // session expiry surfaces on the next poll (10–30s later) and
+    // gets handled correctly.
+    const loadedAt = tokenLoadedAtRef.current;
+    if (loadedAt === null || Date.now() - loadedAt < 3_000) return;
     signedOutOnceRef.current = true;
     // Land back on the same URL after re-auth. NextAuth signOut takes
     // the callbackUrl literally as the post-signout destination, so we
@@ -118,11 +132,13 @@ function TrpcProviders({ children }: { children: React.ReactNode }) {
   // The first time the API token becomes available (next-auth finishes its
   // async session fetch), refresh every cached query so anything fetched
   // anonymously during the bootstrap gap gets replaced with the authenticated
-  // version.
+  // version. Also stamp tokenLoadedAtRef so handleAuthError can tell a
+  // genuine session expiry apart from leftover anonymous-mount 401s.
   const tokenLoadedRef = useRef(false);
   useEffect(() => {
     if (session?.apiToken && !tokenLoadedRef.current) {
       tokenLoadedRef.current = true;
+      tokenLoadedAtRef.current = Date.now();
       queryClient.invalidateQueries();
     }
   }, [session?.apiToken, queryClient]);
