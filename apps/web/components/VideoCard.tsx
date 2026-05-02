@@ -176,6 +176,21 @@ export function VideoCard({
     const scrollX = window.scrollX;
     const scrollY = window.scrollY;
 
+    // Dimming backdrop sits between the listing and the morph overlay
+    // so the source content fades out behind the moving thumbnail.
+    // position:fixed pins it to the viewport regardless of scroll.
+    const backdrop = document.createElement("div");
+    backdrop.style.cssText = [
+      "position:fixed",
+      "inset:0",
+      "z-index:9998",
+      "background:rgba(0,0,0,0.7)",
+      "opacity:0",
+      "pointer-events:none",
+      "will-change:opacity",
+      `transition:opacity ${MORPH_MS}ms ${MORPH_EASING}`,
+    ].join(";");
+
     const overlay = document.createElement("div");
     const overlayBg = video.thumbnailUrl ? "var(--gray-3)" : "black";
     overlay.style.cssText = [
@@ -203,12 +218,16 @@ export function VideoCard({
       overlay.appendChild(img);
     }
 
+    document.body.appendChild(backdrop);
     document.body.appendChild(overlay);
     document.body.dataset.morphing = "1";
     thumb.style.opacity = "0";
 
     // force a reflow so the initial styles commit before transitioning
     void overlay.offsetWidth;
+    // Trigger the backdrop fade-in on the same frame the morph starts
+    // so the dimming and the overlay land together.
+    backdrop.style.opacity = "1";
 
     const srcCenterX = src.left + src.width / 2;
     const srcCenterY = src.top + src.height / 2;
@@ -241,8 +260,11 @@ export function VideoCard({
       cleaned = true;
       overlay.style.transition = "opacity 120ms ease";
       overlay.style.opacity = "0";
+      backdrop.style.transition = "opacity 120ms ease";
+      backdrop.style.opacity = "0";
       window.setTimeout(() => {
         overlay.remove();
+        backdrop.remove();
         delete document.body.dataset.morphing;
       }, 140);
     };

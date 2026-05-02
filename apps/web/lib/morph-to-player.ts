@@ -87,6 +87,23 @@ export function morphToPlayer(args: MorphArgs): boolean {
   const scrollX = window.scrollX;
   const scrollY = window.scrollY;
 
+  // Dimming backdrop sits between the listing page and the morph
+  // overlay so the source content fades out behind the moving image.
+  // position:fixed pins it to the viewport — the overlay itself uses
+  // document coordinates, but the backdrop should always cover the
+  // visible area regardless of scroll.
+  const backdrop = document.createElement("div");
+  backdrop.style.cssText = [
+    "position:fixed",
+    "inset:0",
+    "z-index:9998",
+    "background:rgba(0,0,0,0.7)",
+    "opacity:0",
+    "pointer-events:none",
+    "will-change:opacity",
+    `transition:opacity ${MORPH_MS}ms ${MORPH_EASING}`,
+  ].join(";");
+
   const overlay = document.createElement("div");
   overlay.style.cssText = [
     "position:absolute",
@@ -112,12 +129,16 @@ export function morphToPlayer(args: MorphArgs): boolean {
     overlay.appendChild(img);
   }
 
+  document.body.appendChild(backdrop);
   document.body.appendChild(overlay);
   document.body.dataset.morphing = "1";
   args.thumbEl.style.opacity = "0";
 
   // Force a reflow so the initial styles commit before transitioning.
   void overlay.offsetWidth;
+  // Trigger the backdrop fade-in on the same frame the overlay starts
+  // moving so the dimming and the morph land together.
+  backdrop.style.opacity = "1";
 
   const srcCenterX = src.left + src.width / 2;
   const srcCenterY = src.top + src.height / 2;
@@ -160,8 +181,11 @@ export function morphToPlayer(args: MorphArgs): boolean {
     detachAll();
     overlay.style.transition = "opacity 120ms ease";
     overlay.style.opacity = "0";
+    backdrop.style.transition = "opacity 120ms ease";
+    backdrop.style.opacity = "0";
     window.setTimeout(() => {
       overlay.remove();
+      backdrop.remove();
       delete document.body.dataset.morphing;
     }, 140);
   };
@@ -171,6 +195,7 @@ export function morphToPlayer(args: MorphArgs): boolean {
     cleaned = true;
     detachAll();
     overlay.remove();
+    backdrop.remove();
     delete document.body.dataset.morphing;
   };
 
