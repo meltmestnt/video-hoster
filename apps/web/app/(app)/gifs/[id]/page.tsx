@@ -128,25 +128,28 @@ export default async function GifPage({
   // for anyone except their owner so no extra redirect is needed.
   const trpc = await getServerTrpc();
 
-  let gif;
-  let comments;
-  let suggested;
-  let me: Awaited<
-    ReturnType<Awaited<ReturnType<typeof getServerTrpc>>["auth"]["me"]["query"]>
-  > = null;
+  // Only `gifs.byId` failing legitimately means the gif doesn't exist —
+  // the other three (comments, suggested, auth.me) are auxiliary, and a
+  // transient DB blip on any of them used to 404 the whole page even
+  // though the gif itself was fine. Fetch byId on its own so its outcome
+  // alone decides notFound, and let the rest fall back to empty/null.
+  let gif: Awaited<
+    ReturnType<Awaited<ReturnType<typeof getServerTrpc>>["gifs"]["byId"]["query"]>
+  >;
   try {
-    [gif, comments, suggested, me] = await Promise.all([
-      trpc.gifs.byId.query({ id }),
-      trpc.comments.listByGif.query({ id, sort: "newest" }),
-      trpc.gifs.suggested.query({ id, limit: 10 }),
-      trpc.auth.me.query(),
-    ]);
+    gif = await trpc.gifs.byId.query({ id });
   } catch (err) {
     if (parseAnonViewLimitError(err) === "gif") {
       return <AnonViewLimitNotice kind="gif" callbackPath={`/gifs/${id}`} />;
     }
     notFound();
   }
+
+  const [comments, suggested, me] = await Promise.all([
+    trpc.comments.listByGif.query({ id, sort: "newest" }).catch(() => []),
+    trpc.gifs.suggested.query({ id, limit: 10 }).catch(() => []),
+    trpc.auth.me.query().catch(() => null),
+  ]);
 
   const isOwner = !!session?.user?.id && session.user.id === gif.owner.id;
   const isAdmin = me?.role === "admin";
