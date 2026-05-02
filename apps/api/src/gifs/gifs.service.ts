@@ -667,12 +667,19 @@ export class GifsService {
       thumbS3Key: string | null;
     }>
   > {
+    // Use limit() rather than take() — when restrictToFolderId triggers
+    // the INNER JOIN below, take() wraps everything in a DISTINCT
+    // subquery that references "g_createdAt", but the explicit select()
+    // doesn't include createdAt, so Postgres rejects the outer ORDER
+    // BY. limit() emits a plain LIMIT without the DISTINCT wrap. The
+    // composite PK on folder_gifs (folderId, gifId) means a single
+    // folder filter can't produce duplicate rows, so no DISTINCT needed.
     const qb = this.gifs
       .createQueryBuilder("g")
       .select(["g.id", "g.title", "g.mp4S3Key", "g.thumbS3Key"])
       .where("g.status = :s", { s: "ready" })
       .orderBy("g.createdAt", "DESC")
-      .take(args.limit);
+      .limit(args.limit);
     if (args.restrictToFolderId) {
       qb.innerJoin(
         "folder_gifs",
