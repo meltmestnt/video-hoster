@@ -555,6 +555,31 @@ button:disabled,
   }
 }
 
+/* Each landing-page panel rises and fades in 24px, staggered by
+ * --panel-index so the three hero cards arrive one after another. The
+ * larger 24px translate (vs the 12px on intro-features) makes the
+ * panels feel like they slide in from below the viewport rather than
+ * just nudging up. */
+.intro-panel-fade-up {
+  animation: introPanelFadeUp 620ms cubic-bezier(0.2, 0.7, 0.2, 1)
+    calc(var(--panel-index, 0) * 160ms) backwards;
+}
+@keyframes introPanelFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .intro-panel-fade-up {
+    animation: none;
+  }
+}
+
 .intro-features {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
