@@ -27,10 +27,22 @@ export const UNVERIFIED_LIMIT_ERROR_PREFIX = "UNVERIFIED_LIMIT:";
 // hard cap (1 of each, total) and the verified+approved cap
 // (DAILY_VIDEO_UPLOAD_LIMIT). The server emits an error with the prefix
 // below so the client can show a "waiting on admin approval" message.
-export const UNAPPROVED_DAILY_VIDEO_LIMIT = 5;
-export const UNAPPROVED_DAILY_GIF_LIMIT = 5;
-export const UNAPPROVED_DAILY_SCREENSHOT_LIMIT = 10;
+// Counts bumped to 20 for the launch window so first-session users
+// don't bounce off a wall of 5 — revisit after the spike settles.
+export const UNAPPROVED_DAILY_VIDEO_LIMIT = 20;
+export const UNAPPROVED_DAILY_GIF_LIMIT = 20;
+export const UNAPPROVED_DAILY_SCREENSHOT_LIMIT = 20;
 export const UNAPPROVED_LIMIT_ERROR_PREFIX = "UNAPPROVED_LIMIT:";
+
+// Per-upload size ceilings for verified-but-unapproved accounts —
+// tighter than the global MAX_GIF_BYTES / MAX_VIDEO_BYTES so a fresh
+// account can't drain S3 wallet on huge files before an admin has had
+// a chance to look. Approved accounts fall back to the regular caps.
+export const UNAPPROVED_MAX_GIF_BYTES = 5 * 1024 * 1024;
+export const UNAPPROVED_MAX_GIF_MB = 5;
+export const UNAPPROVED_MAX_VIDEO_BYTES = 100 * 1024 * 1024;
+export const UNAPPROVED_MAX_VIDEO_MB = 100;
+export const UNAPPROVED_SIZE_ERROR_PREFIX = "UNAPPROVED_SIZE:";
 
 // Anonymous viewers (no account) can open up to this many distinct
 // video/gif pages per IP per rolling 24h before the API forces a sign-in.

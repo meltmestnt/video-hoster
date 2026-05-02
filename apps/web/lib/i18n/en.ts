@@ -470,15 +470,27 @@ export const en = {
   // ─── Unapproved-account banner ───
   "unapproved.banner.title": "Waiting on admin approval.",
   "unapproved.banner.body":
-    "Your account is verified but not yet approved. Until an admin approves you, daily uploads are limited to 5 videos, 5 GIFs, and 10 screenshots.",
+    "Your account is verified but not yet approved. Until an admin approves you, daily uploads are limited to 20 videos and 20 GIFs, with a 100 MB cap per video and a 5 MB cap per GIF.",
   "unapproved.popup.title": "You've hit today's upload cap",
   "unapproved.popup.body.video":
-    "Unapproved accounts can upload 5 videos every 24 hours. An admin needs to approve your account before you can upload more today.",
+    "Unapproved accounts can upload 20 videos every 24 hours. An admin needs to approve your account before you can upload more today.",
   "unapproved.popup.body.gif":
-    "Unapproved accounts can upload 5 GIFs every 24 hours. An admin needs to approve your account before you can upload more today.",
+    "Unapproved accounts can upload 20 GIFs every 24 hours. An admin needs to approve your account before you can upload more today.",
   "unapproved.popup.body.screenshot":
-    "Unapproved accounts can save 10 screenshots every 24 hours. An admin needs to approve your account before you can save more today.",
+    "Unapproved accounts can save 20 screenshots every 24 hours. An admin needs to approve your account before you can save more today.",
   "unapproved.popup.gotIt": "Got it",
+  "unapproved.size.title": "File too large for now",
+  "unapproved.size.body.video":
+    "Unapproved accounts are capped at 100 MB per video. An admin needs to approve your account before you can upload bigger files — try a shorter or more compressed clip in the meantime.",
+  "unapproved.size.body.gif":
+    "Unapproved accounts are capped at 5 MB per GIF. An admin needs to approve your account before you can upload bigger files — try a shorter or more compressed GIF in the meantime.",
+
+  // ─── Folder onboarding banner (shown to signed-in users with 0 folders) ───
+  "folderOnboarding.title": "Build your private GIF library.",
+  "folderOnboarding.body":
+    "Group GIFs into private folders, then pick one as active in the Telegram bot to scope inline search and uploads to it.",
+  "folderOnboarding.cta": "Create your first folder",
+  "folderOnboarding.dismiss": "Dismiss",
 
   // ─── Anonymous viewer daily cap ───
   "anonViewLimit.callout":

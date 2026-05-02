@@ -18,6 +18,7 @@ import {
 } from "@repo/shared";
 import {
   parseUnapprovedLimitError,
+  parseUnapprovedSizeError,
   parseUnverifiedLimitError,
 } from "@/lib/unverified-limit";
 import { useVerifyRequired } from "@/components/VerifyRequiredDialog";
@@ -417,8 +418,12 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       } catch (err) {
         const unverified = parseUnverifiedLimitError(err);
         const unapproved = parseUnapprovedLimitError(err);
+        const unapprovedSize = parseUnapprovedSizeError(err);
         if (unverified) {
           verifyRequired.show(unverified, "unverified");
+          setState((s) => ({ ...initialState, lastSuccess: s.lastSuccess }));
+        } else if (unapprovedSize) {
+          verifyRequired.show(unapprovedSize, "unapproved-size");
           setState((s) => ({ ...initialState, lastSuccess: s.lastSuccess }));
         } else if (unapproved) {
           verifyRequired.show(unapproved, "unapproved");
@@ -504,8 +509,12 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       } catch (err) {
         const unverified = parseUnverifiedLimitError(err);
         const unapproved = parseUnapprovedLimitError(err);
+        const unapprovedSize = parseUnapprovedSizeError(err);
         if (unverified) {
           verifyRequired.show(unverified, "unverified");
+          setState((s) => ({ ...initialState, lastSuccess: s.lastSuccess }));
+        } else if (unapprovedSize) {
+          verifyRequired.show(unapprovedSize, "unapproved-size");
           setState((s) => ({ ...initialState, lastSuccess: s.lastSuccess }));
         } else if (unapproved) {
           verifyRequired.show(unapproved, "unapproved");
@@ -567,7 +576,10 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       } catch (err) {
         const unverified = parseUnverifiedLimitError(err);
         const unapproved = parseUnapprovedLimitError(err);
+        const unapprovedSize = parseUnapprovedSizeError(err);
         if (unverified) verifyRequired.show(unverified, "unverified");
+        else if (unapprovedSize)
+          verifyRequired.show(unapprovedSize, "unapproved-size");
         else if (unapproved) verifyRequired.show(unapproved, "unapproved");
         throw err;
       }

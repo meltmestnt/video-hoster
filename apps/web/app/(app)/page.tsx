@@ -8,6 +8,7 @@ import { VideoSortSelect } from "@/components/VideoSortSelect";
 import { AnonymousIntro } from "@/components/AnonymousIntro";
 import { DropTile } from "@/components/DropTile";
 import { TelegramPromoBanner } from "@/components/TelegramPromoBanner";
+import { FolderOnboardingBanner } from "@/components/FolderOnboardingBanner";
 import type { VideoSort } from "@repo/shared";
 import { absoluteUrl } from "@/lib/site";
 import { T } from "@/lib/i18n";
@@ -112,6 +113,7 @@ export default async function DashboardPage({
         </Flex>
       </div>
       <TelegramPromoBanner />
+      <FolderOnboardingBanner />
       <DropTile mode="any" signedIn />
       <Dashboard initial={initial} initialGifs={initialGifs} sort={sort} />
     </>

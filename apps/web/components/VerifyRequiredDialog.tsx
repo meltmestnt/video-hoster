@@ -13,7 +13,7 @@ import { trpc } from "@/lib/trpc";
 import { useT } from "@/lib/i18n";
 import type { UnverifiedLimitKind } from "@/lib/unverified-limit";
 
-type GateReason = "unverified" | "unapproved";
+type GateReason = "unverified" | "unapproved" | "unapproved-size";
 
 interface OpenState {
   kind: UnverifiedLimitKind;
@@ -51,28 +51,36 @@ export function VerifyRequiredProvider({
   const value = useMemo<ContextValue>(() => ({ show }), [show]);
 
   const titleKey =
-    open?.reason === "unapproved"
-      ? "unapproved.popup.title"
-      : open?.kind === "action"
-        ? "verify.popup.title.action"
-        : "verify.popup.title";
+    open?.reason === "unapproved-size"
+      ? "unapproved.size.title"
+      : open?.reason === "unapproved"
+        ? "unapproved.popup.title"
+        : open?.kind === "action"
+          ? "verify.popup.title.action"
+          : "verify.popup.title";
   const bodyKey = !open
     ? null
-    : open.reason === "unapproved"
+    : open.reason === "unapproved-size"
       ? open.kind === "video"
-        ? "unapproved.popup.body.video"
-        : open.kind === "gif"
-          ? "unapproved.popup.body.gif"
-          : "unapproved.popup.body.screenshot"
-      : open.kind === "video"
-        ? "verify.popup.body.video"
-        : open.kind === "gif"
-          ? "verify.popup.body.gif"
-          : open.kind === "screenshot"
-            ? "verify.popup.body.screenshot"
-            : "verify.popup.body.action";
+        ? "unapproved.size.body.video"
+        : "unapproved.size.body.gif"
+      : open.reason === "unapproved"
+        ? open.kind === "video"
+          ? "unapproved.popup.body.video"
+          : open.kind === "gif"
+            ? "unapproved.popup.body.gif"
+            : "unapproved.popup.body.screenshot"
+        : open.kind === "video"
+          ? "verify.popup.body.video"
+          : open.kind === "gif"
+            ? "verify.popup.body.gif"
+            : open.kind === "screenshot"
+              ? "verify.popup.body.screenshot"
+              : "verify.popup.body.action";
   const dismissKey =
-    open?.reason === "unapproved" ? "unapproved.popup.gotIt" : "verify.popup.gotIt";
+    open?.reason === "unapproved" || open?.reason === "unapproved-size"
+      ? "unapproved.popup.gotIt"
+      : "verify.popup.gotIt";
 
   return (
     <Ctx.Provider value={value}>

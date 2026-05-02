@@ -2,6 +2,7 @@
 
 import {
   UNAPPROVED_LIMIT_ERROR_PREFIX,
+  UNAPPROVED_SIZE_ERROR_PREFIX,
   UNVERIFIED_LIMIT_ERROR_PREFIX,
 } from "@repo/shared";
 
@@ -45,4 +46,16 @@ export function parseUnapprovedLimitError(
   err: unknown,
 ): UnverifiedLimitKind | null {
   return parseLimitError(err, UNAPPROVED_LIMIT_ERROR_PREFIX);
+}
+
+/**
+ * Detects the per-file size cap for unapproved accounts. Server emits
+ * `UNAPPROVED_SIZE:video|gif` when a verified-but-not-yet-approved
+ * account tries to upload a file bigger than the tightened ceiling.
+ * Different from the daily cap: this one fires per upload, not per day.
+ */
+export function parseUnapprovedSizeError(
+  err: unknown,
+): UnverifiedLimitKind | null {
+  return parseLimitError(err, UNAPPROVED_SIZE_ERROR_PREFIX);
 }

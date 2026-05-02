@@ -16,6 +16,8 @@ import {
   MAX_VIDEO_BYTES,
   UNAPPROVED_DAILY_VIDEO_LIMIT,
   UNAPPROVED_LIMIT_ERROR_PREFIX,
+  UNAPPROVED_MAX_VIDEO_BYTES,
+  UNAPPROVED_SIZE_ERROR_PREFIX,
   UNVERIFIED_LIMIT_ERROR_PREFIX,
   UNVERIFIED_VIDEO_LIMIT,
   type VideoSort,
@@ -204,14 +206,26 @@ export class VideosService {
 
     // Unapproved-but-verified accounts get a tighter daily cap until an
     // admin approves them. Sits between the unverified hard cap (1 total)
-    // and the regular daily quota.
-    if (!args.ownerApproved && recent.length >= UNAPPROVED_DAILY_VIDEO_LIMIT) {
-      this.logger.warn(
-        `videos.createUpload rejected reason=unapproved-daily-limit ownerId=${args.ownerId} recent=${recent.length}`,
-      );
-      throw new BadRequestException(
-        `${UNAPPROVED_LIMIT_ERROR_PREFIX}video`,
-      );
+    // and the regular daily quota. Per-file size also tightens — a fresh
+    // verified user can't drain S3 wallet on a 1.5 GB upload before
+    // they've been reviewed.
+    if (!args.ownerApproved) {
+      if (args.sizeBytes > UNAPPROVED_MAX_VIDEO_BYTES) {
+        this.logger.warn(
+          `videos.createUpload rejected reason=unapproved-size ownerId=${args.ownerId} sizeBytes=${args.sizeBytes}`,
+        );
+        throw new BadRequestException(
+          `${UNAPPROVED_SIZE_ERROR_PREFIX}video`,
+        );
+      }
+      if (recent.length >= UNAPPROVED_DAILY_VIDEO_LIMIT) {
+        this.logger.warn(
+          `videos.createUpload rejected reason=unapproved-daily-limit ownerId=${args.ownerId} recent=${recent.length}`,
+        );
+        throw new BadRequestException(
+          `${UNAPPROVED_LIMIT_ERROR_PREFIX}video`,
+        );
+      }
     }
 
     if (recent.length >= DAILY_VIDEO_UPLOAD_LIMIT) {
@@ -525,7 +539,13 @@ export class VideosService {
         `Daily upload size limit reached (${DAILY_VIDEO_BYTES_LIMIT_GB} GB in 24h).`,
       );
     }
-    const fetchCap = Math.min(MAX_VIDEO_BYTES, remainingDailyBytes);
+    // Tighten the per-file ceiling for unapproved accounts so the
+    // fetcher aborts early on huge sources instead of streaming up to
+    // the full MAX_VIDEO_BYTES budget.
+    const perUploadCap = args.ownerApproved
+      ? MAX_VIDEO_BYTES
+      : UNAPPROVED_MAX_VIDEO_BYTES;
+    const fetchCap = Math.min(perUploadCap, remainingDailyBytes);
 
     let fetched;
     try {
@@ -534,6 +554,18 @@ export class VideosService {
         timeoutMs: URL_FETCH_TIMEOUT_MS,
       });
     } catch (err) {
+      if (
+        !args.ownerApproved &&
+        err instanceof RemoteFetchError &&
+        err.code === "TOO_LARGE"
+      ) {
+        this.logger.warn(
+          `videos.uploadFromUrl rejected reason=unapproved-size ownerId=${args.ownerId} url=${args.url}`,
+        );
+        throw new BadRequestException(
+          `${UNAPPROVED_SIZE_ERROR_PREFIX}video`,
+        );
+      }
       if (err instanceof RemoteFetchError) {
         this.logger.warn(
           `videos.uploadFromUrl fetch failed ownerId=${args.ownerId} url=${args.url} code=${err.code}: ${err.message}`,

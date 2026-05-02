@@ -13,6 +13,9 @@ import {
   MAX_GIF_DURATION_SECONDS,
   UNAPPROVED_DAILY_GIF_LIMIT,
   UNAPPROVED_LIMIT_ERROR_PREFIX,
+  UNAPPROVED_MAX_GIF_BYTES,
+  UNAPPROVED_MAX_GIF_MB,
+  UNAPPROVED_SIZE_ERROR_PREFIX,
   UNVERIFIED_GIF_LIMIT,
   UNVERIFIED_LIMIT_ERROR_PREFIX,
   type VideoSort,
@@ -166,6 +169,18 @@ export class GifsService {
     // "uploading" row from a failed earlier attempt doesn't permanently
     // bypass the limit.
     if (!args.ownerApproved) {
+      // Per-file size ceiling for unapproved accounts — keeps a fresh
+      // user from burning S3 wallet on huge gifs before review. Checked
+      // before the count query so a too-big upload fails fast without
+      // counting against quota.
+      if (args.sizeBytes > UNAPPROVED_MAX_GIF_BYTES) {
+        this.logger.warn(
+          `gifs.createUpload rejected reason=unapproved-size ownerId=${args.ownerId} sizeBytes=${args.sizeBytes}`,
+        );
+        throw new BadRequestException(
+          `${UNAPPROVED_SIZE_ERROR_PREFIX}gif`,
+        );
+      }
       const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
       const recent = await this.gifs.count({
         where: { ownerId: args.ownerId, createdAt: MoreThanOrEqual(since) },
@@ -364,13 +379,33 @@ export class GifsService {
       );
     }
 
+    // Tighten the byte cap for unapproved accounts so the fetcher
+    // aborts early rather than streaming a 20 MB gif we'd reject after.
+    const fetchMaxBytes = args.ownerApproved
+      ? MAX_GIF_BYTES
+      : UNAPPROVED_MAX_GIF_BYTES;
     let fetched;
     try {
       fetched = await fetchRemoteMedia(args.url, {
-        maxBytes: MAX_GIF_BYTES,
+        maxBytes: fetchMaxBytes,
         timeoutMs: URL_FETCH_TIMEOUT_MS,
       });
     } catch (err) {
+      // Re-map TOO_LARGE on the unapproved path to the size-error prefix
+      // so the client can surface "exceeds 5 MB cap" instead of a generic
+      // fetch error — same UX as a direct upload that's too big.
+      if (
+        !args.ownerApproved &&
+        err instanceof RemoteFetchError &&
+        err.code === "TOO_LARGE"
+      ) {
+        this.logger.warn(
+          `gifs.uploadFromUrl rejected reason=unapproved-size ownerId=${args.ownerId} url=${args.url}`,
+        );
+        throw new BadRequestException(
+          `${UNAPPROVED_SIZE_ERROR_PREFIX}gif`,
+        );
+      }
       if (err instanceof RemoteFetchError) {
         this.logger.warn(
           `gifs.uploadFromUrl fetch failed ownerId=${args.ownerId} url=${args.url} code=${err.code}: ${err.message}`,
@@ -506,6 +541,11 @@ export class GifsService {
       }
     }
     if (!args.ownerApproved) {
+      if (args.buffer.length > UNAPPROVED_MAX_GIF_BYTES) {
+        throw new BadRequestException(
+          `${UNAPPROVED_SIZE_ERROR_PREFIX}gif`,
+        );
+      }
       const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
       const recent = await this.gifs.count({
         where: { ownerId: args.ownerId, createdAt: MoreThanOrEqual(since) },
