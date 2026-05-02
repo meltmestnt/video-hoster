@@ -13,9 +13,13 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
 });
 export const verifiedProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (ctx.user.status !== "verified") {
+    // Generic — this gate sits in front of uploads, comments, reactions,
+    // Telegram link, and more, so any per-feature wording (e.g. "before
+    // uploading videos") is wrong for at least one caller. Keep it
+    // action-agnostic so the message reads correctly wherever it surfaces.
     throw new TRPCError({
       code: "FORBIDDEN",
-      message: "Please confirm your email before uploading videos.",
+      message: "Please confirm your email to continue.",
     });
   }
   return next({ ctx });
