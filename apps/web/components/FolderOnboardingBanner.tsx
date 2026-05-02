@@ -12,21 +12,26 @@ import { trpc } from "@/lib/trpc";
 import { useT } from "@/lib/i18n";
 import { FolderCreateDialog } from "./FolderCreateDialog";
 
-const DISMISSED_KEY = "folderOnboardingDismissed";
+// Per-user dismiss key so two accounts on the same browser don't
+// share state — a fresh signup sees the banner even if a previous
+// account dismissed it on this device.
+function dismissKey(userId: string): string {
+  return `folderOnboardingDismissed:${userId}`;
+}
 
-function readDismissed(): boolean {
+function readDismissed(userId: string): boolean {
   if (typeof window === "undefined") return false;
   try {
-    return localStorage.getItem(DISMISSED_KEY) === "1";
+    return localStorage.getItem(dismissKey(userId)) === "1";
   } catch {
     return false;
   }
 }
 
-function writeDismissed(): void {
+function writeDismissed(userId: string): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(DISMISSED_KEY, "1");
+    localStorage.setItem(dismissKey(userId), "1");
   } catch {
     /* private mode — fine */
   }
@@ -47,9 +52,17 @@ export function FolderOnboardingBanner() {
   const [dismissed, setDismissed] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
 
+  // Re-read the dismiss flag whenever the signed-in user id changes —
+  // covers the "log out, log in as someone else on same browser" case
+  // so the new account starts fresh.
+  const userId = me.data?.id ?? null;
   useEffect(() => {
-    setDismissed(readDismissed());
-  }, []);
+    if (userId) {
+      setDismissed(readDismissed(userId));
+    } else {
+      setDismissed(true);
+    }
+  }, [userId]);
 
   if (dismissed) return null;
   if (!me.data) return null;
@@ -59,7 +72,7 @@ export function FolderOnboardingBanner() {
   if (folders.data.length > 0) return null;
 
   const onDismiss = () => {
-    writeDismissed();
+    if (userId) writeDismissed(userId);
     setDismissed(true);
   };
 
