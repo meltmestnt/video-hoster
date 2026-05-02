@@ -731,37 +731,52 @@ export class TelegramService
     bot.on("inline_query", async (ctx) => {
       const q = ctx.inlineQuery.query.trim();
       const fromId = ctx.from?.id ?? "?";
-      try {
-        // If the inline-querying user has an active folder selected,
-        // scope results to that folder. We only honor the folder when
-        // the user also has a linked website account that owns it —
-        // a stale folder id (folder was deleted) silently falls back
-        // to "no folder", and the manage-folders button still surfaces
-        // so the user has an obvious way out.
-        let restrictToFolderId: string | null = null;
-        let activeFolderName: string | null = null;
-        let userIsLinked = false;
-        if (ctx.from?.id) {
-          const tgId = String(ctx.from.id);
-          const link = await this.links.findByTelegramUserId(tgId);
-          if (link) {
-            userIsLinked = true;
-            const folderId = await this.prefs.getActiveFolderId(tgId);
-            if (folderId) {
-              try {
-                const f = await this.folders.findOwned(folderId, link.userId);
-                restrictToFolderId = f.id;
-                activeFolderName = f.name;
-              } catch {
-                // Folder was deleted out from under the user — clear the
-                // stale pref and continue with no restriction so the user
-                // doesn't get stuck on an empty inline picker until they
-                // notice and clear it themselves.
-                await this.prefs.setActiveFolderId(tgId, null).catch(() => {});
-              }
+      // Resolve user/folder state outside the try so the catch path can
+      // still attach the manage-folders button if the search throws —
+      // otherwise a search failure silently strips the button and the
+      // user has no in-picker affordance to recover.
+      let restrictToFolderId: string | null = null;
+      let activeFolderName: string | null = null;
+      let userIsLinked = false;
+      if (ctx.from?.id) {
+        const tgId = String(ctx.from.id);
+        const link = await this.links.findByTelegramUserId(tgId).catch(
+          () => null,
+        );
+        if (link) {
+          userIsLinked = true;
+          const folderId = await this.prefs.getActiveFolderId(tgId).catch(
+            () => null,
+          );
+          if (folderId) {
+            try {
+              const f = await this.folders.findOwned(folderId, link.userId);
+              restrictToFolderId = f.id;
+              activeFolderName = f.name;
+            } catch {
+              // Folder was deleted out from under the user — clear the
+              // stale pref and continue with no restriction so the user
+              // doesn't get stuck on an empty inline picker until they
+              // notice and clear it themselves.
+              await this.prefs.setActiveFolderId(tgId, null).catch(() => {});
             }
           }
         }
+      }
+      const locale = await this.resolveLocale(ctx.from?.id);
+      const buttonForLinkedUser:
+        | { text: string; start_parameter: string }
+        | undefined = userIsLinked
+        ? {
+            text: activeFolderName
+              ? t(locale, "inline.button.activeFolder", {
+                  name: activeFolderName,
+                })
+              : t(locale, "inline.button.manageFolders"),
+            start_parameter: "folders",
+          }
+        : undefined;
+      try {
         const items = await this.gifs.searchInlineForBot({
           q,
           limit: INLINE_RESULTS_MAX,
@@ -827,32 +842,27 @@ export class TelegramService
         // when a folder is active. Unrestricted queries hit a public-
         // only filter so a shared cache is safe.
         const folderActive = restrictToFolderId !== null;
-        // Show a button above results for linked users so they always
-        // have a one-tap path to manage / change / clear their active
-        // folder. The button fires /start folders in the bot's PM, which
-        // we handle in the start command above.
-        const locale = await this.resolveLocale(ctx.from?.id);
-        let button:
-          | { text: string; start_parameter: string }
-          | undefined;
-        if (userIsLinked) {
-          const text = activeFolderName
-            ? t(locale, "inline.button.activeFolder", {
-                name: activeFolderName,
-              })
-            : t(locale, "inline.button.manageFolders");
-          button = { text, start_parameter: "folders" };
-        }
         await ctx.answerInlineQuery(results, {
           cache_time: folderActive ? 0 : INLINE_CACHE_SECONDS,
           is_personal: folderActive || userIsLinked,
-          ...(button ? { button } : {}),
+          ...(buttonForLinkedUser ? { button: buttonForLinkedUser } : {}),
         });
       } catch (err) {
         this.logger.warn(
           `telegram.inline_query failed from=${fromId} q="${q}": ${(err as Error).message}`,
         );
-        await ctx.answerInlineQuery([], { cache_time: 5 }).catch(() => {});
+        // Empty result + short cache so a transient failure self-clears
+        // on the next keystroke. Still attach the manage-folders button
+        // so a linked user has a one-tap exit even when the search blows
+        // up — without it, an error path leaves them staring at an empty
+        // picker with no way to clear a stuck folder filter.
+        await ctx
+          .answerInlineQuery([], {
+            cache_time: 5,
+            is_personal: userIsLinked,
+            ...(buttonForLinkedUser ? { button: buttonForLinkedUser } : {}),
+          })
+          .catch(() => {});
       }
     });
 
