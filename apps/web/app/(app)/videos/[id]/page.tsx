@@ -23,6 +23,7 @@ import { parseAnonViewLimitError } from "@/lib/anon-view-limit";
 import { AnonViewLimitNotice } from "@/components/AnonViewLimitNotice";
 import { AnonPreviewLock } from "@/components/AnonPreviewLock";
 import { ANON_VIDEO_PREVIEW_SECONDS } from "@repo/shared";
+import { buildMediaDescription } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -44,9 +45,16 @@ export async function generateMetadata({
   }
   // Private videos must not be indexed even if we 200 for their owner.
   const isPrivate = video.visibility === "private";
-  const description = video.description?.trim()
-    ? video.description.slice(0, 200)
-    : `Watch "${video.title}" by ${video.owner.name} on vids&gifs.`;
+  const description = buildMediaDescription({
+    kind: "video",
+    title: video.title,
+    description: video.description,
+    ownerName: video.owner.name,
+    tags: video.tags,
+    viewCount: video.viewCount,
+    likeCount: video.likeCount,
+    createdAt: video.createdAt,
+  });
   const canonical = absoluteUrl(`/videos/${video.id}`);
   const ogImage = video.thumbnailUrl ?? undefined;
   // og:video lets Discord, iMessage, Slack, Reddit, and Facebook render

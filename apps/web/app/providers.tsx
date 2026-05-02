@@ -8,6 +8,7 @@ import { trpc } from "@/lib/trpc";
 import { UploadProvider } from "@/lib/upload-context";
 import { MiniPlayerProvider } from "@/lib/mini-player-context";
 import { I18nProvider } from "@/lib/i18n";
+import type { Locale } from "@/lib/i18n/locale";
 import { VerifyRequiredProvider } from "@/components/VerifyRequiredDialog";
 import { ScrollLock } from "@/components/ScrollLock";
 
@@ -85,10 +86,16 @@ function TrpcProviders({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({
+  children,
+  initialLocale,
+}: {
+  children: React.ReactNode;
+  initialLocale?: Locale;
+}) {
   return (
     <SessionProvider>
-      <I18nProvider>
+      <I18nProvider initialLocale={initialLocale}>
         <TrpcProviders>{children}</TrpcProviders>
       </I18nProvider>
     </SessionProvider>

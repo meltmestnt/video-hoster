@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { Metadata } from "next";
 import { Badge, Flex, Heading, Text } from "@radix-ui/themes";
 import { getServerTrpc } from "@/lib/trpc-server";
@@ -7,6 +8,7 @@ import { VideoSortSelect } from "@/components/VideoSortSelect";
 import type { VideoSort } from "@repo/shared";
 import { absoluteUrl } from "@/lib/site";
 import { T } from "@/lib/i18n";
+import { buildSearchDescription } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +19,27 @@ function normalizeSort(raw: string | undefined): VideoSort {
     : "newest";
 }
 
+// React's `cache` dedupes the call within a single request so
+// generateMetadata and the page itself share the same result instead
+// of round-tripping the API twice. The closure key is the JSON-stringified
+// args, which is what cache uses by reference equality on the params.
+const fetchSearchResults = cache(
+  async (q: string, tag: string, sort: VideoSort) => {
+    if (!q && !tag) {
+      return {
+        videoResult: { items: [], nextCursor: null },
+        gifResult: { items: [], nextCursor: null },
+      };
+    }
+    const trpc = await getServerTrpc();
+    const [videoResult, gifResult] = await Promise.all([
+      trpc.videos.search.query({ q, tag, limit: 48, sort }),
+      trpc.gifs.search.query({ q, tag, limit: 48, sort }),
+    ]);
+    return { videoResult, gifResult };
+  },
+);
+
 interface SearchPageProps {
   searchParams: Promise<{ q?: string; tag?: string; sort?: string }>;
 }
@@ -24,9 +47,10 @@ interface SearchPageProps {
 export async function generateMetadata({
   searchParams,
 }: SearchPageProps): Promise<Metadata> {
-  const { q = "", tag = "" } = await searchParams;
+  const { q = "", tag = "", sort: sortRaw } = await searchParams;
   const trimmedQ = q.trim();
   const trimmedTag = tag.trim();
+  const sort = normalizeSort(sortRaw);
   const titleBits: string[] = [];
   if (trimmedQ) titleBits.push(`"${trimmedQ}"`);
   if (trimmedTag) titleBits.push(`#${trimmedTag}`);
@@ -37,12 +61,25 @@ export async function generateMetadata({
   // indexed; tag pages are useful entry points from external links.
   const indexable = !trimmedQ && (!trimmedTag || trimmedTag.length > 0);
 
+  // Pull counts so the snippet can surface real numbers ("12 funny GIFs
+  // and videos…") instead of a generic blurb. Cached with the page render
+  // so this is free.
+  const { videoResult, gifResult } = await fetchSearchResults(
+    trimmedQ,
+    trimmedTag,
+    sort,
+  );
+  const description = buildSearchDescription({
+    q: trimmedQ,
+    tag: trimmedTag,
+    videoCount: videoResult.items.length,
+    gifCount: gifResult.items.length,
+    hasMore: !!videoResult.nextCursor || !!gifResult.nextCursor,
+  });
+
   return {
     title: `Search${titleSuffix}`,
-    description:
-      titleBits.length > 0
-        ? `Search results for ${titleBits.join(" and ")} on vids&gifs.`
-        : "Search videos by title or tag on vids&gifs.",
+    description,
     alternates: { canonical: absoluteUrl("/search") },
     robots: indexable
       ? undefined
@@ -57,26 +94,11 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const trimmedTag = tag.trim();
   const sort = normalizeSort(sortRaw);
 
-  const trpc = await getServerTrpc();
-
-  const [videoResult, gifResult] = await Promise.all([
-    trimmedQ || trimmedTag
-      ? trpc.videos.search.query({
-          q: trimmedQ,
-          tag: trimmedTag,
-          limit: 48,
-          sort,
-        })
-      : Promise.resolve({ items: [], nextCursor: null }),
-    trimmedQ || trimmedTag
-      ? trpc.gifs.search.query({
-          q: trimmedQ,
-          tag: trimmedTag,
-          limit: 48,
-          sort,
-        })
-      : Promise.resolve({ items: [], nextCursor: null }),
-  ]);
+  const { videoResult, gifResult } = await fetchSearchResults(
+    trimmedQ,
+    trimmedTag,
+    sort,
+  );
 
   const videoItems = videoResult.items;
   const gifItems = gifResult.items;

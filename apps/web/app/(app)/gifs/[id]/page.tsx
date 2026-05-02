@@ -17,6 +17,7 @@ import { absoluteUrl } from "@/lib/site";
 import { T } from "@/lib/i18n";
 import { parseAnonViewLimitError } from "@/lib/anon-view-limit";
 import { AnonViewLimitNotice } from "@/components/AnonViewLimitNotice";
+import { buildMediaDescription } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -37,9 +38,16 @@ export async function generateMetadata({
     };
   }
   const isPrivate = gif.visibility === "private";
-  const description = gif.description?.trim()
-    ? gif.description.slice(0, 200)
-    : `GIF "${gif.title}" by ${gif.owner.name} on vids&gifs.`;
+  const description = buildMediaDescription({
+    kind: "gif",
+    title: gif.title,
+    description: gif.description,
+    ownerName: gif.owner.name,
+    tags: gif.tags,
+    viewCount: gif.viewCount,
+    likeCount: gif.likeCount,
+    createdAt: gif.createdAt,
+  });
   const canonical = absoluteUrl(`/gifs/${gif.id}`);
   // og:image alone shows the GIF inline on most platforms (the file is
   // an animated GIF, so Discord/Slack play it). Adding og:video on top

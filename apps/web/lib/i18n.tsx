@@ -11,17 +11,18 @@ import {
 } from "react";
 import { en } from "./i18n/en";
 import { uk } from "./i18n/uk";
+import {
+  DEFAULT_LOCALE,
+  LOCALE_COOKIE,
+  isLocale,
+  type Locale,
+} from "./i18n/locale";
 
-export type Locale = "en" | "uk";
+export type { Locale };
 export type TKey = keyof typeof en;
 
 const DICTS: Record<Locale, Record<string, string>> = { en, uk };
 const STORAGE_KEY = "vh.locale";
-const DEFAULT: Locale = "uk";
-
-function isLocale(v: unknown): v is Locale {
-  return v === "en" || v === "uk";
-}
 
 function format(template: string, vars?: Record<string, string | number>) {
   if (!vars) return template;
@@ -38,22 +39,42 @@ interface I18nContextValue {
 
 const Ctx = createContext<I18nContextValue | null>(null);
 
-export function I18nProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(DEFAULT);
+export function I18nProvider({
+  children,
+  initialLocale,
+}: {
+  children: ReactNode;
+  initialLocale?: Locale;
+}) {
+  // Seed from the server-detected locale so the SSR HTML and the first
+  // client paint render in the same language — that's what Google indexes
+  // and what users see before hydration.
+  const [locale, setLocaleState] = useState<Locale>(
+    initialLocale ?? DEFAULT_LOCALE,
+  );
 
-  // Read persisted locale on mount; SSR returns the default (en) so the
-  // server-rendered HTML matches the client's first paint, then we swap.
+  // One-shot migration for visitors who picked a locale in localStorage
+  // before we started writing a cookie. If the cookie is empty but
+  // localStorage has a valid value, copy it into the cookie so the next SSR
+  // matches. Skip when the server already nailed the locale via cookie.
   useEffect(() => {
     try {
+      const cookieAlreadySet = readCookie(LOCALE_COOKIE);
+      if (cookieAlreadySet) return;
       const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (isLocale(stored) && stored !== locale) setLocaleState(stored);
+      if (isLocale(stored)) {
+        writeCookie(LOCALE_COOKIE, stored);
+        if (stored !== locale) setLocaleState(stored);
+      }
     } catch {
-      // ignore (private mode, etc.)
+      // ignore (private mode, blocked storage, etc.)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Reflect locale on <html lang> for accessibility tools and screen readers.
+  // Reflect locale on <html lang>. The server already sets it correctly on
+  // first paint via getServerLocale(); this keeps it in sync if the user
+  // toggles the switcher without reloading.
   useEffect(() => {
     if (typeof document !== "undefined") {
       document.documentElement.lang = locale;
@@ -67,12 +88,13 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     } catch {
       // ignore
     }
+    writeCookie(LOCALE_COOKIE, next);
   }, []);
 
   const t = useCallback(
     (key: TKey, vars?: Record<string, string | number>) => {
-      const dict = DICTS[locale] ?? DICTS[DEFAULT];
-      const fallback = DICTS[DEFAULT];
+      const dict = DICTS[locale] ?? DICTS[DEFAULT_LOCALE];
+      const fallback = DICTS[DEFAULT_LOCALE];
       const template = dict[key] ?? fallback[key] ?? key;
       return format(template, vars);
     },
@@ -88,7 +110,7 @@ export function useI18n(): I18nContextValue {
   if (!ctx) {
     // Outside the provider (rare), fall back to English so calls don't crash.
     return {
-      locale: DEFAULT,
+      locale: DEFAULT_LOCALE,
       setLocale: () => {},
       t: (key, vars) => format(en[key as TKey] ?? (key as string), vars),
     };
@@ -121,4 +143,28 @@ export function T({
 }) {
   const t = useT();
   return <>{t(k, vars)}</>;
+}
+
+function readCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(
+    new RegExp("(?:^|; )" + escapeRegExp(name) + "=([^;]*)"),
+  );
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function writeCookie(name: string, value: string) {
+  if (typeof document === "undefined") return;
+  // 1 year — long enough that infrequent visitors keep their choice; short
+  // enough that browsers will eventually drop it. Lax keeps the cookie on
+  // top-level navigations (incl. inbound links from search) while blocking
+  // it on cross-site POSTs we don't need anyway.
+  const maxAge = 60 * 60 * 24 * 365;
+  document.cookie = `${name}=${encodeURIComponent(
+    value,
+  )}; path=/; max-age=${maxAge}; SameSite=Lax`;
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

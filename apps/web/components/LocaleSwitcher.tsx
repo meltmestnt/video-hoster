@@ -3,9 +3,11 @@
 import { SegmentedControl } from "@radix-ui/themes";
 import { useLocale, useSetLocale } from "@/lib/i18n";
 
-// Small EN/UK toggle. The i18n provider already persists every change to
-// localStorage (key `vh.locale`) and reflects it on <html lang>, so this
-// component only needs to wire the buttons to setLocale.
+// Small EN/UK toggle. The i18n provider already persists every change to a
+// cookie + localStorage (key `vh.locale`) and reflects it on <html lang>,
+// so this component only needs to wire the buttons to setLocale. The
+// cookie is what lets the *next* SSR render in the chosen language —
+// localStorage alone isn't visible to the server.
 export function LocaleSwitcher({
   size = "1",
 }: {

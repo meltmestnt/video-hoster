@@ -11,6 +11,8 @@ import { TelegramPromoBanner } from "@/components/TelegramPromoBanner";
 import type { VideoSort } from "@repo/shared";
 import { absoluteUrl } from "@/lib/site";
 import { T } from "@/lib/i18n";
+import { getServerLocale } from "@/lib/i18n/server";
+import type { Locale } from "@/lib/i18n/locale";
 
 export const dynamic = "force-dynamic";
 
@@ -19,24 +21,51 @@ export const dynamic = "force-dynamic";
 // the layout's "%s — vids&gifs" template and lead with the brand and
 // every common spelling. Description repeats them in plain prose so the
 // SERP snippet (which Google often pulls verbatim from this string)
-// reads like a description of what the site does.
-export const metadata: Metadata = {
-  title: {
-    absolute:
-      "vids & gifs — upload videos and GIFs, convert MP4 to GIF, share in your browser",
-  },
-  description:
-    "vids & gifs (vidsandgifs.xyz) lets you upload videos and GIFs, convert MP4 to GIF, extract audio, capture screenshots from any frame, and share them publicly or privately. Free, no installs, runs in your browser. Browse the latest community uploads or sign up to post your own.",
-  alternates: { canonical: absoluteUrl("/") },
-  openGraph: {
+// reads like a description of what the site does — localized to match
+// the visitor's Accept-Language so an English query gets an English
+// snippet and a Ukrainian one gets Ukrainian.
+const HOME_COPY: Record<
+  Locale,
+  { title: string; description: string; ogTitle: string; ogDescription: string }
+> = {
+  en: {
     title:
-      "vids & gifs — upload videos and GIFs, convert, share in your browser",
+      "vids & gifs — upload videos and GIFs, convert MP4 to GIF, share in your browser",
     description:
+      "vids & gifs (vidsandgifs.xyz) lets you upload videos and GIFs, convert MP4 to GIF, extract audio, capture screenshots from any frame, and share them publicly or privately. Free, no installs, runs in your browser. Browse the latest community uploads or sign up to post your own.",
+    ogTitle:
+      "vids & gifs — upload videos and GIFs, convert, share in your browser",
+    ogDescription:
       "Upload videos and GIFs, convert MP4 to GIF, extract audio, capture screenshots, and share. Free in-browser tools at vidsandgifs.xyz.",
-    url: absoluteUrl("/"),
-    type: "website",
+  },
+  uk: {
+    title:
+      "vids & gifs — завантажуй відео і GIF, конвертуй MP4 у GIF, ділись у браузері",
+    description:
+      "vids & gifs (vidsandgifs.xyz) дозволяє завантажувати відео й GIF, конвертувати MP4 у GIF, витягувати аудіо, зберігати кадри як скріншоти і ділитися ними публічно чи приватно. Безкоштовно, без встановлення, працює прямо в браузері. Переглядай останні завантаження спільноти або зареєструйся, щоб публікувати своє.",
+    ogTitle:
+      "vids & gifs — завантажуй відео і GIF, конвертуй, ділись у браузері",
+    ogDescription:
+      "Завантажуй відео і GIF, конвертуй MP4 у GIF, витягуй аудіо, зберігай скріншоти й ділись. Безкоштовні інструменти у браузері на vidsandgifs.xyz.",
   },
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getServerLocale();
+  const copy = HOME_COPY[locale];
+  return {
+    title: { absolute: copy.title },
+    description: copy.description,
+    alternates: { canonical: absoluteUrl("/") },
+    openGraph: {
+      title: copy.ogTitle,
+      description: copy.ogDescription,
+      url: absoluteUrl("/"),
+      type: "website",
+      locale: locale === "uk" ? "uk_UA" : "en_US",
+    },
+  };
+}
 
 const VALID_SORTS: VideoSort[] = ["newest", "mostLiked", "mostDisliked"];
 function normalizeSort(raw: string | undefined): VideoSort {
