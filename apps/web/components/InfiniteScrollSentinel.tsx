@@ -59,6 +59,26 @@ export function InfiniteScrollSentinel({
       { rootMargin: `${rootMargin}px` },
     );
     observer.observe(node);
+
+    // Belt-and-braces for "reload while scrolled to the bottom":
+    // the page renders with only the first server-rendered page of
+    // items, the browser restores scroll to the bottom of that
+    // (short) document, and the sentinel is already in view at mount.
+    // IntersectionObserver is supposed to deliver an initial reading
+    // on the next frame, but the timing across hydration + scroll
+    // restoration is fragile in Chrome — sometimes the observer
+    // latches "not intersecting" before scroll settles and then
+    // never fires until the user scrolls (which they can't, they're
+    // already at the bottom). One synchronous bounding-rect check
+    // covers that case without changing the observer-driven path.
+    const rect = node.getBoundingClientRect();
+    const viewportH = window.innerHeight || document.documentElement.clientHeight;
+    const inViewWithMargin =
+      rect.top - rootMargin < viewportH && rect.bottom + rootMargin > 0;
+    if (inViewWithMargin && !isFetchingRef.current) {
+      onLoadMoreRef.current();
+    }
+
     return () => observer.disconnect();
   }, [hasMore, rootMargin]);
 
