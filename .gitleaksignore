@@ -1,0 +1,20 @@
+# Fingerprints of findings that gitleaks should treat as known-and-handled.
+# Format: <commit>:<path>:<rule>:<line>
+# Run `gitleaks detect --source . -v` to refresh fingerprints if they change.
+
+# ─── False positives ───
+# These three are TypeScript property names (gif.mp4S3Key, gif.thumbS3Key,
+# g.thumbS3Key) on a Gif entity. They happen to be high-entropy strings
+# because gitleaks' generic-api-key rule looks at substrings, but they're
+# just code, not secrets.
+b74d438ec05d4052ad95b32883559fef68f38414:apps/api/src/gifs/gifs.service.ts:generic-api-key:403
+b74d438ec05d4052ad95b32883559fef68f38414:apps/api/src/gifs/gifs.service.ts:generic-api-key:406
+b74d438ec05d4052ad95b32883559fef68f38414:apps/api/src/gifs/gifs.service.ts:generic-api-key:439
+
+# ─── Real leaks, now rotated ───
+# A NEXTAUTH_SECRET committed to both .env.example files in dbb5068f has
+# been rotated on Railway and replaced in the working tree with a
+# placeholder. The historical commit is harmless because the secret no
+# longer signs anything; we keep it in history rather than force-pushing.
+dbb5068f6a72e7d64b55aae4e9b4b449e410ab70:apps/api/.env.example:generic-api-key:2
+dbb5068f6a72e7d64b55aae4e9b4b449e410ab70:apps/web/.env.example:generic-api-key:2

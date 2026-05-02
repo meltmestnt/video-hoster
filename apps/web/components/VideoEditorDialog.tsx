@@ -501,20 +501,26 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
             </Flex>
 
             {/* Crop */}
-            <Flex align="center" gap="3">
-              <Text size="2" weight="medium" style={{ width: 76 }}>
+            <Flex align="center" gap="3" wrap="wrap">
+              <Text size="2" weight="medium" style={{ minWidth: 76 }}>
                 {t("editor.crop")}
               </Text>
-              <SegmentedControl.Root
-                value={cropAspect}
-                onValueChange={(v) => setCropAspect(v as CropAspect)}
-              >
-                {CROP_ASPECTS.map((c) => (
-                  <SegmentedControl.Item key={c.value} value={c.value}>
-                    {c.labelKey ? t(c.labelKey) : c.rawLabel}
-                  </SegmentedControl.Item>
-                ))}
-              </SegmentedControl.Root>
+              {/* Wrap the SegmentedControl so it can wrap to its own
+                  line on narrow viewports instead of forcing the whole
+                  dialog to scroll horizontally. */}
+              <Box style={{ flex: "1 1 200px", minWidth: 0 }}>
+                <SegmentedControl.Root
+                  value={cropAspect}
+                  onValueChange={(v) => setCropAspect(v as CropAspect)}
+                  style={{ width: "100%" }}
+                >
+                  {CROP_ASPECTS.map((c) => (
+                    <SegmentedControl.Item key={c.value} value={c.value}>
+                      {c.labelKey ? t(c.labelKey) : c.rawLabel}
+                    </SegmentedControl.Item>
+                  ))}
+                </SegmentedControl.Root>
+              </Box>
             </Flex>
 
             {/* Zoom */}
@@ -641,7 +647,10 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
           </Callout.Root>
         )}
 
-        <Flex gap="3" mt="5" justify="end">
+        {/* wrap="wrap" keeps the long apply-button label from pushing
+            Cancel off the right edge on narrow phones — the row falls
+            to two lines when it can't fit on one. */}
+        <Flex gap="3" mt="5" justify="end" wrap="wrap">
           <Button
             variant="soft"
             color="gray"

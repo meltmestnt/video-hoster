@@ -8,6 +8,7 @@ import {
   Dialog,
   Flex,
   SegmentedControl,
+  Select,
   Slider,
   Text,
   TextArea,
@@ -426,22 +427,28 @@ export function UploadDialog({ open, onOpenChange, initialFile }: Props) {
             <Text size="2" weight="medium">
               {t("upload.video.download.label")}
             </Text>
-            <SegmentedControl.Root
+            {/* Three options with long Ukrainian labels overflow a
+                SegmentedControl on narrow mobile widths, so we use a
+                Select here — it fits any container width. */}
+            <Select.Root
               value={downloadPolicy}
               onValueChange={(v) =>
                 setDownloadPolicy(v as "full" | "audio" | "none")
               }
             >
-              <SegmentedControl.Item value="full">
-                {t("upload.video.download.full")}
-              </SegmentedControl.Item>
-              <SegmentedControl.Item value="audio">
-                {t("upload.video.download.audio")}
-              </SegmentedControl.Item>
-              <SegmentedControl.Item value="none">
-                {t("upload.video.download.none")}
-              </SegmentedControl.Item>
-            </SegmentedControl.Root>
+              <Select.Trigger style={{ width: "100%" }} />
+              <Select.Content>
+                <Select.Item value="full">
+                  {t("upload.video.download.full")}
+                </Select.Item>
+                <Select.Item value="audio">
+                  {t("upload.video.download.audio")}
+                </Select.Item>
+                <Select.Item value="none">
+                  {t("upload.video.download.none")}
+                </Select.Item>
+              </Select.Content>
+            </Select.Root>
             <Text size="1" color="gray">
               {downloadPolicy === "full"
                 ? t("upload.video.download.hint.full")

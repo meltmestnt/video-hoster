@@ -26,6 +26,9 @@ export const en = {
   "intro.f.gif.title": "Make GIFs",
   "intro.f.gif.desc":
     "Upload GIFs up to 8 MB or generate them from your videos.",
+  "intro.f.urlUpload.title": "Upload from a link",
+  "intro.f.urlUpload.desc":
+    "Paste a direct GIF or video URL — we fetch, validate, and host it. No download-then-reupload step.",
   "intro.f.convert.title": "Convert in-browser",
   "intro.f.convert.desc":
     "Turn any video into a GIF (or back) without leaving the page.",
@@ -84,6 +87,8 @@ export const en = {
     "Save the .gif locally for free, or sign in once to get a hotlinkable URL on vidsandgifs.xyz.",
   "instant.privacy":
     "Conversion is fully on-device. Sign in is only needed for hosted URLs.",
+  "instant.alsoUrl":
+    "Already have a GIF or video online? Sign in and paste its URL — we fetch and host it for you, no upload needed.",
 
   // ─── Cookie consent ───
   "consent.message":
@@ -398,12 +403,12 @@ export const en = {
   // ─── Unapproved-account banner ───
   "unapproved.banner.title": "Waiting on admin approval.",
   "unapproved.banner.body":
-    "Your account is verified but not yet approved. Until an admin approves you, daily uploads are limited to 1 video, 1 GIF, and 10 screenshots.",
+    "Your account is verified but not yet approved. Until an admin approves you, daily uploads are limited to 5 videos, 5 GIFs, and 10 screenshots.",
   "unapproved.popup.title": "You've hit today's upload cap",
   "unapproved.popup.body.video":
-    "Unapproved accounts can upload 1 video every 24 hours. An admin needs to approve your account before you can upload more today.",
+    "Unapproved accounts can upload 5 videos every 24 hours. An admin needs to approve your account before you can upload more today.",
   "unapproved.popup.body.gif":
-    "Unapproved accounts can upload 1 GIF every 24 hours. An admin needs to approve your account before you can upload more today.",
+    "Unapproved accounts can upload 5 GIFs every 24 hours. An admin needs to approve your account before you can upload more today.",
   "unapproved.popup.body.screenshot":
     "Unapproved accounts can save 10 screenshots every 24 hours. An admin needs to approve your account before you can save more today.",
   "unapproved.popup.gotIt": "Got it",
@@ -504,7 +509,8 @@ export const en = {
   "upload.field.visibility": "Visibility",
   "upload.visibility.publicHint":
     "Visible on the dashboard and in suggestions for everyone.",
-  "upload.visibility.privateHint": "Only you can see this video.",
+  "upload.visibility.privateHint":
+    "Only you see this on your feed. The vids&gifs team may review it for policy violations.",
   "upload.field.videoFile": "Video file",
   "upload.field.thumbnail": "Thumbnail",
   "upload.thumb.capturing": "Capturing...",

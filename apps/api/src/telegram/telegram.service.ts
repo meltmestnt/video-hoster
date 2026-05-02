@@ -1307,6 +1307,12 @@ async function fetchWithSsrfGuard(
       headers: {
         "user-agent": "vidsandgifs-bot/1.0 (+https://vidsandgifs.xyz)",
         accept: "image/gif,image/*,video/*;q=0.9,*/*;q=0.5",
+        // Refuse content-coding entirely. Media files are already
+        // compressed; gzip/br on top adds nothing legitimate but opens
+        // the door to gzip-bomb amplification — a small encoded body
+        // can decompress to many GB and blow past the running byte
+        // cap below (which counts decoded bytes once undici inflates).
+        "accept-encoding": "identity",
       },
       redirect: "manual",
       // Allow the Agent's IP-allow-list lookup to throw cleanly.

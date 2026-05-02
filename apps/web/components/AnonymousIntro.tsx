@@ -4,6 +4,7 @@ import {
   CameraIcon,
   ChatBubbleIcon,
   ImageIcon,
+  Link2Icon,
   MagicWandIcon,
   SpeakerLoudIcon,
   VideoIcon,
@@ -20,6 +21,7 @@ interface Feature {
   titleKey:
     | "intro.f.video.title"
     | "intro.f.gif.title"
+    | "intro.f.urlUpload.title"
     | "intro.f.screenshot.title"
     | "intro.f.audio.title"
     | "intro.f.convert.title"
@@ -27,6 +29,7 @@ interface Feature {
   descKey:
     | "intro.f.video.desc"
     | "intro.f.gif.desc"
+    | "intro.f.urlUpload.desc"
     | "intro.f.screenshot.desc"
     | "intro.f.audio.desc"
     | "intro.f.convert.desc"
@@ -43,6 +46,11 @@ const FEATURES: Feature[] = [
     Icon: ImageIcon,
     titleKey: "intro.f.gif.title",
     descKey: "intro.f.gif.desc",
+  },
+  {
+    Icon: Link2Icon,
+    titleKey: "intro.f.urlUpload.title",
+    descKey: "intro.f.urlUpload.desc",
   },
   {
     Icon: MagicWandIcon,

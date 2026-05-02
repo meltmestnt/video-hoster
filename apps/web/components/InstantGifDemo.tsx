@@ -15,6 +15,7 @@ import {
   CheckIcon,
   DownloadIcon,
   Cross1Icon,
+  Link2Icon,
   PlayIcon,
   RocketIcon,
   UploadIcon,
@@ -534,6 +535,25 @@ export function InstantGifDemo({ signedIn }: Props) {
             <ArrowRightIcon color="var(--accent-11)" />
             <Text size="2" color="gray">
               {t("instant.privacy")}
+            </Text>
+          </Flex>
+          {/* Parallel callout: URL upload skips the in-browser
+              conversion entirely — for users who already have a
+              hosted GIF/video and just want a vidsandgifs URL. */}
+          <Flex
+            mt="2"
+            gap="2"
+            align="center"
+            style={{
+              padding: "12px 14px",
+              borderRadius: "var(--radius-3)",
+              background: "rgba(70, 132, 255, 0.08)",
+              border: "1px solid rgba(70, 132, 255, 0.24)",
+            }}
+          >
+            <Link2Icon color="var(--blue-11)" />
+            <Text size="2" color="gray">
+              {t("instant.alsoUrl")}
             </Text>
           </Flex>
         </Box>
