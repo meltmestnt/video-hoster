@@ -43,19 +43,22 @@ export function TelegramPromoBanner() {
   const me = trpc.auth.me.useQuery();
   const utils = trpc.useUtils();
   const startLink = trpc.telegram.startLink.useMutation();
-  // Tracks whether THIS user dismissed the banner. Defaults to true so
-  // nothing flashes in during SSR / hydration; the effect below flips
-  // it to the persisted value once we know which user we're rendering for.
-  const [dismissed, setDismissed] = useState(true);
+  // Mounted gate so we never render on SSR / first paint. Without this
+  // an effect-driven dismiss read can race the auth.me query during the
+  // NextAuth bootstrap window, leaving the banner hidden until the user
+  // navigates or refocuses (which forces a re-render that picks up the
+  // already-resolved query).
+  const [mounted, setMounted] = useState(false);
+  // Bumped on dismiss to force a re-render; the synchronous localStorage
+  // read below picks up the new value without going through useState.
+  const [dismissTick, setDismissTick] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  const userId = me.data?.id ?? null;
   useEffect(() => {
-    if (!userId) return;
-    setDismissed(readDismissed(userId));
-  }, [userId]);
+    setMounted(true);
+  }, []);
 
-  if (dismissed) return null;
+  if (!mounted) return null;
   // Wait until auth.me has resolved before deciding — otherwise the
   // banner flashes in for the loading window even when the user has
   // already linked Telegram. Also covers the anon case (me.data === null).
@@ -63,6 +66,10 @@ export function TelegramPromoBanner() {
   if (me.data.telegramLinked) return null;
   // Bot not configured on this server — no point pitching it.
   if (startLink.error?.data?.code === "PRECONDITION_FAILED") return null;
+
+  const userId = me.data.id;
+  void dismissTick;
+  if (readDismissed(userId)) return null;
 
   const onConnect = async () => {
     setError(null);
@@ -77,8 +84,8 @@ export function TelegramPromoBanner() {
   };
 
   const onDismiss = () => {
-    if (userId) writeDismissed(userId);
-    setDismissed(true);
+    writeDismissed(userId);
+    setDismissTick((n) => n + 1);
   };
 
   return (

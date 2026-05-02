@@ -46,34 +46,44 @@ function writeDismissed(userId: string): void {
 export function FolderOnboardingBanner() {
   const t = useT();
   const me = trpc.auth.me.useQuery();
-  const folders = trpc.folders.list.useQuery(undefined, {
-    enabled: !!me.data,
-  });
-  const [dismissed, setDismissed] = useState(true);
+  // Don't gate folders.list on me.data — during the bootstrap window
+  // (NextAuth session loading) me.data is briefly undefined/null, and a
+  // disabled-then-enabled toggle adds a render the banner skips. Let
+  // the query fire on mount; if we're anonymous the API will 401 and
+  // folders.data stays undefined, which the !folders.data check below
+  // already handles.
+  const folders = trpc.folders.list.useQuery();
+  const [mounted, setMounted] = useState(false);
+  // Bumping this on dismiss forces a re-render so the synchronous
+  // localStorage read below picks up the new value without going
+  // through useState/useEffect timing.
+  const [dismissTick, setDismissTick] = useState(0);
   const [createOpen, setCreateOpen] = useState(false);
 
-  // Re-read the dismiss flag whenever the signed-in user id changes —
-  // covers the "log out, log in as someone else on same browser" case
-  // so the new account starts fresh.
-  const userId = me.data?.id ?? null;
+  // Mark the component as hydrated. Pre-mount we render null to keep
+  // SSR and the first client paint identical — without this guard the
+  // banner could flash in then disappear (or not appear at all) due to
+  // an effect-driven dismiss read racing the auth.me query.
   useEffect(() => {
-    if (userId) {
-      setDismissed(readDismissed(userId));
-    } else {
-      setDismissed(true);
-    }
-  }, [userId]);
+    setMounted(true);
+  }, []);
 
-  if (dismissed) return null;
+  if (!mounted) return null;
   if (!me.data) return null;
   // Wait for the folders query to resolve — otherwise the banner flashes
   // in for the loading window even when the user has folders already.
   if (!folders.data) return null;
   if (folders.data.length > 0) return null;
 
+  const userId = me.data.id;
+  // dismissTick is referenced so React keeps it in the dependency
+  // graph for re-renders — value itself doesn't matter.
+  void dismissTick;
+  if (readDismissed(userId)) return null;
+
   const onDismiss = () => {
-    if (userId) writeDismissed(userId);
-    setDismissed(true);
+    writeDismissed(userId);
+    setDismissTick((n) => n + 1);
   };
 
   return (
