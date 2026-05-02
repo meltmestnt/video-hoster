@@ -11,6 +11,7 @@ import {
 import { T } from "@/lib/i18n";
 import { LocaleSwitcher } from "./LocaleSwitcher";
 import { InstantGifDemo } from "./InstantGifDemo";
+import { AnonTelegramPromo } from "./AnonTelegramPromo";
 
 type Icon = typeof VideoIcon;
 
@@ -92,6 +93,8 @@ export function AnonymousIntro() {
             killer demo that doubles as the home page's value prop. */}
         <InstantGifDemo signedIn={false} />
       </Box>
+
+      <AnonTelegramPromo />
 
       <Flex
         className="intro-cta-row"

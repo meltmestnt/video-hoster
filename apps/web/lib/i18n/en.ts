@@ -42,6 +42,15 @@ export const en = {
   "intro.cta.signIn": "Sign in",
   "intro.cta.browse": "Browse all videos →",
 
+  // ─── Anonymous Telegram pitch (sits under the InstantGifDemo) ───
+  "anonTelegram.badge": "Telegram bot",
+  "anonTelegram.headline.before": "Search and share your GIFs",
+  "anonTelegram.headline.highlight": "without leaving Telegram.",
+  "anonTelegram.subtitle":
+    "Connect the vids&gifs bot once and your whole library is one @mention away — search inline from any chat, send GIFs straight from Telegram, and upload new ones by forwarding them to the bot.",
+  "anonTelegram.cta.signUp": "Sign up to connect",
+  "anonTelegram.cta.signIn": "Already have an account? Sign in",
+
   // ─── Instant GIF demo (landing hero) ───
   "instant.badge": "Free, runs in your browser",
   "instant.headline.before": "From a video to a ",

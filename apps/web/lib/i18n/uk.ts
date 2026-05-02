@@ -44,6 +44,15 @@ export const uk: EnDict = {
   "intro.cta.signIn": "Увійти",
   "intro.cta.browse": "Переглянути всі відео →",
 
+  // ─── Анонімний пітч про Telegram-інтеграцію (під InstantGifDemo) ───
+  "anonTelegram.badge": "Telegram-бот",
+  "anonTelegram.headline.before": "Шукай і ділись GIF",
+  "anonTelegram.headline.highlight": "не виходячи з Telegram.",
+  "anonTelegram.subtitle":
+    "Підʼєднай бота vids&gifs один раз — і вся твоя бібліотека за одним @-згадуванням. Шукай інлайн у будь-якому чаті, надсилай GIF прямо з Telegram і завантажуй нові, пересилаючи їх боту.",
+  "anonTelegram.cta.signUp": "Зареєструватися та підʼєднати",
+  "anonTelegram.cta.signIn": "Уже маєш акаунт? Увійти",
+
   // ─── Демо миттєвого GIF (геро на лендінгу) ───
   "instant.badge": "Безкоштовно, працює в браузері",
   "instant.headline.before": "З відео в ",
