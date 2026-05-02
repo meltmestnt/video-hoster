@@ -106,4 +106,10 @@ If you're curious what one developer + Claude can ship in a day, [the live site]
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Use it, fork it, ship a competitor, just don't blame me.
+Source-available under the [Business Source License 1.1](LICENSE). The short version:
+
+- **Read it, fork it, run it for yourself or your team** — personal and internal use is fine, no permission needed.
+- **Don't run it as a competing hosted service** — you can't take this code and stand up a paid GIF-hosting product that competes with vidsandgifs.com without a separate commercial license.
+- **It auto-converts to Apache 2.0 on 2030-05-02** — four years from now this whole repo flips to a permissive license automatically.
+
+BUSL is not OSI-approved open source. It is source-available, and that's the honest framing. If you want to use the code in a way the BUSL doesn't cover, open an issue and we'll talk.
