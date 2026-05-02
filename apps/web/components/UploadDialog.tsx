@@ -50,6 +50,13 @@ export function UploadDialog({ open, onOpenChange, initialFile }: Props) {
   const otherTabBusy = upload.otherTabUploading;
   const t = useT();
 
+  const [source, setSource] = useState<"file" | "url">("file");
+  const [url, setUrl] = useState("");
+  // Server-side URL ingest is one shot — no client-side progress to
+  // surface, just a busy flag while the mutation is in flight.
+  const [urlSubmitting, setUrlSubmitting] = useState(false);
+  const uploadFromUrl = trpc.videos.uploadFromUrl.useMutation();
+
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [tagsRaw, setTagsRaw] = useState("");
@@ -92,6 +99,9 @@ export function UploadDialog({ open, onOpenChange, initialFile }: Props) {
       setVideoDuration(0);
       setScrubTime(1);
       setSigCheck("idle");
+      setSource("file");
+      setUrl("");
+      setUrlSubmitting(false);
     } else if (initialFile) {
       // Seed from the dropped file when opened via the overlay. We only do
       // this on the open transition so the user can still clear/swap it
@@ -241,19 +251,47 @@ export function UploadDialog({ open, onOpenChange, initialFile }: Props) {
     return null;
   })();
 
-  const canSubmit =
+  const isHttpsUrl = /^https?:\/\//i.test(url.trim());
+  const canSubmitFile =
     !busy &&
     !otherTabBusy &&
     !!file &&
     !fileError &&
     sigCheck === "ok" &&
     title.trim().length >= 1;
+  const canSubmitUrl =
+    !urlSubmitting &&
+    !otherTabBusy &&
+    isHttpsUrl &&
+    title.trim().length >= 1;
+  const canSubmit = source === "file" ? canSubmitFile : canSubmitUrl;
 
-  // Step 1: clicking Upload opens the editor instead of starting upload.
-  const submit = () => {
-    if (!file || !canSubmit) return;
+  // Step 1: clicking Upload opens the editor (file mode) or kicks off
+  // a server-side fetch (URL mode).
+  const submit = async () => {
+    if (!canSubmit) return;
     setError(null);
-    setEditorOpen(true);
+    if (source === "file") {
+      if (!file) return;
+      setEditorOpen(true);
+      return;
+    }
+    setUrlSubmitting(true);
+    try {
+      await uploadFromUrl.mutateAsync({
+        url: url.trim(),
+        title: title.trim(),
+        description: description.trim(),
+        tags,
+        visibility,
+        downloadPolicy,
+      });
+      onOpenChange(false);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setUrlSubmitting(false);
+    }
   };
 
   // Step 2: editor returns either an edit options bundle (video) or a
@@ -305,6 +343,27 @@ export function UploadDialog({ open, onOpenChange, initialFile }: Props) {
             not remount the form. Height still animates via ResizeObserver. */}
         <Morph axis="height">
         <Flex direction="column" gap="3">
+          <Flex direction="column" gap="1">
+            <Text size="2" weight="medium">
+              {t("upload.source.label")}
+            </Text>
+            <SegmentedControl.Root
+              value={source}
+              onValueChange={(v) => {
+                if (busy || urlSubmitting) return;
+                setSource(v as "file" | "url");
+                setError(null);
+              }}
+            >
+              <SegmentedControl.Item value="file">
+                {t("upload.source.file")}
+              </SegmentedControl.Item>
+              <SegmentedControl.Item value="url">
+                {t("upload.source.url")}
+              </SegmentedControl.Item>
+            </SegmentedControl.Root>
+          </Flex>
+
           <Flex direction="column" gap="1">
             <Text size="2" weight="medium">
               {t("upload.field.title")}
@@ -392,6 +451,7 @@ export function UploadDialog({ open, onOpenChange, initialFile }: Props) {
             </Text>
           </Flex>
 
+          {source === "file" && (
           <Flex direction="column" gap="1">
             <Text size="2" weight="medium">
               {t("upload.field.videoFile")}
@@ -403,8 +463,28 @@ export function UploadDialog({ open, onOpenChange, initialFile }: Props) {
               disabled={busy}
             />
           </Flex>
+          )}
 
-          {file && !fileError && (
+          {source === "url" && (
+          <Flex direction="column" gap="1">
+            <Text size="2" weight="medium">
+              {t("upload.url.label")}
+            </Text>
+            <TextField.Root
+              type="url"
+              placeholder={t("upload.url.placeholder")}
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              disabled={urlSubmitting}
+              maxLength={2048}
+            />
+            <Text size="1" color="gray">
+              {t("upload.url.hint")}
+            </Text>
+          </Flex>
+          )}
+
+          {source === "file" && file && !fileError && (
             <Flex direction="column" gap="2">
               <Text size="2" weight="medium">
                 {t("upload.field.thumbnail")}
@@ -550,7 +630,7 @@ export function UploadDialog({ open, onOpenChange, initialFile }: Props) {
               <Callout.Text>{t("upload.otherTab.busy")}</Callout.Text>
             </Callout.Root>
           )}
-          {fileError && (
+          {source === "file" && fileError && (
             <Callout.Root color="red">
               <Callout.Text>{fileError}</Callout.Text>
             </Callout.Root>
@@ -565,12 +645,22 @@ export function UploadDialog({ open, onOpenChange, initialFile }: Props) {
 
         <Flex gap="3" mt="5" justify="end">
           <Dialog.Close>
-            <Button variant="soft" color="gray" disabled={busy}>
+            <Button
+              variant="soft"
+              color="gray"
+              disabled={busy || urlSubmitting}
+            >
               {t("common.cancel")}
             </Button>
           </Dialog.Close>
           <Button onClick={submit} disabled={!canSubmit}>
-            {busy ? t("upload.busy") : t("upload.continue")}
+            {source === "url"
+              ? urlSubmitting
+                ? t("upload.url.submitting")
+                : t("upload.url.submit")
+              : busy
+                ? t("upload.busy")
+                : t("upload.continue")}
           </Button>
         </Flex>
       </Dialog.Content>

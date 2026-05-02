@@ -33,7 +33,15 @@ import { NotificationsService } from "../notifications/notifications.service";
 import { AudioService } from "../audio/audio.service";
 import { MailService } from "../mail/mail.service";
 import { MediaService } from "../media/media.service";
-import { looksLikeVideo } from "../s3/file-signatures";
+import {
+  isEbmlSignature,
+  isIsoBmffSignature,
+  looksLikeVideo,
+} from "../s3/file-signatures";
+import {
+  fetchRemoteMedia,
+  RemoteFetchError,
+} from "../s3/url-fetcher";
 
 interface CreateUploadArgs {
   ownerId: string;
@@ -55,6 +63,24 @@ interface FinalizeArgs {
   thumbnailS3Key?: string;
 }
 
+interface UploadFromUrlArgs {
+  ownerId: string;
+  ownerStatus: User["status"];
+  ownerApproved: boolean;
+  url: string;
+  title: string;
+  description: string;
+  tagNames: string[];
+  visibility: VideoVisibility;
+  downloadPolicy: VideoDownloadPolicy;
+}
+
+// Hard cap on how long the server will spend pulling bytes from a
+// remote source. 1.5 GiB at, say, 50 Mbps is ~4 minutes; we give a
+// little extra headroom for slower upstreams. Anything more is too
+// expensive to keep a request worker pinned for.
+const URL_FETCH_TIMEOUT_MS = 5 * 60 * 1000;
+
 const extensionForMime = (mime: string): string => {
   if (mime === "video/mp4") return "mp4";
   if (mime === "video/quicktime") return "mov";
@@ -69,6 +95,58 @@ const slugify = (s: string): string =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 60) || "video";
+
+// Pick the canonical MIME for a remote-fetched video. The magic bytes
+// are authoritative; the upstream Content-Type is a hint we honor only
+// when it matches what the bytes show. This prevents an attacker
+// labelling an mkv as `video/mp4` (or vice-versa) from confusing the
+// downstream proxy / browser playback.
+function pickVideoMime(
+  head: Buffer,
+  contentType: string | null,
+): "video/mp4" | "video/quicktime" | "video/webm" | "video/x-matroska" {
+  if (isIsoBmffSignature(head)) {
+    if (contentType === "video/quicktime") return "video/quicktime";
+    return "video/mp4";
+  }
+  if (isEbmlSignature(head)) {
+    if (contentType === "video/x-matroska") return "video/x-matroska";
+    return "video/webm";
+  }
+  // looksLikeVideo already passed before we get here, so this branch
+  // is unreachable in practice; default to mp4 so the type signature
+  // stays narrow.
+  return "video/mp4";
+}
+
+// Map RemoteFetchError codes to messages we're comfortable showing to
+// the user. Internal error text (DNS server name, IP address) gets
+// scrubbed because it can leak details about our network.
+function toUserFacingFetchError(err: RemoteFetchError): string {
+  switch (err.code) {
+    case "INVALID_URL":
+      return "That URL doesn't look valid.";
+    case "DISALLOWED_PROTOCOL":
+      return "Only https URLs are allowed.";
+    case "PRIVATE_ADDRESS":
+      return "That URL points to a non-public address.";
+    case "DNS_FAILURE":
+      return "Couldn't resolve that hostname.";
+    case "TOO_MANY_REDIRECTS":
+      return "Too many redirects from that URL.";
+    case "REDIRECT_LOCATION_INVALID":
+      return "Redirect from that URL was rejected.";
+    case "TOO_LARGE":
+      return "That file is larger than the upload limit.";
+    case "TIMEOUT":
+      return "Fetching that URL took too long.";
+    case "HTTP_STATUS":
+      return "The source returned an error response.";
+    case "NETWORK":
+    default:
+      return "Couldn't fetch that URL.";
+  }
+}
 
 @Injectable()
 export class VideosService {
@@ -368,6 +446,171 @@ export class VideosService {
     }
 
     return { ok: true };
+  }
+
+  /**
+   * Server-side ingest from a remote URL. The user pastes a link and
+   * we run the same pipeline as a regular upload — same per-account
+   * quotas, same magic-byte gate, same compression and thumbnail step
+   * — except the bytes flow through our process instead of through a
+   * presigned S3 PUT.
+   *
+   * SSRF safety lives in {@link fetchRemoteMedia}: only public IPs,
+   * https-only in production, hard byte cap during streaming, redirect
+   * re-validation. Anything that escapes those guards is treated as
+   * upstream behavior we refuse — never a 5xx.
+   */
+  async uploadFromUrl(args: UploadFromUrlArgs): Promise<{ videoId: string }> {
+    // Pre-flight checks that don't depend on size. Mirrors
+    // createUpload's gating without the size-based daily-byte check
+    // (we do that one after the fetch — we don't yet know the size).
+    if (args.ownerStatus !== "verified") {
+      const existing = await this.videos.count({
+        where: { ownerId: args.ownerId, status: "ready" },
+      });
+      if (existing >= UNVERIFIED_VIDEO_LIMIT) {
+        this.logger.warn(
+          `videos.uploadFromUrl rejected reason=unverified-limit ownerId=${args.ownerId} existing=${existing}`,
+        );
+        throw new BadRequestException(
+          `${UNVERIFIED_LIMIT_ERROR_PREFIX}video`,
+        );
+      }
+    }
+
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recent = await this.videos.find({
+      where: { ownerId: args.ownerId, createdAt: MoreThanOrEqual(since) },
+      select: ["id", "sizeBytes"],
+    });
+    if (!args.ownerApproved && recent.length >= UNAPPROVED_DAILY_VIDEO_LIMIT) {
+      this.logger.warn(
+        `videos.uploadFromUrl rejected reason=unapproved-daily-limit ownerId=${args.ownerId} recent=${recent.length}`,
+      );
+      throw new BadRequestException(`${UNAPPROVED_LIMIT_ERROR_PREFIX}video`);
+    }
+    if (recent.length >= DAILY_VIDEO_UPLOAD_LIMIT) {
+      this.logger.warn(
+        `videos.uploadFromUrl rejected reason=daily-count-limit ownerId=${args.ownerId} recent=${recent.length}`,
+      );
+      throw new BadRequestException(
+        `Daily upload limit reached (${DAILY_VIDEO_UPLOAD_LIMIT} videos in 24h). Try again later.`,
+      );
+    }
+
+    const STALE_AFTER_MS = 30 * 60 * 1000;
+    const inFlight = await this.videos.findOne({
+      where: { ownerId: args.ownerId, status: "uploading" },
+      order: { createdAt: "DESC" },
+    });
+    if (inFlight && Date.now() - inFlight.createdAt.getTime() < STALE_AFTER_MS) {
+      throw new ConflictException("You already have an upload in progress");
+    }
+
+    // Headroom in the daily byte cap — the fetch can't exceed both
+    // MAX_VIDEO_BYTES and what's left of the rolling window. Using the
+    // tighter cap here means a user who's already uploaded 800 MB
+    // today can only ingest 200 MB more rather than getting an
+    // "exceeded limit" error after burning their bandwidth.
+    const usedBytes = recent.reduce(
+      (sum, v) => sum + Number(v.sizeBytes ?? 0),
+      0,
+    );
+    const remainingDailyBytes = Math.max(
+      0,
+      DAILY_VIDEO_BYTES_LIMIT - usedBytes,
+    );
+    if (remainingDailyBytes <= 0) {
+      throw new BadRequestException(
+        `Daily upload size limit reached (${DAILY_VIDEO_BYTES_LIMIT_GB} GB in 24h).`,
+      );
+    }
+    const fetchCap = Math.min(MAX_VIDEO_BYTES, remainingDailyBytes);
+
+    let fetched;
+    try {
+      fetched = await fetchRemoteMedia(args.url, {
+        maxBytes: fetchCap,
+        timeoutMs: URL_FETCH_TIMEOUT_MS,
+      });
+    } catch (err) {
+      if (err instanceof RemoteFetchError) {
+        this.logger.warn(
+          `videos.uploadFromUrl fetch failed ownerId=${args.ownerId} url=${args.url} code=${err.code}: ${err.message}`,
+        );
+        throw new BadRequestException(toUserFacingFetchError(err));
+      }
+      throw err;
+    }
+
+    // Magic-byte gate is the source of truth — Content-Type the
+    // remote returned is just a hint. Refuse anything that doesn't
+    // match a container we accept.
+    const head = fetched.buffer.subarray(0, 32);
+    if (!looksLikeVideo(head)) {
+      this.logger.warn(
+        `videos.uploadFromUrl rejected reason=not-a-video ownerId=${args.ownerId} url=${args.url} contentType=${fetched.contentType}`,
+      );
+      throw new BadRequestException(
+        "URL does not point to a supported video file (MP4, MOV, WebM, MKV).",
+      );
+    }
+    const mimeType = pickVideoMime(head, fetched.contentType);
+
+    if (fetched.buffer.length > MAX_VIDEO_BYTES) {
+      throw new BadRequestException("File exceeds 1.5 GiB limit");
+    }
+
+    const tags = await this.tagsService.ensureTags(args.tagNames);
+    const ext = extensionForMime(mimeType);
+    const slug = slugify(args.title);
+
+    const draft = this.videos.create({
+      ownerId: args.ownerId,
+      title: args.title,
+      description: args.description,
+      s3Key: "",
+      mimeType,
+      sizeBytes: fetched.buffer.length,
+      status: "uploading",
+      visibility: args.visibility,
+      downloadPolicy: args.downloadPolicy,
+      tags,
+    });
+    const saved = await this.videos.save(draft);
+    const s3Key = `videos/${saved.id}/source-${slug}.${ext}`;
+
+    try {
+      await this.s3.uploadBuffer(s3Key, fetched.buffer, mimeType);
+      await this.videos.update({ id: saved.id }, { s3Key });
+    } catch (err) {
+      // Best-effort cleanup. The draft row + S3 leak is preferable to
+      // surfacing a 500: leave the row in `uploading` and let the
+      // stale-cleanup logic eventually pick it up.
+      this.logger.error(
+        `videos.uploadFromUrl S3 upload failed videoId=${saved.id}: ${(err as Error).message}`,
+      );
+      throw new BadRequestException(
+        "Server failed to store the fetched file. Please try again.",
+      );
+    }
+
+    this.logger.log(
+      `videos.uploadFromUrl fetched ownerId=${args.ownerId} videoId=${saved.id} bytes=${fetched.buffer.length} mime=${mimeType} src=${args.url}`,
+    );
+
+    // Re-use finalizeUpload so URL-ingested rows get the same
+    // server-side compression, magic-byte re-check, thumbnail
+    // generation, and subscriber notifications as a normal upload.
+    // compressServerSide=true because the client never had a chance
+    // to transcode here.
+    await this.finalizeUpload({
+      videoId: saved.id,
+      ownerId: args.ownerId,
+      compressServerSide: true,
+    });
+
+    return { videoId: saved.id };
   }
 
   async getUploadQuota(ownerId: string) {

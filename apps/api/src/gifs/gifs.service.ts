@@ -10,6 +10,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { In, Repository, SelectQueryBuilder } from "typeorm";
 import {
   MAX_GIF_BYTES,
+  MAX_GIF_DURATION_SECONDS,
   UNAPPROVED_DAILY_GIF_LIMIT,
   UNAPPROVED_LIMIT_ERROR_PREFIX,
   UNVERIFIED_GIF_LIMIT,
@@ -27,6 +28,10 @@ import { NotificationsService } from "../notifications/notifications.service";
 import { MediaService } from "../media/media.service";
 import { TranscoderService } from "../transcoder/transcoder.service";
 import { looksLikeGif } from "../s3/file-signatures";
+import {
+  fetchRemoteMedia,
+  RemoteFetchError,
+} from "../s3/url-fetcher";
 
 
 interface CreateUploadArgs {
@@ -44,6 +49,67 @@ interface CreateUploadArgs {
 interface FinalizeArgs {
   gifId: string;
   ownerId: string;
+}
+
+interface UploadFromUrlArgs {
+  ownerId: string;
+  ownerStatus: User["status"];
+  ownerApproved: boolean;
+  url: string;
+  title: string;
+  description: string;
+  tagNames: string[];
+  visibility: GifVisibility;
+}
+
+const URL_FETCH_TIMEOUT_MS = 60_000;
+
+// Walk a GIF buffer and sum delays declared in Graphic Control
+// Extension blocks (0x21 0xF9 0x04 ... delay-low delay-high). Mirrors
+// the in-browser parser in apps/web/components/GifUploadDialog.tsx so
+// URL-ingested GIFs face the same duration cap as file-uploaded ones.
+function gifDurationSeconds(bytes: Buffer): number {
+  let total = 0;
+  let frames = 0;
+  for (let i = 0; i + 7 < bytes.length; i++) {
+    if (bytes[i] === 0x21 && bytes[i + 1] === 0xf9 && bytes[i + 2] === 0x04) {
+      const raw = bytes[i + 4] | (bytes[i + 5] << 8);
+      // Encoders frequently emit delay=0 expecting renderers to use a
+      // sane default (~100ms). Browsers do; match their behavior so a
+      // 200-frame "delay=0" loop doesn't slip past the duration cap.
+      total += raw <= 1 ? 10 : raw;
+      frames++;
+      i += 7;
+    }
+  }
+  if (frames === 0) return 0;
+  return total / 100;
+}
+
+function toUserFacingFetchError(err: RemoteFetchError): string {
+  switch (err.code) {
+    case "INVALID_URL":
+      return "That URL doesn't look valid.";
+    case "DISALLOWED_PROTOCOL":
+      return "Only https URLs are allowed.";
+    case "PRIVATE_ADDRESS":
+      return "That URL points to a non-public address.";
+    case "DNS_FAILURE":
+      return "Couldn't resolve that hostname.";
+    case "TOO_MANY_REDIRECTS":
+      return "Too many redirects from that URL.";
+    case "REDIRECT_LOCATION_INVALID":
+      return "Redirect from that URL was rejected.";
+    case "TOO_LARGE":
+      return "That file is larger than the GIF upload limit.";
+    case "TIMEOUT":
+      return "Fetching that URL took too long.";
+    case "HTTP_STATUS":
+      return "The source returned an error response.";
+    case "NETWORK":
+    default:
+      return "Couldn't fetch that URL.";
+  }
 }
 
 const slugify = (s: string): string =>
@@ -242,6 +308,167 @@ export class GifsService {
         );
     }
     return { ok: true };
+  }
+
+  /**
+   * Server-side ingest from a remote URL. Mirrors createUpload +
+   * finalizeUpload in one shot — same per-account quotas, same magic-
+   * byte gate, same duration cap, same compression and notification
+   * behavior — except the bytes flow through our process instead of
+   * through a presigned PUT.
+   *
+   * SSRF safety lives in {@link fetchRemoteMedia}: only public IPs,
+   * https-only in production, hard byte cap during streaming, redirect
+   * re-validation.
+   */
+  async uploadFromUrl(args: UploadFromUrlArgs): Promise<{ gifId: string }> {
+    if (args.ownerStatus !== "verified") {
+      const existing = await this.gifs.count({
+        where: { ownerId: args.ownerId },
+      });
+      if (existing >= UNVERIFIED_GIF_LIMIT) {
+        this.logger.warn(
+          `gifs.uploadFromUrl rejected reason=unverified-limit ownerId=${args.ownerId} existing=${existing}`,
+        );
+        throw new BadRequestException(
+          `${UNVERIFIED_LIMIT_ERROR_PREFIX}gif`,
+        );
+      }
+    }
+    if (!args.ownerApproved) {
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const recent = await this.gifs.count({
+        where: { ownerId: args.ownerId, createdAt: MoreThanOrEqual(since) },
+      });
+      if (recent >= UNAPPROVED_DAILY_GIF_LIMIT) {
+        this.logger.warn(
+          `gifs.uploadFromUrl rejected reason=unapproved-daily-limit ownerId=${args.ownerId} recent=${recent}`,
+        );
+        throw new BadRequestException(
+          `${UNAPPROVED_LIMIT_ERROR_PREFIX}gif`,
+        );
+      }
+    }
+
+    const STALE_AFTER_MS = 30 * 60 * 1000;
+    const inFlight = await this.gifs.findOne({
+      where: { ownerId: args.ownerId, status: "uploading" },
+      order: { createdAt: "DESC" },
+    });
+    if (
+      inFlight &&
+      Date.now() - inFlight.createdAt.getTime() < STALE_AFTER_MS
+    ) {
+      throw new ConflictException(
+        "You already have a gif upload in progress",
+      );
+    }
+
+    let fetched;
+    try {
+      fetched = await fetchRemoteMedia(args.url, {
+        maxBytes: MAX_GIF_BYTES,
+        timeoutMs: URL_FETCH_TIMEOUT_MS,
+      });
+    } catch (err) {
+      if (err instanceof RemoteFetchError) {
+        this.logger.warn(
+          `gifs.uploadFromUrl fetch failed ownerId=${args.ownerId} url=${args.url} code=${err.code}: ${err.message}`,
+        );
+        throw new BadRequestException(toUserFacingFetchError(err));
+      }
+      throw err;
+    }
+
+    if (fetched.buffer.length > MAX_GIF_BYTES) {
+      throw new BadRequestException("GIF exceeds 20 MB limit");
+    }
+    if (!looksLikeGif(fetched.buffer.subarray(0, 16))) {
+      this.logger.warn(
+        `gifs.uploadFromUrl rejected reason=not-a-gif ownerId=${args.ownerId} url=${args.url} contentType=${fetched.contentType}`,
+      );
+      throw new BadRequestException(
+        "URL does not point to a real GIF (.gif).",
+      );
+    }
+    const duration = gifDurationSeconds(fetched.buffer);
+    if (duration > MAX_GIF_DURATION_SECONDS + 0.5) {
+      throw new BadRequestException(
+        `GIF exceeds ${MAX_GIF_DURATION_SECONDS}s duration limit`,
+      );
+    }
+
+    // Same SD recompression as the regular upload path. Skip when the
+    // result is bigger than the source — for tiny GIFs, the palette
+    // pipeline can produce a larger file.
+    let storedBuffer = fetched.buffer;
+    try {
+      const compressed = await this.transcoder.compressGifToSd(fetched.buffer);
+      if (compressed.length > 0 && compressed.length < fetched.buffer.length) {
+        storedBuffer = compressed;
+      }
+    } catch (err) {
+      this.logger.warn(
+        `gifs.uploadFromUrl compression failed ownerId=${args.ownerId}: ${(err as Error).message}; keeping original`,
+      );
+    }
+
+    const tags = await this.tagsService.ensureTags(args.tagNames);
+    const slug = slugify(args.title);
+    const draft = this.gifs.create({
+      ownerId: args.ownerId,
+      title: args.title,
+      description: args.description,
+      s3Key: "",
+      sizeBytes: storedBuffer.length,
+      // Cap to the schema limit so a marginal-overhead measurement
+      // (raw + 0.4s) doesn't fail the not-null DB constraint.
+      durationSeconds: Math.max(
+        0.1,
+        Math.min(duration || 0.1, MAX_GIF_DURATION_SECONDS),
+      ),
+      status: "uploading",
+      visibility: args.visibility,
+      tags,
+    });
+    const saved = await this.gifs.save(draft);
+    const s3Key = `gifs/${saved.id}/${slug}.gif`;
+    try {
+      await this.s3.uploadBuffer(s3Key, storedBuffer, "image/gif");
+    } catch (err) {
+      this.logger.error(
+        `gifs.uploadFromUrl S3 upload failed gifId=${saved.id}: ${(err as Error).message}`,
+      );
+      throw new BadRequestException(
+        "Server failed to store the fetched file. Please try again.",
+      );
+    }
+    saved.s3Key = s3Key;
+    saved.status = "ready";
+    await this.gifs.save(saved);
+    this.logger.log(
+      `gifs.uploadFromUrl ok ownerId=${args.ownerId} gifId=${saved.id} bytes=${storedBuffer.length} src=${args.url}`,
+    );
+
+    // Same fire-and-forget MP4 transcode + subscriber notification as
+    // the website upload path so URL-ingested GIFs are also pickable
+    // by the Telegram inline bot and trigger follower pings.
+    void this.ensureMp4(saved.id).catch((err) =>
+      this.logger.warn(
+        `gifs.ensureMp4 failed gifId=${saved.id}: ${(err as Error).message}`,
+      ),
+    );
+    if (saved.visibility === "public") {
+      await this.notificationsService
+        .onGifUploaded(saved.id, saved.ownerId)
+        .catch((err) =>
+          this.logger.warn(
+            `Failed to notify subscribers of GIF upload ${saved.id}: ${(err as Error).message}`,
+          ),
+        );
+    }
+
+    return { gifId: saved.id };
   }
 
   /**

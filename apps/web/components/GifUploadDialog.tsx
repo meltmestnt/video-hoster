@@ -16,6 +16,7 @@ import { MAX_GIF_BYTES, MAX_GIF_DURATION_SECONDS } from "@repo/shared";
 import { isUploadBusy, useUpload } from "@/lib/upload-context";
 import { compressTo480p } from "@/lib/compress-video";
 import { sniffIsGifFile } from "@/lib/file-signatures";
+import { trpc } from "@/lib/trpc";
 import { useT } from "@/lib/i18n";
 import { Morph } from "./Morph";
 
@@ -52,6 +53,11 @@ export function GifUploadDialog({ open, onOpenChange, initialFile }: Props) {
   const busy = isUploadBusy(upload.status);
   const otherTabBusy = upload.otherTabUploading;
   const t = useT();
+
+  const [source, setSource] = useState<"file" | "url">("file");
+  const [url, setUrl] = useState("");
+  const [urlSubmitting, setUrlSubmitting] = useState(false);
+  const uploadFromUrl = trpc.gifs.uploadFromUrl.useMutation();
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -105,6 +111,9 @@ export function GifUploadDialog({ open, onOpenChange, initialFile }: Props) {
       setScreenshotBusy(false);
       setScreenshotMsg(null);
       setSigCheck("idle");
+      setSource("file");
+      setUrl("");
+      setUrlSubmitting(false);
     } else if (initialFile) {
       // Validate via acceptFile so a wrong-type drop falls back to the
       // dropzone with an error message instead of silently failing later.
@@ -196,13 +205,20 @@ export function GifUploadDialog({ open, onOpenChange, initialFile }: Props) {
   })();
 
   const working = busy || converting;
-  const canSubmit =
+  const isHttpsUrl = /^https?:\/\//i.test(url.trim());
+  const canSubmitFile =
     !working &&
     !otherTabBusy &&
     sigCheck === "ok" &&
     !!file &&
     !fileError &&
     title.trim().length >= 1;
+  const canSubmitUrl =
+    !urlSubmitting &&
+    !otherTabBusy &&
+    isHttpsUrl &&
+    title.trim().length >= 1;
+  const canSubmit = source === "file" ? canSubmitFile : canSubmitUrl;
 
   const captureScreenshot = async () => {
     const img = previewImgRef.current;
@@ -249,8 +265,31 @@ export function GifUploadDialog({ open, onOpenChange, initialFile }: Props) {
   };
 
   const submit = async () => {
-    if (!file || !canSubmit) return;
+    if (!canSubmit) return;
     setError(null);
+    if (source === "url") {
+      // URL ingest is GIF-only — we don't expose the gif→mp4 conversion
+      // path here because that flow is client-side ffmpeg.wasm and we
+      // don't have the bytes locally yet. The server still
+      // re-compresses the fetched GIF the same way as a normal upload.
+      setUrlSubmitting(true);
+      try {
+        await uploadFromUrl.mutateAsync({
+          url: url.trim(),
+          title: title.trim(),
+          description: description.trim(),
+          tags,
+          visibility,
+        });
+        onOpenChange(false);
+      } catch (err) {
+        setError((err as Error).message);
+      } finally {
+        setUrlSubmitting(false);
+      }
+      return;
+    }
+    if (!file) return;
     try {
       if (outputKind === "gif") {
         const d = duration ?? (await gifDurationSeconds(file));
@@ -315,6 +354,27 @@ export function GifUploadDialog({ open, onOpenChange, initialFile }: Props) {
         <Flex direction="column" gap="3">
           <Flex direction="column" gap="1">
             <Text size="2" weight="medium">
+              {t("upload.source.label")}
+            </Text>
+            <SegmentedControl.Root
+              value={source}
+              onValueChange={(v) => {
+                if (working || urlSubmitting) return;
+                setSource(v as "file" | "url");
+                setError(null);
+              }}
+            >
+              <SegmentedControl.Item value="file">
+                {t("upload.source.file")}
+              </SegmentedControl.Item>
+              <SegmentedControl.Item value="url">
+                {t("upload.source.url")}
+              </SegmentedControl.Item>
+            </SegmentedControl.Root>
+          </Flex>
+
+          <Flex direction="column" gap="1">
+            <Text size="2" weight="medium">
               {t("upload.field.title")}
             </Text>
             <TextField.Root
@@ -366,6 +426,7 @@ export function GifUploadDialog({ open, onOpenChange, initialFile }: Props) {
             </SegmentedControl.Root>
           </Flex>
 
+          {source === "file" && (
           <Flex direction="column" gap="1">
             <Text size="2" weight="medium">
               {t("upload.gif.saveAs")}
@@ -387,7 +448,28 @@ export function GifUploadDialog({ open, onOpenChange, initialFile }: Props) {
                 : t("upload.gif.saveAs.mp4Hint")}
             </Text>
           </Flex>
+          )}
 
+          {source === "url" && (
+          <Flex direction="column" gap="1">
+            <Text size="2" weight="medium">
+              {t("upload.url.gif.label")}
+            </Text>
+            <TextField.Root
+              type="url"
+              placeholder={t("upload.url.gif.placeholder")}
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              disabled={urlSubmitting}
+              maxLength={2048}
+            />
+            <Text size="1" color="gray">
+              {t("upload.url.gif.hint")}
+            </Text>
+          </Flex>
+          )}
+
+          {source === "file" && (
           <Flex direction="column" gap="1">
             <Text size="2" weight="medium">
               {t("upload.gif.fileLabel")}
@@ -527,13 +609,14 @@ export function GifUploadDialog({ open, onOpenChange, initialFile }: Props) {
               disabled={working}
             />
           </Flex>
+          )}
 
           {otherTabBusy && (
             <Callout.Root color="amber">
               <Callout.Text>{t("upload.otherTab.busy")}</Callout.Text>
             </Callout.Root>
           )}
-          {fileError && (
+          {source === "file" && fileError && (
             <Callout.Root color="red">
               <Callout.Text>{fileError}</Callout.Text>
             </Callout.Root>
@@ -575,18 +658,26 @@ export function GifUploadDialog({ open, onOpenChange, initialFile }: Props) {
 
         <Flex gap="3" mt="5" justify="end">
           <Dialog.Close>
-            <Button variant="soft" color="gray" disabled={working}>
+            <Button
+              variant="soft"
+              color="gray"
+              disabled={working || urlSubmitting}
+            >
               {t("common.cancel")}
             </Button>
           </Dialog.Close>
           <Button onClick={submit} disabled={!canSubmit}>
-            {converting
-              ? t("upload.gif.convertingShort")
-              : busy
-                ? t("upload.gif.uploading")
-                : outputKind === "mp4"
-                  ? t("upload.gif.convertAndUpload")
-                  : t("upload.gif.upload")}
+            {source === "url"
+              ? urlSubmitting
+                ? t("upload.url.submitting")
+                : t("upload.url.submit")
+              : converting
+                ? t("upload.gif.convertingShort")
+                : busy
+                  ? t("upload.gif.uploading")
+                  : outputKind === "mp4"
+                    ? t("upload.gif.convertAndUpload")
+                    : t("upload.gif.upload")}
           </Button>
         </Flex>
       </Dialog.Content>

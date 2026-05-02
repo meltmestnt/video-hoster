@@ -549,6 +549,23 @@ export const uk: EnDict = {
   "upload.success.suffix": " — завантажено.",
   "upload.success.dismiss": "Закрити",
 
+  // ─── Upload — режим вставлення посилання ───
+  "upload.source.label": "Джерело",
+  "upload.source.file": "Завантажити файл",
+  "upload.source.url": "Вставити посилання",
+  "upload.url.label": "Посилання на відео",
+  "upload.url.placeholder": "https://example.com/video.mp4",
+  "upload.url.hint":
+    "Пряме https-посилання на відеофайл (MP4, WebM, MOV, MKV). Сервер сам завантажить і перевірить його.",
+  "upload.url.gif.label": "Посилання на GIF",
+  "upload.url.gif.placeholder": "https://example.com/clip.gif",
+  "upload.url.gif.hint":
+    "Пряме https-посилання на файл .gif. Сервер сам завантажить і перевірить його.",
+  "upload.url.submit": "Завантажити з посилання",
+  "upload.url.submitting": "Завантажуємо з посилання…",
+  "upload.url.errorEmpty": "Спершу вставте посилання.",
+  "upload.url.errorBadProtocol": "Посилання має починатися з https://",
+
   // ─── Upload dialog (GIF) ───
   "upload.gif.title": "Завантажити GIF",
   "upload.gif.subtitle":

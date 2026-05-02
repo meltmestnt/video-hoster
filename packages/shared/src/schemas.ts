@@ -36,6 +36,46 @@ export const createUploadInputSchema = z.object({
 });
 export type CreateUploadInput = z.infer<typeof createUploadInputSchema>;
 
+// Server-side ingestion from a remote URL. The user pastes a link,
+// the API fetches it (with SSRF guards), validates magic bytes, and
+// runs it through the same finalize pipeline as a normal upload. URL
+// length cap matches Web Push and other URL fields elsewhere; 2048 is
+// well above any realistic media URL.
+export const uploadVideoFromUrlInputSchema = z.object({
+  url: z
+    .string()
+    .trim()
+    .url()
+    .max(2048)
+    .refine((s) => /^https?:\/\//i.test(s), {
+      message: "URL must use http or https",
+    }),
+  title: z.string().trim().min(1).max(200),
+  description: z.string().trim().max(5000).default(""),
+  tags: z.array(tagNameSchema).max(20).default([]),
+  visibility: videoVisibilitySchema.default("public"),
+  downloadPolicy: videoDownloadPolicySchema.default("full"),
+});
+export type UploadVideoFromUrlInput = z.infer<
+  typeof uploadVideoFromUrlInputSchema
+>;
+
+export const uploadGifFromUrlInputSchema = z.object({
+  url: z
+    .string()
+    .trim()
+    .url()
+    .max(2048)
+    .refine((s) => /^https?:\/\//i.test(s), {
+      message: "URL must use http or https",
+    }),
+  title: z.string().trim().min(1).max(200),
+  description: z.string().trim().max(5000).default(""),
+  tags: z.array(tagNameSchema).max(20).default([]),
+  visibility: videoVisibilitySchema.default("public"),
+});
+export type UploadGifFromUrlInput = z.infer<typeof uploadGifFromUrlInputSchema>;
+
 export const finalizeUploadInputSchema = z.object({
   videoId: z.string().uuid(),
   // Set when the client couldn't transcode in-browser (ffmpeg.wasm failure or

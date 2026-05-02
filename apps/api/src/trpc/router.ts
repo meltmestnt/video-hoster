@@ -9,6 +9,8 @@ import {
   createUploadInputSchema,
   finalizeAvatarUploadInputSchema,
   finalizeUploadInputSchema,
+  uploadVideoFromUrlInputSchema,
+  uploadGifFromUrlInputSchema,
   listCommentsInputSchema,
   listFavoritesInputSchema,
   listVideosInputSchema,
@@ -343,6 +345,35 @@ export const appRouter = router({
         }),
       ),
 
+    // URL ingest: pastes a remote https:// link, server fetches +
+    // validates + uploads. Tighter rate limit than file uploads
+    // because each call ties up a request worker for up to a minute
+    // pulling bytes — a script could otherwise keep our outbound
+    // bandwidth saturated. 5/hour matches the unapproved daily cap.
+    uploadFromUrl: verifiedProcedure
+      .use(
+        rateLimit({
+          name: "videos.uploadFromUrl",
+          keyBy: "userId",
+          max: 10,
+          windowMs: HOUR,
+        }),
+      )
+      .input(uploadVideoFromUrlInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.videos.uploadFromUrl({
+          ownerId: ctx.user.id,
+          ownerStatus: ctx.user.status,
+          ownerApproved: ctx.user.role === "admin" || ctx.user.approved,
+          url: input.url,
+          title: input.title,
+          description: input.description,
+          tagNames: input.tags,
+          visibility: input.visibility,
+          downloadPolicy: input.downloadPolicy,
+        }),
+      ),
+
     // Delete is protected, not verified: a user who uploaded under the
     // unverified 1-of-each allowance must still be able to clean up their
     // own row. Ownership check inside the service is the real gate, with
@@ -486,6 +517,29 @@ export const appRouter = router({
         ctx.services.gifs.finalizeUpload({
           gifId: input.gifId,
           ownerId: ctx.user.id,
+        }),
+      ),
+
+    uploadFromUrl: verifiedProcedure
+      .use(
+        rateLimit({
+          name: "gifs.uploadFromUrl",
+          keyBy: "userId",
+          max: 10,
+          windowMs: HOUR,
+        }),
+      )
+      .input(uploadGifFromUrlInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.gifs.uploadFromUrl({
+          ownerId: ctx.user.id,
+          ownerStatus: ctx.user.status,
+          ownerApproved: ctx.user.role === "admin" || ctx.user.approved,
+          url: input.url,
+          title: input.title,
+          description: input.description,
+          tagNames: input.tags,
+          visibility: input.visibility,
         }),
       ),
 

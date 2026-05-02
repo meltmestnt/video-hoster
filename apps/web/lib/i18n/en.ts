@@ -539,6 +539,23 @@ export const en = {
   "upload.success.suffix": " was uploaded.",
   "upload.success.dismiss": "Dismiss",
 
+  // ─── Upload — URL paste mode ───
+  "upload.source.label": "Source",
+  "upload.source.file": "Upload file",
+  "upload.source.url": "Paste a link",
+  "upload.url.label": "Video URL",
+  "upload.url.placeholder": "https://example.com/video.mp4",
+  "upload.url.hint":
+    "Direct https URL to a video file (MP4, WebM, MOV, MKV). The server fetches and validates it.",
+  "upload.url.gif.label": "GIF URL",
+  "upload.url.gif.placeholder": "https://example.com/clip.gif",
+  "upload.url.gif.hint":
+    "Direct https URL to a .gif file. The server fetches and validates it.",
+  "upload.url.submit": "Fetch and upload",
+  "upload.url.submitting": "Fetching from URL…",
+  "upload.url.errorEmpty": "Paste a URL first.",
+  "upload.url.errorBadProtocol": "URL must start with https://",
+
   // ─── Upload dialog (GIF) ───
   "upload.gif.title": "Upload a GIF",
   "upload.gif.subtitle":
