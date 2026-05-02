@@ -39,3 +39,24 @@ export const setActiveFolderInputSchema = z.object({
   folderId: z.string().uuid().nullable(),
 });
 export type SetActiveFolderInput = z.infer<typeof setActiveFolderInputSchema>;
+
+// Share a folder with another user looked up by handle (email or
+// exact name match). Cap is generous — names can be longer than emails.
+export const shareFolderInputSchema = z.object({
+  folderId: z.string().uuid(),
+  recipientHandle: z.string().trim().min(1).max(254),
+});
+export type ShareFolderInput = z.infer<typeof shareFolderInputSchema>;
+
+export const unshareFolderInputSchema = z.object({
+  folderId: z.string().uuid(),
+  recipientUserId: z.string().uuid(),
+});
+export type UnshareFolderInput = z.infer<typeof unshareFolderInputSchema>;
+
+export const adminListFoldersInputSchema = z.object({
+  cursor: z.string().uuid().optional().nullable(),
+  limit: z.number().int().min(1).max(100).default(30),
+  q: z.string().trim().max(80).optional().nullable(),
+});
+export type AdminListFoldersInput = z.infer<typeof adminListFoldersInputSchema>;

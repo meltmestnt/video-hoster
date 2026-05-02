@@ -62,6 +62,9 @@ import {
   folderGifInputSchema,
   listFolderGifsInputSchema,
   setActiveFolderInputSchema,
+  shareFolderInputSchema,
+  unshareFolderInputSchema,
+  adminListFoldersInputSchema,
 } from "@repo/shared";
 import {
   router,
@@ -779,6 +782,70 @@ export const appRouter = router({
       );
       return { folderId };
     }),
+
+    // ─── Sharing ─────────────────────────────────────────────────────
+    // Share a folder read-only with another user looked up by handle
+    // (email or exact name). Idempotent on the (folder, recipient) pair
+    // and emits a notification on the first successful share so the
+    // recipient sees it in their bell + (if subscribed) gets a Web Push.
+    share: verifiedProcedure
+      .use(
+        rateLimit({
+          name: "folders.share",
+          keyBy: "userId",
+          max: 30,
+          windowMs: HOUR,
+        }),
+      )
+      .input(shareFolderInputSchema)
+      .mutation(async ({ ctx, input }) => {
+        const result = await ctx.services.folders.shareWithUser(
+          ctx.user.id,
+          input.folderId,
+          input.recipientHandle,
+        );
+        if (!result.alreadyShared) {
+          // Best-effort — a notification failure shouldn't roll back the
+          // share itself.
+          ctx.services.notifications
+            .onFolderShared(
+              result.folder.id,
+              result.folder.name,
+              ctx.user.id,
+              result.recipient.id,
+            )
+            .catch(() => {});
+        }
+        return result;
+      }),
+
+    unshare: verifiedProcedure
+      .input(unshareFolderInputSchema)
+      .mutation(async ({ ctx, input }) => {
+        await ctx.services.folders.unshare(
+          ctx.user.id,
+          input.folderId,
+          input.recipientUserId,
+        );
+        return { ok: true as const };
+      }),
+
+    leaveShare: protectedProcedure
+      .input(folderIdInputSchema)
+      .mutation(async ({ ctx, input }) => {
+        await ctx.services.folders.leaveShare(ctx.user.id, input.folderId);
+        return { ok: true as const };
+      }),
+
+    listSharedWithMe: protectedProcedure.query(({ ctx }) =>
+      ctx.services.folders.listSharedWithMe(ctx.user.id),
+    ),
+
+    listShares: verifiedProcedure
+      .input(folderIdInputSchema)
+      .query(({ ctx, input }) =>
+        ctx.services.folders.listShares(ctx.user.id, input.folderId),
+      ),
   }),
 
   screenshots: router({
@@ -1074,6 +1141,54 @@ export const appRouter = router({
     runS3Cleanup: adminProcedure.mutation(({ ctx }) =>
       ctx.services.s3Cleanup.runOnce(),
     ),
+
+    // ─── Folder browser ────────────────────────────────────────────────
+    // Admin-only access to every user's folder. Used by the moderation
+    // page to triage folders that get flagged. Search matches folder
+    // name, owner name, or owner email (LOWER LIKE).
+    listFolders: adminProcedure
+      .input(adminListFoldersInputSchema)
+      .query(({ ctx, input }) =>
+        ctx.services.folders.adminListAll({
+          cursor: input.cursor,
+          limit: input.limit,
+          q: input.q,
+        }),
+      ),
+
+    folderGifs: adminProcedure
+      .input(listFolderGifsInputSchema)
+      .query(async ({ ctx, input }) => {
+        // Admin-only listing — bypasses the folder owner/recipient ACL
+        // that gates the user-facing path. Hydrate via the regular gif
+        // pipeline so the admin page renders signed thumbnails the same
+        // way the user pages do.
+        const { ids, nextCursor } =
+          await ctx.services.folders.adminListGifIds(
+            input.folderId,
+            input.cursor,
+            input.limit,
+          );
+        const items = await ctx.services.gifs.hydrateByIds(ids, ctx.user.id);
+        return { items, nextCursor };
+      }),
+
+    deleteFolder: adminProcedure
+      .input(folderIdInputSchema)
+      .mutation(async ({ ctx, input }) => {
+        await ctx.services.folders.adminDelete(input.folderId);
+        return { ok: true as const };
+      }),
+
+    removeFolderGif: adminProcedure
+      .input(folderGifInputSchema)
+      .mutation(async ({ ctx, input }) => {
+        await ctx.services.folders.adminRemoveGif(
+          input.folderId,
+          input.gifId,
+        );
+        return { ok: true as const };
+      }),
   }),
 
   billing: router({

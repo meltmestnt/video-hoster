@@ -10,13 +10,15 @@ import {
 import { User } from "../users/user.entity";
 import { Video } from "../videos/video.entity";
 import { Gif } from "../gifs/gif.entity";
+import { Folder } from "../folders/folder.entity";
 
 export type NotificationType =
   | "video_like"
   | "gif_like"
   | "video_upload"
   | "gif_upload"
-  | "subscribe";
+  | "subscribe"
+  | "folder_share";
 
 // One row per (recipient, actor, subject) — toggling a like off and on again
 // reuses the existing row instead of stacking duplicates. The compound index
@@ -38,6 +40,14 @@ export type NotificationType =
   unique: true,
   where: "type = 'subscribe'",
 })
+// Folder-share notifications dedupe per (recipient, actor, folder) so an
+// owner re-sharing the same folder after a recipient leave doesn't stack
+// duplicates.
+@Index(
+  "notifications_dedupe_folder_share_idx",
+  ["recipientId", "actorId", "folderId", "type"],
+  { unique: true, where: '"folderId" IS NOT NULL' },
+)
 export class Notification {
   @PrimaryGeneratedColumn("uuid")
   id: string;
@@ -73,6 +83,15 @@ export class Notification {
   @ManyToOne(() => Gif, { onDelete: "CASCADE", nullable: true })
   @JoinColumn({ name: "gifId" })
   gif: Gif | null;
+
+  // Subject for folder_share notifications. Cascade-delete so removing
+  // a folder also clears its share notifications.
+  @Column({ type: "uuid", nullable: true })
+  folderId: string | null;
+
+  @ManyToOne(() => Folder, { onDelete: "CASCADE", nullable: true })
+  @JoinColumn({ name: "folderId" })
+  folder: Folder | null;
 
   @Column({ type: "timestamptz", nullable: true })
   readAt: Date | null;

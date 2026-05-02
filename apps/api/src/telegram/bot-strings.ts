@@ -22,7 +22,7 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
     "start.linkSaveFailed":
       "Не вдалося зберегти підʼєднання. Спробуйте /unlink, потім підʼєднайте знову з /settings.",
     help:
-      "Як користуватися ботом:\n\n🔍 Інлайн-пошук — @{bot} <запит> у будь-якому чаті. Працює і за назвами, і за тегами.\n   /search <запит> — той самий пошук, але всередині цього чату.\n\n⬆️ Завантаження GIF\n   • Надішліть .gif як Файл (Документ) або як Анімацію.\n   • Або вставте публічну URL — я сам завантажу.\n   • Я попрошу назву й теги. До 20 МБ.\n   /upload — детальна інструкція.\n\n📁 Папки (потрібен підʼєднаний акаунт)\n   /folders — список ваших папок.\n   /folder set <назва> — інлайн-пошук та завантаження звужуються до цієї папки.\n   /folder clear — скинути.\n   Створювати/перейменовувати/видаляти папки — на сайті.\n\nІнше\n   /lang — змінити мову.\n   /unlink — відʼєднати Telegram від акаунту.",
+      "Як користуватися ботом:\n\n🔍 Інлайн-пошук — @{bot} <запит> у будь-якому чаті. Працює і за назвами, і за тегами.\n   /search <запит> — той самий пошук, але всередині цього чату.\n\n⬆️ Завантаження GIF\n   • Надішліть .gif як Файл (Документ) або як Анімацію.\n   • Або вставте публічну URL — я сам завантажу.\n   • Я попрошу назву й теги. До 20 МБ.\n   /upload — детальна інструкція.\n\n📁 Папки (потрібен підʼєднаний акаунт)\n   /folders — список ваших папок.\n   /folder set <назва> — інлайн-пошук та завантаження звужуються до цієї папки.\n   /folder clear — скинути.\n   Створювати/перейменовувати/видаляти папки — на сайті.\n\n🔗 Спільний доступ\n   /share <папка> <ім'я_або_email> — поділитися папкою з кимось (тільки читання).\n   /shared — папки, до яких вам відкрито доступ.\n\nІнше\n   /lang — змінити мову.\n   /unlink — відʼєднати Telegram від акаунту.",
     "search.usage":
       "Скористайтеся так: /search кошеня\nПошук працює і за назвами, і за тегами.\nАбо повний пошук на сайті: {webOrigin}/search",
     "search.empty":
@@ -101,6 +101,26 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
       "Активну папку скинуто. Інлайн-пошук тепер охоплює всі публічні GIF.",
     "folder.create.usage":
       "Папки створюються на сайті: {webOrigin}/settings",
+    "share.usage":
+      "Поділитися папкою:\n/share <назва_папки> <ім'я_або_пошта>\nПриклад: /share Reactions alex@example.com\nОдержувач отримує лише читання — додавати чи видаляти GIF може тільки власник.",
+    "share.notFoundFolder":
+      "Папку «{name}» не знайдено. Перегляньте список через /folders.",
+    "share.notFoundRecipient":
+      "Користувача «{handle}» не знайдено. Перевірте правопис або спробуйте email.",
+    "share.selfShareDenied":
+      "Не можна поділитися папкою з самим собою.",
+    "share.alreadyShared":
+      "Папка «{folder}» вже є в {recipient}.",
+    "share.ok":
+      "Готово — папка «{folder}» доступна {recipient} лише для читання. Вони отримають сповіщення.",
+    "share.linkedFirst":
+      "Спочатку підʼєднайте акаунт vids&gifs на {webOrigin}/settings.",
+    "shared.empty":
+      "З вами поки ніхто не ділився папками. Коли поділяться — побачите тут.",
+    "shared.header": "Папки, до яких вам відкрито доступ:",
+    "shared.item": "{n}. {name} — {count} GIF (від {owner})",
+    "shared.footer":
+      "Усі папки тут лише для читання. Відкрити повністю: {webOrigin}/folders/shared",
     "inline.button.activeFolder":
       "📁 Папка: {name} — керувати",
     "inline.button.manageFolders":
@@ -124,7 +144,7 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
     "start.linkSaveFailed":
       "Couldn't save the link. Try /unlink, then connect again from /settings.",
     help:
-      "How to use the bot:\n\n🔍 Inline search — type @{bot} <query> in any chat. Matches both titles and tags.\n   /search <query> — same search, but inside this chat.\n\n⬆️ Upload a GIF\n   • Send a .gif as a File (Document) or as an Animation.\n   • Or paste a public URL — I'll fetch it.\n   • I'll ask for a name and tags. Up to 20 MB.\n   /upload — detailed how-to.\n\n📁 Folders (requires a linked account)\n   /folders — list your folders.\n   /folder set <name> — scopes inline search and uploads to that folder.\n   /folder clear — reset.\n   Create / rename / delete folders on the website.\n\nOther\n   /lang — change language.\n   /unlink — detach this Telegram from your account.",
+      "How to use the bot:\n\n🔍 Inline search — type @{bot} <query> in any chat. Matches both titles and tags.\n   /search <query> — same search, but inside this chat.\n\n⬆️ Upload a GIF\n   • Send a .gif as a File (Document) or as an Animation.\n   • Or paste a public URL — I'll fetch it.\n   • I'll ask for a name and tags. Up to 20 MB.\n   /upload — detailed how-to.\n\n📁 Folders (requires a linked account)\n   /folders — list your folders.\n   /folder set <name> — scopes inline search and uploads to that folder.\n   /folder clear — reset.\n   Create / rename / delete folders on the website.\n\n🔗 Sharing\n   /share <folder> <name_or_email> — share a folder read-only with someone.\n   /shared — folders other people have shared with you.\n\nOther\n   /lang — change language.\n   /unlink — detach this Telegram from your account.",
     "search.usage":
       "Try it like: /search kitten\nSearch matches both titles and tags.\nOr full search on the site: {webOrigin}/search",
     "search.empty":
@@ -198,6 +218,26 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
       "Active folder cleared. Inline search now spans all public GIFs.",
     "folder.create.usage":
       "Folders are created on the website: {webOrigin}/settings",
+    "share.usage":
+      "Share a folder:\n/share <folder_name> <name_or_email>\nExample: /share Reactions alex@example.com\nThe recipient gets read-only access — only the owner can add or remove GIFs.",
+    "share.notFoundFolder":
+      'Folder "{name}" not found. List with /folders.',
+    "share.notFoundRecipient":
+      'No user found matching "{handle}". Check the spelling or try their email.',
+    "share.selfShareDenied":
+      "You can't share a folder with yourself.",
+    "share.alreadyShared":
+      'Folder "{folder}" is already shared with {recipient}.',
+    "share.ok":
+      'Done — "{folder}" is now read-only for {recipient}. They\'ll get a notification.',
+    "share.linkedFirst":
+      "Link your vids&gifs account first at {webOrigin}/settings.",
+    "shared.empty":
+      "No one's shared a folder with you yet. When they do, you'll see them here.",
+    "shared.header": "Folders shared with you:",
+    "shared.item": "{n}. {name} — {count} GIFs (from {owner})",
+    "shared.footer":
+      "All folders here are read-only. Full view: {webOrigin}/folders/shared",
     "inline.button.activeFolder":
       "📁 Folder: {name} — manage",
     "inline.button.manageFolders":

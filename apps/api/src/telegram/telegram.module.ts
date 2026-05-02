@@ -8,6 +8,7 @@ import { TelegramService } from "./telegram.service";
 import { GifsModule } from "../gifs/gifs.module";
 import { FoldersModule } from "../folders/folders.module";
 import { MediaModule } from "../media/media.module";
+import { NotificationsModule } from "../notifications/notifications.module";
 import { S3Module } from "../s3/s3.module";
 import { TranscoderModule } from "../transcoder/transcoder.module";
 import { UsersModule } from "../users/users.module";
@@ -18,6 +19,7 @@ import { UsersModule } from "../users/users.module";
     GifsModule,
     FoldersModule,
     MediaModule,
+    NotificationsModule,
     S3Module,
     TranscoderModule,
     UsersModule,

@@ -21,6 +21,7 @@ import { TelegramLink } from "../telegram/telegram-link.entity";
 import { TelegramPref } from "../telegram/telegram-pref.entity";
 import { Folder } from "../folders/folder.entity";
 import { FolderGif } from "../folders/folder-gif.entity";
+import { FolderShare } from "../folders/folder-share.entity";
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { FolderGif } from "../folders/folder-gif.entity";
           TelegramPref,
           Folder,
           FolderGif,
+          FolderShare,
         ],
         synchronize: true,
         logging: ["error", "warn"],

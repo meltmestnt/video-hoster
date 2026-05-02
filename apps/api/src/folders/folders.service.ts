@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -9,10 +10,13 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { In, Repository } from "typeorm";
 import { Folder } from "./folder.entity";
 import { FolderGif } from "./folder-gif.entity";
+import { FolderShare } from "./folder-share.entity";
 import { Gif } from "../gifs/gif.entity";
+import { User } from "../users/user.entity";
 
 const MAX_FOLDERS_PER_USER = 50;
 const MAX_NAME_LEN = 80;
+const MAX_SHARES_PER_FOLDER = 50;
 
 export interface FolderSummary {
   id: string;
@@ -20,6 +24,17 @@ export interface FolderSummary {
   gifCount: number;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface SharedFolderSummary extends FolderSummary {
+  sharedAt: Date;
+  owner: { id: string; name: string };
+}
+
+export interface FolderShareRecipient {
+  shareId: string;
+  user: { id: string; name: string; email: string };
+  sharedAt: Date;
 }
 
 @Injectable()
@@ -31,8 +46,12 @@ export class FoldersService {
     private readonly folders: Repository<Folder>,
     @InjectRepository(FolderGif)
     private readonly folderGifs: Repository<FolderGif>,
+    @InjectRepository(FolderShare)
+    private readonly folderShares: Repository<FolderShare>,
     @InjectRepository(Gif)
     private readonly gifs: Repository<Gif>,
+    @InjectRepository(User)
+    private readonly users: Repository<User>,
   ) {}
 
   /**
@@ -205,7 +224,10 @@ export class FoldersService {
     folderId: string,
     args: { cursor?: string | null; limit: number },
   ): Promise<{ ids: string[]; nextCursor: string | null }> {
-    await this.findOwned(folderId, userId);
+    // Owner OR recipient — share grants read-only access to the same
+    // listing. Mutations (addGif/removeGif/rename/delete) still
+    // require owner via findOwned.
+    await this.findReadable(folderId, userId);
     const limit = Math.max(1, Math.min(args.limit ?? 20, 100));
     const qb = this.folderGifs
       .createQueryBuilder("fg")
@@ -291,5 +313,355 @@ export class FoldersService {
       out.set(r.gifId, list);
     }
     return out;
+  }
+
+  // ─── Sharing ────────────────────────────────────────────────────────
+  //
+  // Live read-only access: every read still goes through folders +
+  // folder_gifs, so when the owner adds/removes a gif the recipient
+  // sees the change instantly. The folder_shares table just gates who
+  // can read.
+
+  /**
+   * Resolve a folder and confirm the caller can READ it (owner or
+   * recipient of an active share). Same NotFound semantics as
+   * findOwned for non-recipients — don't leak existence.
+   */
+  async findReadable(
+    folderId: string,
+    viewerId: string,
+  ): Promise<{ folder: Folder; role: "owner" | "recipient" }> {
+    const f = await this.folders.findOne({ where: { id: folderId } });
+    if (!f) throw new NotFoundException("Folder not found");
+    if (f.ownerId === viewerId) return { folder: f, role: "owner" };
+    const share = await this.folderShares.findOne({
+      where: { folderId, recipientUserId: viewerId },
+      select: { id: true },
+    });
+    if (share) return { folder: f, role: "recipient" };
+    throw new NotFoundException("Folder not found");
+  }
+
+  /**
+   * Share a folder with another user by handle (email or name match).
+   * Idempotent: re-sharing the same pair returns the existing share id
+   * rather than throwing. Owner can't share with themselves.
+   */
+  async shareWithUser(
+    ownerId: string,
+    folderId: string,
+    recipientHandle: string,
+  ): Promise<{
+    shareId: string;
+    recipient: { id: string; name: string; email: string };
+    folder: { id: string; name: string };
+    alreadyShared: boolean;
+  }> {
+    const folder = await this.findOwned(folderId, ownerId);
+    const handle = recipientHandle.trim();
+    if (!handle) {
+      throw new BadRequestException("Recipient handle cannot be empty");
+    }
+    // Prefer email match (unique), fall back to exact name. Case-
+    // insensitive on both. Refuse partial matches — sharing with
+    // "alex" shouldn't pick a random Alex.
+    const lc = handle.toLowerCase();
+    const recipient = await this.users
+      .createQueryBuilder("u")
+      .where("LOWER(u.email) = :lc OR LOWER(u.name) = :lc", { lc })
+      .select(["u.id", "u.name", "u.email"])
+      .getOne();
+    if (!recipient) {
+      throw new NotFoundException(`No user found matching "${handle}"`);
+    }
+    if (recipient.id === ownerId) {
+      throw new BadRequestException("You can't share a folder with yourself");
+    }
+    const existing = await this.folderShares.findOne({
+      where: { folderId, recipientUserId: recipient.id },
+    });
+    if (existing) {
+      return {
+        shareId: existing.id,
+        recipient: {
+          id: recipient.id,
+          name: recipient.name,
+          email: recipient.email,
+        },
+        folder: { id: folder.id, name: folder.name },
+        alreadyShared: true,
+      };
+    }
+    // Soft cap on per-folder share count — protects against a
+    // mass-share script and keeps the per-folder share list UI
+    // bounded.
+    const shareCount = await this.folderShares.count({ where: { folderId } });
+    if (shareCount >= MAX_SHARES_PER_FOLDER) {
+      throw new ConflictException(
+        `This folder is already shared with ${MAX_SHARES_PER_FOLDER} people — remove one before adding another.`,
+      );
+    }
+    const created = await this.folderShares.save(
+      this.folderShares.create({
+        folderId,
+        recipientUserId: recipient.id,
+        sharerUserId: ownerId,
+      }),
+    );
+    this.logger.log(
+      `folders.share ownerId=${ownerId} folderId=${folderId} recipientId=${recipient.id}`,
+    );
+    return {
+      shareId: created.id,
+      recipient: {
+        id: recipient.id,
+        name: recipient.name,
+        email: recipient.email,
+      },
+      folder: { id: folder.id, name: folder.name },
+      alreadyShared: false,
+    };
+  }
+
+  /** Owner-side revoke of a specific recipient's access. */
+  async unshare(
+    ownerId: string,
+    folderId: string,
+    recipientUserId: string,
+  ): Promise<void> {
+    await this.findOwned(folderId, ownerId);
+    await this.folderShares.delete({ folderId, recipientUserId });
+    this.logger.log(
+      `folders.unshare ownerId=${ownerId} folderId=${folderId} recipientId=${recipientUserId}`,
+    );
+  }
+
+  /**
+   * Recipient-side opt-out — same effect as the owner unshare from
+   * the recipient's perspective, but only the recipient themselves can
+   * call it. Useful for "hide this from my list" without bothering the
+   * owner.
+   */
+  async leaveShare(
+    recipientUserId: string,
+    folderId: string,
+  ): Promise<void> {
+    await this.folderShares.delete({ folderId, recipientUserId });
+    this.logger.log(
+      `folders.leaveShare recipientId=${recipientUserId} folderId=${folderId}`,
+    );
+  }
+
+  /** Folders shared with `userId` — for the "Shared with me" page. */
+  async listSharedWithMe(
+    userId: string,
+  ): Promise<SharedFolderSummary[]> {
+    const rows = await this.folderShares
+      .createQueryBuilder("fs")
+      .innerJoin("folders", "f", `f.id = fs."folderId"`)
+      .innerJoin("users", "u", `u.id = f."ownerId"`)
+      .leftJoin("folder_gifs", "fg", `fg."folderId" = f.id`)
+      .select([
+        `f.id AS "id"`,
+        `f.name AS "name"`,
+        `f."createdAt" AS "createdAt"`,
+        `f."updatedAt" AS "updatedAt"`,
+        `fs."sharedAt" AS "sharedAt"`,
+        `u.id AS "ownerId"`,
+        `u.name AS "ownerName"`,
+      ])
+      .addSelect(`COUNT(fg."gifId")::int`, "gifCount")
+      .where(`fs."recipientUserId" = :userId`, { userId })
+      .groupBy(`f.id, fs."sharedAt", u.id`)
+      .orderBy(`fs."sharedAt"`, "DESC")
+      .getRawMany<{
+        id: string;
+        name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        sharedAt: Date;
+        ownerId: string;
+        ownerName: string;
+        gifCount: number;
+      }>();
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+      sharedAt: r.sharedAt,
+      gifCount: Number(r.gifCount ?? 0),
+      owner: { id: r.ownerId, name: r.ownerName },
+    }));
+  }
+
+  /** Recipients of a folder — owner-only view. */
+  async listShares(
+    ownerId: string,
+    folderId: string,
+  ): Promise<FolderShareRecipient[]> {
+    await this.findOwned(folderId, ownerId);
+    const rows = await this.folderShares
+      .createQueryBuilder("fs")
+      .innerJoin("users", "u", `u.id = fs."recipientUserId"`)
+      .where(`fs."folderId" = :folderId`, { folderId })
+      .select([
+        `fs.id AS "shareId"`,
+        `fs."sharedAt" AS "sharedAt"`,
+        `u.id AS "userId"`,
+        `u.name AS "userName"`,
+        `u.email AS "userEmail"`,
+      ])
+      .orderBy(`fs."sharedAt"`, "DESC")
+      .getRawMany<{
+        shareId: string;
+        sharedAt: Date;
+        userId: string;
+        userName: string;
+        userEmail: string;
+      }>();
+    return rows.map((r) => ({
+      shareId: r.shareId,
+      sharedAt: r.sharedAt,
+      user: { id: r.userId, name: r.userName, email: r.userEmail },
+    }));
+  }
+
+  /** Recipient ids for a single folder, used by listGifs ACL etc. */
+  async recipientIdsForFolder(folderId: string): Promise<string[]> {
+    const rows = await this.folderShares.find({
+      where: { folderId },
+      select: { recipientUserId: true },
+    });
+    return rows.map((r) => r.recipientUserId);
+  }
+
+  // ─── Admin helpers ──────────────────────────────────────────────────
+  // Used by the admin folder browser. Bypass ownership checks because
+  // the caller has already been gated through adminProcedure.
+
+  async adminListAll(args: {
+    cursor?: string | null;
+    limit: number;
+    q?: string | null;
+  }): Promise<{
+    items: Array<{
+      id: string;
+      name: string;
+      gifCount: number;
+      shareCount: number;
+      createdAt: Date;
+      owner: { id: string; name: string; email: string };
+    }>;
+    nextCursor: string | null;
+  }> {
+    const limit = Math.max(1, Math.min(args.limit ?? 30, 100));
+    const qb = this.folders
+      .createQueryBuilder("f")
+      .innerJoin("users", "u", `u.id = f."ownerId"`)
+      .leftJoin("folder_gifs", "fg", `fg."folderId" = f.id`)
+      .leftJoin("folder_shares", "fs", `fs."folderId" = f.id`)
+      .select([
+        `f.id AS "id"`,
+        `f.name AS "name"`,
+        `f."createdAt" AS "createdAt"`,
+        `u.id AS "ownerId"`,
+        `u.name AS "ownerName"`,
+        `u.email AS "ownerEmail"`,
+      ])
+      .addSelect(`COUNT(DISTINCT fg."gifId")::int`, "gifCount")
+      .addSelect(`COUNT(DISTINCT fs.id)::int`, "shareCount")
+      .groupBy(`f.id, u.id`)
+      .orderBy(`f."createdAt"`, "DESC")
+      .limit(limit + 1);
+    if (args.q && args.q.trim()) {
+      const lc = `%${args.q.trim().toLowerCase()}%`;
+      qb.where(
+        `LOWER(f.name) LIKE :lc OR LOWER(u.name) LIKE :lc OR LOWER(u.email) LIKE :lc`,
+        { lc },
+      );
+    }
+    if (args.cursor) {
+      const prev = await this.folders.findOne({ where: { id: args.cursor } });
+      if (prev) {
+        qb.andWhere(`f."createdAt" < :cAt`, { cAt: prev.createdAt });
+      }
+    }
+    const rows = await qb.getRawMany<{
+      id: string;
+      name: string;
+      createdAt: Date;
+      ownerId: string;
+      ownerName: string;
+      ownerEmail: string;
+      gifCount: number;
+      shareCount: number;
+    }>();
+    const hasMore = rows.length > limit;
+    const sliced = hasMore ? rows.slice(0, limit) : rows;
+    return {
+      items: sliced.map((r) => ({
+        id: r.id,
+        name: r.name,
+        createdAt: r.createdAt,
+        gifCount: Number(r.gifCount ?? 0),
+        shareCount: Number(r.shareCount ?? 0),
+        owner: { id: r.ownerId, name: r.ownerName, email: r.ownerEmail },
+      })),
+      nextCursor:
+        hasMore && sliced.length > 0 ? sliced[sliced.length - 1].id : null,
+    };
+  }
+
+  /** Admin paginated read of a folder's gif ids — bypasses ownership. */
+  async adminListGifIds(
+    folderId: string,
+    cursor: string | null | undefined,
+    limit: number,
+  ): Promise<{ ids: string[]; nextCursor: string | null }> {
+    const f = await this.folders.findOne({ where: { id: folderId } });
+    if (!f) throw new NotFoundException("Folder not found");
+    const take = Math.max(1, Math.min(limit ?? 20, 100));
+    const qb = this.folderGifs
+      .createQueryBuilder("fg")
+      .select(["fg.gifId AS \"gifId\"", "fg.addedAt AS \"addedAt\""])
+      .where(`fg."folderId" = :folderId`, { folderId })
+      .orderBy(`fg."addedAt"`, "DESC")
+      .addOrderBy(`fg."gifId"`, "DESC")
+      .take(take + 1);
+    if (cursor) {
+      const prev = await this.folderGifs.findOne({
+        where: { folderId, gifId: cursor },
+      });
+      if (prev) {
+        qb.andWhere(
+          `(fg."addedAt", fg."gifId") < (:addedAt, :gifId)`,
+          { addedAt: prev.addedAt, gifId: prev.gifId },
+        );
+      }
+    }
+    const rows = await qb.getRawMany<{ gifId: string }>();
+    const hasMore = rows.length > take;
+    const ids = (hasMore ? rows.slice(0, take) : rows).map((r) => r.gifId);
+    return {
+      ids,
+      nextCursor: hasMore && ids.length > 0 ? ids[ids.length - 1] : null,
+    };
+  }
+
+  /** Admin override of `delete` — no ownership check. */
+  async adminDelete(folderId: string): Promise<void> {
+    const f = await this.folders.findOne({ where: { id: folderId } });
+    if (!f) throw new NotFoundException("Folder not found");
+    await this.folders.delete({ id: folderId });
+    this.logger.log(`[ADMIN] folders.delete folderId=${folderId}`);
+  }
+
+  /** Admin override of `removeGif` — no ownership check. */
+  async adminRemoveGif(folderId: string, gifId: string): Promise<void> {
+    await this.folderGifs.delete({ folderId, gifId });
+    this.logger.log(
+      `[ADMIN] folders.removeGif folderId=${folderId} gifId=${gifId}`,
+    );
   }
 }

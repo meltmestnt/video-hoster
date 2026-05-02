@@ -19,6 +19,7 @@ import { looksLikeGif, looksLikeVideo } from "../s3/file-signatures";
 import { TelegramLinkService } from "./telegram-link.service";
 import { TelegramPrefService } from "./telegram-pref.service";
 import { FoldersService } from "../folders/folders.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import type { BotLocale } from "./telegram-pref.entity";
 import { STRINGS, t } from "./bot-strings";
 
@@ -90,6 +91,7 @@ export class TelegramService
     private readonly links: TelegramLinkService,
     private readonly prefs: TelegramPrefService,
     private readonly folders: FoldersService,
+    private readonly notifications: NotificationsService,
     private readonly transcoder: TranscoderService,
   ) {}
 
@@ -261,6 +263,8 @@ export class TelegramService
       { command: "upload", description: "Завантажити свій GIF" },
       { command: "folders", description: "Показати ваші папки" },
       { command: "folder", description: "Обрати активну папку" },
+      { command: "share", description: "Поділитися папкою" },
+      { command: "shared", description: "Папки, що ділилися з вами" },
       { command: "help", description: "Як користуватися ботом" },
       { command: "lang", description: "Змінити мову" },
       { command: "unlink", description: "Відʼєднати акаунт" },
@@ -270,6 +274,8 @@ export class TelegramService
       { command: "upload", description: "Upload your own GIF" },
       { command: "folders", description: "List your folders" },
       { command: "folder", description: "Pick the active folder" },
+      { command: "share", description: "Share a folder read-only" },
+      { command: "shared", description: "Folders shared with you" },
       { command: "help", description: "How to use the bot" },
       { command: "lang", description: "Change language" },
       { command: "unlink", description: "Detach account" },
@@ -684,6 +690,137 @@ export class TelegramService
       const tgId = ctx.from?.id;
       if (!tgId) return;
       await this.replyWithFolderList(ctx, tgId);
+    });
+
+    // ─── /share <folder_name> <handle> ───
+    // Owner-side share command. Resolves the folder by case-insensitive
+    // name match against the linked user's folders, then hands off to
+    // FoldersService for the recipient lookup + insert + notification.
+    bot.command("share", async (ctx) => {
+      const tgId = ctx.from?.id;
+      if (!tgId) return;
+      const locale = await this.resolveLocale(tgId);
+      const webOrigin =
+        this.config.get<string>("WEB_ORIGIN") ?? "https://vidsandgifs.xyz";
+      const raw = (ctx.match ?? "").trim();
+      const tokens = raw.split(/\s+/).filter(Boolean);
+      if (tokens.length < 2) {
+        await ctx.reply(t(locale, "share.usage"));
+        return;
+      }
+      const handle = tokens[tokens.length - 1];
+      const folderName = tokens.slice(0, -1).join(" ").trim();
+      const link = await this.links.findByTelegramUserId(String(tgId));
+      if (!link) {
+        await ctx.reply(t(locale, "share.linkedFirst", { webOrigin }), {
+          link_preview_options: { is_disabled: true },
+        });
+        return;
+      }
+      const folders = await this.folders.listForOwner(link.userId);
+      const target = folderName.toLowerCase();
+      const folder = folders.find((f) => f.name.toLowerCase() === target);
+      if (!folder) {
+        await ctx.reply(
+          t(locale, "share.notFoundFolder", { name: folderName }),
+        );
+        return;
+      }
+      try {
+        const result = await this.folders.shareWithUser(
+          link.userId,
+          folder.id,
+          handle,
+        );
+        if (result.alreadyShared) {
+          await ctx.reply(
+            t(locale, "share.alreadyShared", {
+              folder: result.folder.name,
+              recipient: result.recipient.name,
+            }),
+          );
+          return;
+        }
+        // Best-effort notification + Web Push.
+        this.notifications
+          .onFolderShared(
+            result.folder.id,
+            result.folder.name,
+            link.userId,
+            result.recipient.id,
+          )
+          .catch(() => {});
+        this.logger.log(
+          `telegram./share ok from=${tgId} userId=${link.userId} folderId=${folder.id} recipientId=${result.recipient.id}`,
+        );
+        await ctx.reply(
+          t(locale, "share.ok", {
+            folder: result.folder.name,
+            recipient: result.recipient.name,
+          }),
+        );
+      } catch (err) {
+        const msg = (err as Error).message ?? "";
+        // Map the most common service errors to localized strings; let
+        // anything else fall through as the raw server message so we
+        // don't hide a bug behind a generic toast.
+        if (msg.includes("No user found")) {
+          await ctx.reply(
+            t(locale, "share.notFoundRecipient", { handle }),
+          );
+          return;
+        }
+        if (msg.includes("yourself")) {
+          await ctx.reply(t(locale, "share.selfShareDenied"));
+          return;
+        }
+        this.logger.warn(
+          `telegram./share failed from=${tgId} folder="${folderName}" handle="${handle}": ${msg}`,
+        );
+        await ctx.reply(`/share failed: ${msg || "unknown error"}`);
+      }
+    });
+
+    // ─── /shared — folders other people have shared with this user ───
+    // Read-only listing the recipient can use to discover what they
+    // have access to. Ties back to the website /folders/shared page
+    // for the full viewing experience.
+    bot.command("shared", async (ctx) => {
+      const tgId = ctx.from?.id;
+      if (!tgId) return;
+      const locale = await this.resolveLocale(tgId);
+      const botName = this.botUsername ?? "vidsandgifsbot";
+      const webOrigin =
+        this.config.get<string>("WEB_ORIGIN") ?? "https://vidsandgifs.xyz";
+      const link = await this.links.findByTelegramUserId(String(tgId));
+      if (!link) {
+        await ctx.reply(t(locale, "upload.notLinked", { bot: botName }));
+        return;
+      }
+      const shared = await this.folders.listSharedWithMe(link.userId);
+      if (shared.length === 0) {
+        await ctx.reply(t(locale, "shared.empty"));
+        return;
+      }
+      const lines: string[] = [t(locale, "shared.header")];
+      shared.forEach((f, i) => {
+        lines.push(
+          t(locale, "shared.item", {
+            n: i + 1,
+            name: f.name,
+            count: f.gifCount,
+            owner: f.owner.name,
+          }),
+        );
+      });
+      lines.push("");
+      lines.push(t(locale, "shared.footer", { webOrigin }));
+      this.logger.log(
+        `telegram./shared from=${tgId} userId=${link.userId} count=${shared.length}`,
+      );
+      await ctx.reply(lines.join("\n"), {
+        link_preview_options: { is_disabled: true },
+      });
     });
 
     // ─── /folder [set <name>|clear] — manage the active folder ───

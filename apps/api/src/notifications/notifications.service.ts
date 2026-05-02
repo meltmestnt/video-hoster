@@ -23,7 +23,13 @@ export interface NotificationListItem {
   subject:
     | { kind: "video"; id: string; title: string; thumbnailUrl: string | null }
     | { kind: "gif"; id: string; title: string; thumbnailUrl: string | null }
-    | { kind: "user"; id: string; title: string; thumbnailUrl: string | null };
+    | { kind: "user"; id: string; title: string; thumbnailUrl: string | null }
+    | {
+        kind: "folder";
+        id: string;
+        title: string;
+        thumbnailUrl: string | null;
+      };
 }
 
 @Injectable()
@@ -313,6 +319,45 @@ export class NotificationsService {
       .catch(() => {});
   }
 
+  /**
+   * "X shared their folder Y with you." Recipient sees this in the bell
+   * dropdown plus a Web Push if subscribed. Idempotent via the dedupe
+   * partial index — re-sharing after a leave doesn't double up.
+   */
+  async onFolderShared(
+    folderId: string,
+    folderName: string,
+    sharerId: string,
+    recipientId: string,
+  ): Promise<void> {
+    if (sharerId === recipientId) return;
+    try {
+      await this.notifications
+        .createQueryBuilder()
+        .insert()
+        .values({
+          recipientId,
+          actorId: sharerId,
+          type: "folder_share",
+          folderId,
+        })
+        .orIgnore()
+        .execute();
+    } catch (err) {
+      this.logger.warn(
+        `Failed to record folder_share notification: ${(err as Error).message}`,
+      );
+    }
+    const actorName = await this.actorName(sharerId);
+    this.firePush(
+      recipientId,
+      `${actorName} shared a folder with you`,
+      folderName,
+      this.link(`/folders/shared`),
+      `folder_share:${folderId}:${sharerId}`,
+    );
+  }
+
   async unreadCount(userId: string): Promise<number> {
     return this.notifications.count({
       where: { recipientId: userId, readAt: IsNull() },
@@ -374,8 +419,11 @@ export class NotificationsService {
     const gifIds = Array.from(
       new Set(rows.map((r) => r.gifId).filter((v): v is string => !!v)),
     );
+    const folderIds = Array.from(
+      new Set(rows.map((r) => r.folderId).filter((v): v is string => !!v)),
+    );
 
-    const [videos, gifs, videoThumbs] = await Promise.all([
+    const [videos, gifs, videoThumbs, folderRows] = await Promise.all([
       videoIds.length
         ? this.videos.find({
             where: { id: In(videoIds) },
@@ -399,11 +447,19 @@ export class NotificationsService {
             [videoIds],
           )
         : Promise.resolve([]),
+      folderIds.length
+        ? this.notifications.manager.query<
+            Array<{ id: string; name: string }>
+          >(`SELECT id, name FROM folders WHERE id = ANY($1)`, [folderIds])
+        : Promise.resolve([]),
     ]);
 
     const videoById = new Map(videos.map((v) => [v.id, v]));
     const gifById = new Map(gifs.map((g) => [g.id, g]));
     const videoThumbId = new Map(videoThumbs.map((t) => [t.videoId, t.id]));
+    const folderById = new Map(
+      folderRows.map((f) => [f.id, f as { id: string; name: string }]),
+    );
 
     return Promise.all(
       rows.map(async (n) => {
@@ -440,6 +496,14 @@ export class NotificationsService {
             id: g.id,
             title: g.title,
             thumbnailUrl,
+          };
+        } else if (n.folderId && folderById.has(n.folderId)) {
+          const f = folderById.get(n.folderId)!;
+          subject = {
+            kind: "folder",
+            id: f.id,
+            title: f.name,
+            thumbnailUrl: null,
           };
         } else {
           // Subject was deleted but the notification row still exists for a
