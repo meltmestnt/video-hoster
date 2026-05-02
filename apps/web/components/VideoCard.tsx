@@ -179,12 +179,14 @@ export function VideoCard({
     // Dimming backdrop sits between the listing and the morph overlay
     // so the source content fades out behind the moving thumbnail.
     // position:fixed pins it to the viewport regardless of scroll.
+    // Solid black background + opacity transition between 0 and 0.8
+    // gives the fade-in / fade-out a single unambiguous target.
     const backdrop = document.createElement("div");
     backdrop.style.cssText = [
       "position:fixed",
       "inset:0",
       "z-index:9998",
-      "background:rgba(0,0,0,0.7)",
+      "background:#000",
       "opacity:0",
       "pointer-events:none",
       "will-change:opacity",
@@ -223,11 +225,14 @@ export function VideoCard({
     document.body.dataset.morphing = "1";
     thumb.style.opacity = "0";
 
-    // force a reflow so the initial styles commit before transitioning
+    // Force a reflow on both elements so the initial styles commit
+    // before their transition targets are written — without this the
+    // browser collapses the two updates and the transitions don't run.
     void overlay.offsetWidth;
+    void backdrop.offsetWidth;
     // Trigger the backdrop fade-in on the same frame the morph starts
     // so the dimming and the overlay land together.
-    backdrop.style.opacity = "1";
+    backdrop.style.opacity = "0.8";
 
     const srcCenterX = src.left + src.width / 2;
     const srcCenterY = src.top + src.height / 2;

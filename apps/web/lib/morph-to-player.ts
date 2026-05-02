@@ -91,13 +91,15 @@ export function morphToPlayer(args: MorphArgs): boolean {
   // overlay so the source content fades out behind the moving image.
   // position:fixed pins it to the viewport — the overlay itself uses
   // document coordinates, but the backdrop should always cover the
-  // visible area regardless of scroll.
+  // visible area regardless of scroll. Background is solid black; we
+  // animate `opacity` between 0 and 0.8 so the fade-in / fade-out
+  // transition has a single, unambiguous target.
   const backdrop = document.createElement("div");
   backdrop.style.cssText = [
     "position:fixed",
     "inset:0",
     "z-index:9998",
-    "background:rgba(0,0,0,0.7)",
+    "background:#000",
     "opacity:0",
     "pointer-events:none",
     "will-change:opacity",
@@ -134,11 +136,14 @@ export function morphToPlayer(args: MorphArgs): boolean {
   document.body.dataset.morphing = "1";
   args.thumbEl.style.opacity = "0";
 
-  // Force a reflow so the initial styles commit before transitioning.
+  // Force a reflow on both elements so the initial styles commit before
+  // their transition targets are written — without this the browser
+  // collapses the two updates and the transitions don't run at all.
   void overlay.offsetWidth;
+  void backdrop.offsetWidth;
   // Trigger the backdrop fade-in on the same frame the overlay starts
   // moving so the dimming and the morph land together.
-  backdrop.style.opacity = "1";
+  backdrop.style.opacity = "0.8";
 
   const srcCenterX = src.left + src.width / 2;
   const srcCenterY = src.top + src.height / 2;
