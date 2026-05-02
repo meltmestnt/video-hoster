@@ -105,6 +105,25 @@ const nextConfig = {
   },
   async redirects() {
     return [
+      // Permanent 301 from the legacy .xyz domain to .com so every URL
+      // shared before the migration still resolves. Matches the apex
+      // and www subdomain; the api subdomain is intentionally left out
+      // (no end users hit api.vidsandgifs.xyz directly, and a 301 on a
+      // tRPC request would just turn into a noisy client error). The
+      // capture group on `:path*` preserves the rest of the URL so e.g.
+      // /gifs/<id> on .xyz lands on /gifs/<id> on .com, not the home
+      // page.
+      {
+        source: "/:path*",
+        has: [
+          {
+            type: "host",
+            value: "(www\\.)?vidsandgifs\\.xyz",
+          },
+        ],
+        destination: "https://vidsandgifs.com/:path*",
+        permanent: true,
+      },
       // Old browsers + Safari probe /favicon.ico unconditionally; we ship
       // the favicon via app/icon.tsx (Next emits it at /icon). Without
       // this redirect, the probe 404s and pollutes the console on every
