@@ -570,6 +570,7 @@ export class UsersService implements OnModuleInit {
       where: { id: args.targetUserId },
     });
     if (!target) throw new NotFoundException("User not found");
+    const wasUnverified = target.status !== "verified";
     // Manual approval supersedes the email confirmation — clear the token
     // so a stale one can't accidentally re-trigger anything later.
     await this.users.update(
@@ -583,6 +584,25 @@ export class UsersService implements OnModuleInit {
     this.logger.log(
       `[ADMIN] users.adminVerifyUser actor=admin actorId=${args.actingUserId} targetUserId=${target.id} email=${target.email}`,
     );
+    // Only mail when the status actually flipped. Re-verifying an
+    // already-verified user is a UI no-op and shouldn't spam them.
+    // Fire-and-forget — a mail provider hiccup can't undo the DB write
+    // the admin just made.
+    if (wasUnverified) {
+      const webOrigin =
+        this.config.get<string>("WEB_ORIGIN") ?? "https://vidsandgifs.xyz";
+      this.mail
+        .sendAccountVerifiedByAdmin({
+          toEmail: target.email,
+          name: target.name,
+          webOrigin,
+        })
+        .catch((err) =>
+          this.logger.warn(
+            `Failed to send admin-verified email to ${target.email}: ${(err as Error).message}`,
+          ),
+        );
+    }
     return { ok: true };
   }
 

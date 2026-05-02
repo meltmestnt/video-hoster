@@ -35,7 +35,7 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
     "upload.help.notLinked":
       "Спочатку підʼєднайте акаунт vids&gifs на {webOrigin}/settings, потім поверніться сюди.",
     "upload.help.linked":
-      "Надішліть мені .gif як Файл (Документ — натисніть і утримуйте GIF у Telegram → «Надіслати як файл») або як Анімацію. До 20 МБ. Я попрошу назву та теги, щоб GIF легше було знайти.",
+      "Надішліть мені .gif як Файл (Документ — натисніть і утримуйте GIF у Telegram → «Надіслати як файл») або як Анімацію. Або просто вставте публічну URL з GIF/відео — я сам завантажу. До 20 МБ. Я попрошу назву та теги, щоб GIF легше було знайти.",
     "unlink.notLinked":
       "Цей Telegram не підʼєднано до жодного акаунту.",
     "unlink.success":
@@ -69,6 +69,11 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
     "upload.processing": "Завантажую «{title}»…",
     "upload.noSession":
       "Активного завантаження немає. Надішліть GIF, щоб почати.",
+    "url.fetching": "Завантажую файл з {url}…",
+    "url.invalidUrl":
+      "Це не схоже на публічну URL-адресу. Потрібно http:// або https://, не локальна або приватна мережа.",
+    "url.fetchFailed":
+      "Не вдалося завантажити файл з URL: {message}",
     "animation.hint":
       "Анімацію прийнято — конвертую у GIF і завантажую…",
     "lang.choose": "Оберіть мову.",
@@ -107,7 +112,7 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
     "upload.help.notLinked":
       "Link your vids&gifs account first at {webOrigin}/settings, then come back here.",
     "upload.help.linked":
-      "Send me a .gif as a File (Document — long-press the GIF in Telegram → \"Send as File\") or as an Animation. Up to 20 MB. I'll ask for a name and tags so it's easier to find.",
+      "Send me a .gif as a File (Document — long-press the GIF in Telegram → \"Send as File\") or as an Animation. Or just paste a public URL to a GIF/video and I'll fetch it. Up to 20 MB. I'll ask for a name and tags so it's easier to find.",
     "unlink.notLinked": "This Telegram isn't linked to any account.",
     "unlink.success":
       "Unlinked. Inline search still works without an account.",
@@ -137,6 +142,11 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
     "upload.processing": 'Uploading "{title}"…',
     "upload.noSession":
       "No upload in progress. Send me a GIF to start.",
+    "url.fetching": "Fetching the file from {url}…",
+    "url.invalidUrl":
+      "That doesn't look like a public URL. Must be http:// or https://, not a private or local-network address.",
+    "url.fetchFailed":
+      "Couldn't fetch the file from that URL: {message}",
     "animation.hint":
       "Animation received — converting to GIF and uploading…",
     "lang.choose": "Choose your language.",

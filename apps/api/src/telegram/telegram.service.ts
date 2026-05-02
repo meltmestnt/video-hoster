@@ -7,6 +7,9 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { Bot, type Context, InlineKeyboard } from "grammy";
 import type { InlineQueryResultMpeg4Gif } from "grammy/types";
+import { lookup as dnsLookup } from "node:dns/promises";
+import net from "node:net";
+import { Agent, fetch as undiciFetch } from "undici";
 import { GifsService } from "../gifs/gifs.service";
 import { MediaService } from "../media/media.service";
 import { S3Service } from "../s3/s3.service";
@@ -32,6 +35,18 @@ const MAX_TELEGRAM_FILE_BYTES = 20 * 1024 * 1024;
 const UPLOAD_SESSION_TTL_MS = 10 * 60 * 1000;
 const MAX_TITLE_LEN = 200;
 const MAX_TAGS = 10;
+
+// URL-upload guardrails — see uploadFromUrl + fetchWithSsrfGuard for
+// how these are enforced. Tuned so a casual user can paste several
+// links in a row without hitting the limit, while a script trying to
+// turn the bot into an SSRF probe gets stopped at the door.
+const URL_FETCH_TIMEOUT_MS = 30_000;
+const URL_CONNECT_TIMEOUT_MS = 10_000;
+const URL_FETCH_MAX_REDIRECTS = 5;
+// Per-Telegram-user cooldown between URL-fetch attempts. Cheap shield
+// against someone scripting the bot to scan large IP ranges by issuing
+// thousands of URL uploads.
+const URL_FETCH_COOLDOWN_MS = 10_000;
 
 type UploadStep = "title" | "tags";
 
@@ -60,6 +75,10 @@ export class TelegramService
   // they finish answering the title/tag prompts. In-process only — a
   // restart drops in-flight sessions, which is fine: users can re-send.
   private readonly pendingUploads = new Map<string, PendingUpload>();
+  // Last URL-fetch timestamp per Telegram user. Powers a simple
+  // cooldown (URL_FETCH_COOLDOWN_MS) so a script can't turn the bot
+  // into an SSRF probe by spamming URLs.
+  private readonly urlFetchLastAt = new Map<string, number>();
 
   constructor(
     private readonly config: ConfigService,
@@ -668,18 +687,27 @@ export class TelegramService
       await this.advanceUploadSession(ctx, locale, session, null);
     });
 
-    // ─── Free-form text — title or tags input for an active upload ───
-    // Registered after all the slash-command handlers so commands take
-    // priority. If there's no active session this is a no-op (we don't
-    // want the bot replying to every random message in a group chat).
+    // ─── Free-form text — title/tags input, or a bare URL upload ───
+    // Registered after all slash-command handlers so commands take
+    // priority. Two roles:
+    //   1. Active session present → text is title/tags input.
+    //   2. No session AND text is a bare http(s) URL → fetch it and
+    //      treat the bytes as a fresh upload.
+    // Anything else is silently ignored — we don't want the bot replying
+    // to every random message in a group chat.
     bot.on("message:text", async (ctx) => {
       const tgId = ctx.from?.id;
       if (!tgId) return;
-      const session = this.takeFreshSession(String(tgId));
-      if (!session) return;
       const text = ctx.message.text.trim();
+      const session = this.takeFreshSession(String(tgId));
       const locale = await this.resolveLocale(tgId);
-      await this.advanceUploadSession(ctx, locale, session, text);
+      if (session) {
+        await this.advanceUploadSession(ctx, locale, session, text);
+        return;
+      }
+      if (looksLikeBareUrl(text)) {
+        await this.uploadFromUrl(ctx, text);
+      }
     });
 
     bot.catch((err) => {
@@ -738,17 +766,7 @@ export class TelegramService
       return;
     }
 
-    // If the user is mid-conversation on a previous upload (asked for
-    // a title or tags but never replied), accept the prior GIF as-is
-    // with its default title and no tags. This matches the natural
-    // gesture of "send GIF, send another GIF" — neither one is lost,
-    // and the user only gets prompted for the most recent one.
-    const prior = this.takeFreshSession(String(tgUser.id));
-    if (prior) {
-      this.pendingUploads.delete(String(tgUser.id));
-      await this.finalizePendingUpload(ctx, locale, prior, []);
-    }
-
+    let downloaded: Buffer;
     try {
       const file = await ctx.api.getFile(args.fileId);
       if (!file.file_path) {
@@ -759,57 +777,7 @@ export class TelegramService
       if (!response.ok) {
         throw new Error(`download failed: ${response.status}`);
       }
-      const downloaded = Buffer.from(await response.arrayBuffer());
-
-      // Byte-sniff first 16 bytes to decide between "store as-is" (real
-      // GIF) and "transcode" (any video container). Mime types from
-      // Telegram are unreliable, so the bytes are the source of truth.
-      const head16 = downloaded.subarray(0, 16);
-      let gifBuffer: Buffer = downloaded;
-      let kind: "gif" | "video" | "unknown";
-      if (looksLikeGif(head16)) {
-        kind = "gif";
-      } else if (looksLikeVideo(head16)) {
-        kind = "video";
-        try {
-          gifBuffer = await this.transcoder.compressGifToSd(downloaded);
-        } catch (err) {
-          this.logger.warn(
-            `telegram.upload video→gif failed userId=${link.userId}: ${(err as Error).message}`,
-          );
-          await ctx.reply(
-            t(locale, "upload.failed", {
-              message: t(locale, "upload.convertFailed"),
-            }),
-          );
-          return;
-        }
-      } else {
-        kind = "unknown";
-        this.logger.warn(
-          `telegram.upload rejected unknown bytes userId=${link.userId} firstByte=0x${head16[0]?.toString(16) ?? "??"}`,
-        );
-        await ctx.reply(t(locale, "upload.notGif"));
-        return;
-      }
-
-      const defaultTitle =
-        (ctx.message?.caption ?? args.fileName ?? "Untitled GIF")
-          .replace(/\.(gif|mp4)$/i, "")
-          .slice(0, MAX_TITLE_LEN) || "Untitled GIF";
-
-      this.pendingUploads.set(String(tgUser.id), {
-        buffer: gifBuffer,
-        defaultTitle,
-        step: "title",
-        expiresAt: Date.now() + UPLOAD_SESSION_TTL_MS,
-      });
-      this.logger.log(
-        `telegram.upload pending kind=${kind} userId=${link.userId} downloaded=${downloaded.length} buffered=${gifBuffer.length}`,
-      );
-      await ctx.reply(
-        t(locale, "upload.askTitle", { default: defaultTitle }),
-      );
+      downloaded = Buffer.from(await response.arrayBuffer());
     } catch (err) {
       this.logger.warn(
         `telegram.upload failed userId=${link.userId}: ${(err as Error).message}`,
@@ -819,7 +787,188 @@ export class TelegramService
           message: (err as Error).message ?? "unknown error",
         }),
       );
+      return;
     }
+
+    const defaultTitle =
+      (ctx.message?.caption ?? args.fileName ?? "Untitled GIF")
+        .replace(/\.(gif|mp4)$/i, "")
+        .slice(0, MAX_TITLE_LEN) || "Untitled GIF";
+    await this.stashUploadAndPrompt(ctx, locale, link.userId, downloaded, defaultTitle);
+  }
+
+  /**
+   * Bare-URL upload path. User pastes a public https URL into the chat;
+   * we fetch the bytes through an SSRF-hardened pipeline and feed them
+   * into the same prompt-for-title-and-tags flow as a normal Telegram
+   * file upload.
+   *
+   * Defenses (kept deliberately tight):
+   *   1. https only — http is rejected at parse time.
+   *   2. URL string blocklist — userinfo, non-default ports, well-known
+   *      internal-only hostnames (.internal/.local/.cluster.local/
+   *      localhost) all rejected before any network I/O.
+   *   3. IP allow-list at connect time — undici Agent's `connect.lookup`
+   *      hook resolves the hostname and refuses any non-public address
+   *      (RFC1918, loopback, link-local incl. 169.254.169.254 metadata,
+   *      ULA, multicast, IPv4-mapped variants of all of these). DNS
+   *      rebinding is closed because the resolved IP is also the IP we
+   *      connect to.
+   *   4. Manual redirect handling — every hop's URL is re-validated and
+   *      goes through the same Agent, capped at URL_FETCH_MAX_REDIRECTS.
+   *   5. Size cap during streaming — bail before MAX_TELEGRAM_FILE_BYTES
+   *      so a hostile server can't drown the bot in bytes.
+   *   6. Per-user cooldown (URL_FETCH_COOLDOWN_MS) so this can't be used
+   *      as an unmetered scanner.
+   *   7. Connect + body timeouts (URL_CONNECT_TIMEOUT_MS /
+   *      URL_FETCH_TIMEOUT_MS) — slow-loris servers don't tie the bot
+   *      up indefinitely.
+   *
+   * Failure modes that get reported back to the user:
+   *   - URL parse error / non-https scheme / private-host string →
+   *     url.invalidUrl (refused before any network I/O).
+   *   - Fetch error / non-2xx / blocked IP / over size cap →
+   *     url.fetchFailed with the underlying message.
+   *   - Bytes don't sniff to a GIF or supported video container →
+   *     handled inside stashUploadAndPrompt as upload.notGif.
+   *   - Cooldown not yet elapsed → url.fetchFailed with "rate limited".
+   */
+  private async uploadFromUrl(ctx: Context, rawUrl: string): Promise<void> {
+    const tgUser = ctx.from;
+    if (!tgUser) return;
+    const locale = await this.resolveLocale(tgUser.id);
+    const link = await this.links.findByTelegramUserId(String(tgUser.id));
+    const botName = this.botUsername ?? "vidsandgifsbot";
+    if (!link) {
+      await ctx.reply(t(locale, "upload.notLinked", { bot: botName }));
+      return;
+    }
+    const parsed = parseUrlForFetch(rawUrl);
+    if (!parsed) {
+      // Invalid URLs are free — only network I/O eats the cooldown.
+      // Otherwise a typo would lock the user out for 10s.
+      await ctx.reply(t(locale, "url.invalidUrl"));
+      return;
+    }
+    const tgUserId = String(tgUser.id);
+    const now = Date.now();
+    const lastAt = this.urlFetchLastAt.get(tgUserId) ?? 0;
+    if (now - lastAt < URL_FETCH_COOLDOWN_MS) {
+      const wait = Math.ceil((URL_FETCH_COOLDOWN_MS - (now - lastAt)) / 1000);
+      await ctx.reply(
+        t(locale, "url.fetchFailed", {
+          message: `rate limited — wait ${wait}s before posting another URL`,
+        }),
+      );
+      return;
+    }
+    // Stamp BEFORE the fetch so a long-running download can't bypass
+    // the cooldown by pipelining requests.
+    this.urlFetchLastAt.set(tgUserId, now);
+
+    await ctx.reply(t(locale, "url.fetching", { url: parsed.toString() }));
+
+    let downloaded: Buffer;
+    try {
+      downloaded = await fetchWithSsrfGuard(parsed.toString(), {
+        maxBytes: MAX_TELEGRAM_FILE_BYTES,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `telegram.urlUpload fetch failed userId=${link.userId} url=${parsed.toString()}: ${(err as Error).message}`,
+      );
+      await ctx.reply(
+        t(locale, "url.fetchFailed", {
+          message: (err as Error).message ?? "unknown error",
+        }),
+      );
+      return;
+    }
+
+    const defaultTitle = defaultTitleFromUrl(parsed);
+    await this.stashUploadAndPrompt(
+      ctx,
+      locale,
+      link.userId,
+      downloaded,
+      defaultTitle,
+    );
+  }
+
+  /**
+   * Shared post-download pipeline used by both `uploadFromTelegram` and
+   * `uploadFromUrl`. Sniffs the first 16 bytes:
+   *
+   *   • GIF87a/89a header → use the buffer as-is (createFromBuffer
+   *     compresses to SD internally).
+   *   • Video container (MP4/MOV ftyp, WebM/MKV EBML) → transcode to
+   *     GIF first via the palette pipeline.
+   *   • Anything else → reject with "not a video or GIF".
+   *
+   * On a clean sniff, auto-finalizes any prior pending session (so a
+   * user who never answered the previous prompt doesn't lose that
+   * upload), then stashes the new buffer and prompts for a title.
+   * Auto-finalize runs only after sniffing succeeds — a download or
+   * transcode failure leaves the prior session intact.
+   */
+  private async stashUploadAndPrompt(
+    ctx: Context,
+    locale: BotLocale,
+    userId: string,
+    downloaded: Buffer,
+    defaultTitle: string,
+  ): Promise<void> {
+    const tgUser = ctx.from;
+    if (!tgUser) return;
+    const head16 = downloaded.subarray(0, 16);
+    let gifBuffer: Buffer = downloaded;
+    let kind: "gif" | "video" | "unknown";
+    if (looksLikeGif(head16)) {
+      kind = "gif";
+    } else if (looksLikeVideo(head16)) {
+      kind = "video";
+      try {
+        gifBuffer = await this.transcoder.compressGifToSd(downloaded);
+      } catch (err) {
+        this.logger.warn(
+          `telegram.upload video→gif failed userId=${userId}: ${(err as Error).message}`,
+        );
+        await ctx.reply(
+          t(locale, "upload.failed", {
+            message: t(locale, "upload.convertFailed"),
+          }),
+        );
+        return;
+      }
+    } else {
+      kind = "unknown";
+      this.logger.warn(
+        `telegram.upload rejected unknown bytes userId=${userId} firstByte=0x${head16[0]?.toString(16) ?? "??"}`,
+      );
+      await ctx.reply(t(locale, "upload.notGif"));
+      return;
+    }
+
+    const tgUserId = String(tgUser.id);
+    // Auto-finalize prior session (only now that we know we have a
+    // valid replacement). The "send a GIF mid-prompt" gesture cleanly
+    // commits the old one and starts the new prompt.
+    const prior = this.takeFreshSession(tgUserId);
+    if (prior) {
+      this.pendingUploads.delete(tgUserId);
+      await this.finalizePendingUpload(ctx, locale, prior, []);
+    }
+
+    this.pendingUploads.set(tgUserId, {
+      buffer: gifBuffer,
+      defaultTitle,
+      step: "title",
+      expiresAt: Date.now() + UPLOAD_SESSION_TTL_MS,
+    });
+    this.logger.log(
+      `telegram.upload pending kind=${kind} userId=${userId} downloaded=${downloaded.length} buffered=${gifBuffer.length}`,
+    );
+    await ctx.reply(t(locale, "upload.askTitle", { default: defaultTitle }));
   }
 
   /**
@@ -965,4 +1114,262 @@ function parseTagInput(raw: string): string[] {
     out.push(cleaned);
   }
   return out;
+}
+
+/**
+ * Treat the message as a URL upload only if the *whole* text is a single
+ * https URL token. Embedded URLs ("look at https://…") are intentionally
+ * ignored so a chatty group doesn't trigger a fetch on every paste.
+ * https only — http is rejected here too so the bot UI is consistent
+ * with what the parser will accept.
+ */
+function looksLikeBareUrl(text: string): boolean {
+  return /^https:\/\/\S+$/i.test(text);
+}
+
+/**
+ * Strict URL pre-validator. Runs BEFORE any I/O. Rejects on:
+ *   - parse failure
+ *   - non-https scheme (no http, no file, no ftp, no gopher, …)
+ *   - userinfo (http://user:pass@host) — leaks identity, smuggling vector
+ *   - non-default port (anything other than 443) — closes off probing
+ *     internal services that happen to be public-IP-bound
+ *   - well-known internal-only hostnames (Railway/K8s/mDNS/…)
+ *   - IP-literal hosts that resolve to a non-public range
+ *
+ * The DNS-resolution check happens later inside the undici Agent's
+ * connect.lookup hook — that closes the rebinding hole because the IP
+ * we validate is also the IP we connect to.
+ */
+function parseUrlForFetch(raw: string): URL | null {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:") return null;
+  if (url.username || url.password) return null;
+  const host = url.hostname.toLowerCase();
+  if (!host) return null;
+  if (host === "localhost") return null;
+  if (host.endsWith(".localhost")) return null;
+  if (host.endsWith(".internal")) return null;
+  if (host.endsWith(".local")) return null;
+  if (host.endsWith(".cluster.local")) return null;
+  // Default https port only — set port to "" so URL serializes cleanly.
+  if (url.port && url.port !== "443") return null;
+  // IP literal? Validate directly so the obvious cases bail before DNS.
+  // Bracket-stripped because URL.hostname returns "[::1]" with brackets.
+  const stripped = host.replace(/^\[|\]$/g, "");
+  if (net.isIP(stripped) && !isPublicIp(stripped)) return null;
+  return url;
+}
+
+/**
+ * Turn the URL path into a sensible default title — last segment, URL-
+ * decoded, extension stripped, clamped to MAX_TITLE_LEN. Used when the
+ * user sends a URL and either takes the /skip default or sends nothing
+ * before another upload auto-finalizes them.
+ */
+function defaultTitleFromUrl(url: URL): string {
+  const last = url.pathname.split("/").filter(Boolean).pop() ?? "";
+  let decoded = "";
+  try {
+    decoded = decodeURIComponent(last);
+  } catch {
+    decoded = last;
+  }
+  decoded = decoded
+    .replace(/\.(gif|mp4|webm|mov|m4v)$/i, "")
+    .slice(0, MAX_TITLE_LEN);
+  return decoded || "Untitled GIF";
+}
+
+/**
+ * IP allow-list. Returns true ONLY for routable public unicast addresses.
+ * Treat anything we can't positively identify as public as private —
+ * fail-closed.
+ *
+ * Coverage:
+ *   IPv4 — 0.0.0.0/8, 10/8, 100.64/10 CGNAT, 127/8 loopback,
+ *          169.254/16 link-local (incl. 169.254.169.254 cloud metadata),
+ *          172.16/12, 192.168/16, 192.0.0/24, 192.0.2/24, 192.88.99/24,
+ *          198.18/15 benchmark, 198.51.100/24, 203.0.113/24,
+ *          224/4 multicast, 240/4 reserved, 255.255.255.255 broadcast.
+ *   IPv6 — ::, ::1 loopback, fc00::/7 ULA, fe80::/10 link-local,
+ *          ff00::/8 multicast, IPv4-mapped (::ffff:a.b.c.d → recurse),
+ *          64:ff9b::/96 NAT64 (well-known prefix maps into IPv4).
+ */
+function isPublicIp(ip: string): boolean {
+  if (net.isIPv4(ip)) {
+    const parts = ip.split(".").map((n) => Number(n));
+    if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) return false;
+    const [a, b, c] = parts;
+    if (a === 0) return false;
+    if (a === 10) return false;
+    if (a === 127) return false;
+    if (a === 169 && b === 254) return false;
+    if (a === 172 && b >= 16 && b <= 31) return false;
+    if (a === 192 && b === 168) return false;
+    if (a === 100 && b >= 64 && b <= 127) return false;
+    if (a === 192 && b === 0 && c === 0) return false;
+    if (a === 192 && b === 0 && c === 2) return false;
+    if (a === 192 && b === 88 && c === 99) return false;
+    if (a === 198 && (b === 18 || b === 19)) return false;
+    if (a === 198 && b === 51 && c === 100) return false;
+    if (a === 203 && b === 0 && c === 113) return false;
+    if (a >= 224) return false; // multicast 224/4 + reserved 240/4
+    return true;
+  }
+  if (net.isIPv6(ip)) {
+    const lower = ip.toLowerCase();
+    if (lower === "::" || lower === "::1") return false;
+    // IPv4-mapped IPv6 — recurse on the v4 portion so 127.0.0.1 doesn't
+    // sneak through as ::ffff:127.0.0.1.
+    if (lower.startsWith("::ffff:")) {
+      const tail = lower.slice("::ffff:".length);
+      if (net.isIPv4(tail)) return isPublicIp(tail);
+    }
+    if (lower.startsWith("fe8") || lower.startsWith("fe9") ||
+        lower.startsWith("fea") || lower.startsWith("feb")) return false; // fe80::/10
+    if (lower.startsWith("fc") || lower.startsWith("fd")) return false;   // ULA
+    if (lower.startsWith("ff")) return false;                              // multicast
+    if (lower.startsWith("64:ff9b:")) return false;                        // NAT64
+    return true;
+  }
+  return false;
+}
+
+// Undici Agent that performs an IP-allow-list check at connect time.
+// The lookup hook gets called once per TCP connection — we resolve all
+// addresses (`all: true`), bail if ANY of them is non-public, and only
+// then hand back the first address for the actual connect. This both
+// (a) prevents DNS rebinding (the IP we validate is the IP we connect
+// to) and (b) closes the IPv4-mapped-IPv6 trick because isPublicIp
+// recurses into the v4 part.
+//
+// `connect.timeout` and `headersTimeout`/`bodyTimeout` give us socket-
+// level deadlines so a stuck server can't pin a worker indefinitely.
+const ssrfSafeAgent = new Agent({
+  connect: {
+    timeout: URL_CONNECT_TIMEOUT_MS,
+    lookup(hostname, _opts, callback) {
+      dnsLookup(hostname, { all: true, verbatim: true })
+        .then((addrs) => {
+          if (addrs.length === 0) {
+            callback(new Error(`no DNS records for ${hostname}`), "", 0);
+            return;
+          }
+          for (const a of addrs) {
+            if (!isPublicIp(a.address)) {
+              callback(
+                new Error(
+                  `refusing to connect: ${hostname} → non-public ${a.address}`,
+                ),
+                "",
+                0,
+              );
+              return;
+            }
+          }
+          callback(null, addrs[0].address, addrs[0].family);
+        })
+        .catch((err) => callback(err as Error, "", 0));
+    },
+  },
+  headersTimeout: URL_CONNECT_TIMEOUT_MS,
+  bodyTimeout: URL_FETCH_TIMEOUT_MS,
+});
+
+/**
+ * Fetch a URL through the SSRF-hardened undici Agent and return the
+ * body as a Buffer, capping size during streaming. Walks redirects
+ * manually (up to URL_FETCH_MAX_REDIRECTS) and re-runs the URL string
+ * validation at every hop so a redirect to http://, to a userinfo URL,
+ * to a non-default port, or to an internal-host string can't sneak past
+ * the original parse.
+ *
+ * IP allow-listing happens at connect time inside the Agent — no
+ * separate check needed here. The two-layer setup (string parse +
+ * agent lookup) is intentional belt-and-braces.
+ */
+async function fetchWithSsrfGuard(
+  initialUrl: string,
+  opts: { maxBytes: number },
+): Promise<Buffer> {
+  let currentUrl = initialUrl;
+  for (let hop = 0; hop <= URL_FETCH_MAX_REDIRECTS; hop++) {
+    const parsed = parseUrlForFetch(currentUrl);
+    if (!parsed) throw new Error("URL rejected by SSRF guard");
+    const res = await undiciFetch(parsed.toString(), {
+      method: "GET",
+      headers: {
+        "user-agent": "vidsandgifs-bot/1.0 (+https://vidsandgifs.xyz)",
+        accept: "image/gif,image/*,video/*;q=0.9,*/*;q=0.5",
+      },
+      redirect: "manual",
+      // Allow the Agent's IP-allow-list lookup to throw cleanly.
+      dispatcher: ssrfSafeAgent,
+    });
+    if (res.status >= 300 && res.status < 400) {
+      // Drain so the connection can be returned to the pool cleanly.
+      const next = res.headers.get("location");
+      try {
+        await res.body?.cancel();
+      } catch {
+        // ignore — cancel is best-effort.
+      }
+      if (!next) throw new Error("redirect without Location header");
+      currentUrl = new URL(next, parsed).toString();
+      continue;
+    }
+    if (res.status < 200 || res.status >= 300) {
+      try {
+        await res.body?.cancel();
+      } catch {
+        // ignore
+      }
+      throw new Error(`HTTP ${res.status}`);
+    }
+    // Pre-check Content-Length. Honest servers tell us the size up
+    // front; if it's already over the cap we can bail without reading.
+    const cl = res.headers.get("content-length");
+    if (cl && Number(cl) > opts.maxBytes) {
+      try {
+        await res.body?.cancel();
+      } catch {
+        // ignore
+      }
+      throw new Error(
+        `response too large (${cl} bytes, cap ${opts.maxBytes})`,
+      );
+    }
+    if (!res.body) throw new Error("response has no body");
+
+    // Stream-read with running size cap so a server lying about (or
+    // omitting) Content-Length still gets cut off.
+    const reader = res.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (!value) continue;
+        total += value.byteLength;
+        if (total > opts.maxBytes) {
+          await reader.cancel().catch(() => {});
+          throw new Error(
+            `response exceeded size cap of ${opts.maxBytes} bytes`,
+          );
+        }
+        chunks.push(value);
+      }
+    } finally {
+      reader.releaseLock();
+    }
+    return Buffer.concat(chunks.map((c) => Buffer.from(c)));
+  }
+  throw new Error(`too many redirects (>${URL_FETCH_MAX_REDIRECTS})`);
 }
