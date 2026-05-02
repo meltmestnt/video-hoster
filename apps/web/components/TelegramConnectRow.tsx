@@ -5,6 +5,7 @@ import { Box, Button, Flex, IconButton, Text, Tooltip } from "@radix-ui/themes";
 import { ReloadIcon } from "@radix-ui/react-icons";
 import { trpc } from "@/lib/trpc";
 import { useT } from "@/lib/i18n";
+import { useVerifyRequired } from "./VerifyRequiredDialog";
 
 /**
  * Settings row for the Telegram bot link. Mirrors the layout of the
@@ -46,10 +47,19 @@ export function TelegramConnectRow() {
   const unlink = trpc.telegram.unlink.useMutation({
     onSuccess: () => utils.telegram.status.invalidate(),
   });
+  const me = trpc.auth.me.useQuery();
+  const verifyRequired = useVerifyRequired();
   const [error, setError] = useState<string | null>(null);
 
   const onConnect = async () => {
     setError(null);
+    // telegram.startLink is verifiedProcedure server-side. Surface the
+    // standard verify-required dialog up front instead of letting the
+    // mutation fail with a generic FORBIDDEN message inline.
+    if (me.data && me.data.status !== "verified") {
+      verifyRequired.show("action", "unverified");
+      return;
+    }
     try {
       const { url } = await startLink.mutateAsync();
       // Open in a new tab — Telegram apps intercept t.me URLs and hand

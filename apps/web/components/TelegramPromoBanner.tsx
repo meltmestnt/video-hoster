@@ -5,6 +5,7 @@ import { Cross1Icon, PaperPlaneIcon } from "@radix-ui/react-icons";
 import { useEffect, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { useT } from "@/lib/i18n";
+import { useVerifyRequired } from "./VerifyRequiredDialog";
 
 // Per-user key so a different account signing in on the same browser
 // gets a fresh prompt — the previous tenant's dismissal shouldn't
@@ -43,6 +44,7 @@ export function TelegramPromoBanner() {
   const me = trpc.auth.me.useQuery();
   const utils = trpc.useUtils();
   const startLink = trpc.telegram.startLink.useMutation();
+  const verifyRequired = useVerifyRequired();
   // Mounted gate so we never render on SSR / first paint. Without this
   // an effect-driven dismiss read can race the auth.me query during the
   // NextAuth bootstrap window, leaving the banner hidden until the user
@@ -73,6 +75,13 @@ export function TelegramPromoBanner() {
 
   const onConnect = async () => {
     setError(null);
+    // telegram.startLink is verifiedProcedure server-side. Surface the
+    // standard verify-required dialog up front instead of letting the
+    // mutation come back with a generic FORBIDDEN message inline.
+    if (me.data && me.data.status !== "verified") {
+      verifyRequired.show("action", "unverified");
+      return;
+    }
     try {
       const { url } = await startLink.mutateAsync();
       window.open(url, "_blank", "noopener,noreferrer");
