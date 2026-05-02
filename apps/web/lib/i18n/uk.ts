@@ -543,6 +543,26 @@ export const uk: EnDict = {
   "folderOnboarding.cta": "Створити першу папку",
   "folderOnboarding.dismiss": "Сховати",
 
+  // ─── Banner-герой папок (авторизовані; акцент на ділитися + створити) ───
+  "folderHero.badge": "Нове — папки + спільний доступ",
+  "folderHero.headline.before": "Створи свою приватну GIF-бібліотеку —",
+  "folderHero.headline.highlight": "і поділись лише для читання.",
+  "folderHero.subtitle":
+    "Складай GIF у приватні папки, які бачиш лише ти. Ділись лише для читання з друзями, командою чи груповим чатом — вони бачать твою колекцію live, як ти її поповнюєш. Без копій, без ручної синхронізації.",
+  "folderHero.tile.private.title": "Приватні папки",
+  "folderHero.tile.private.desc":
+    "Збирай публічні GIF із сайту або завантажуй приватні. Бачиш лише ти й ті, з ким поділився.",
+  "folderHero.tile.share.title": "Поділись лише для читання",
+  "folderHero.tile.share.desc":
+    "Поділись папкою з другом одним кліком. Він отримає сповіщення і зможе переглядати, але не редагувати.",
+  "folderHero.tile.telegram.title": "Telegram-інлайн фокус",
+  "folderHero.tile.telegram.desc":
+    "Обери активну папку в боті — і @vidsandgifsbot шукає інлайн лише в ній. Твій набір реакцій, у будь-якому чаті.",
+  "folderHero.cta.create": "Створити папку",
+  "folderHero.cta.myFolders": "Мої папки",
+  "folderHero.cta.sharedWithMe": "Зі мною поділилися",
+  "folderHero.dismiss": "Сховати",
+
   // ─── Anonymous viewer daily cap ───
   "anonViewLimit.callout":
     "Сьогодні ви переглянули {limit} відео без акаунта.",

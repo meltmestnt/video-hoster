@@ -531,6 +531,26 @@ export const en = {
   "folderOnboarding.cta": "Create your first folder",
   "folderOnboarding.dismiss": "Dismiss",
 
+  // ─── Folder hero banner (signed-in users; emphasizes share + create) ───
+  "folderHero.badge": "New — folders + sharing",
+  "folderHero.headline.before": "Create your private GIF library —",
+  "folderHero.headline.highlight": "then share it read-only.",
+  "folderHero.subtitle":
+    "Group GIFs into private folders only you can see. Share read-only with friends, teammates, or your group chat — they see your collection live as you add to it. No copies, no manual sync.",
+  "folderHero.tile.private.title": "Private folders",
+  "folderHero.tile.private.desc":
+    "Curate public GIFs from the site or upload private ones. Only you and the people you share with see what's inside.",
+  "folderHero.tile.share.title": "Share read-only",
+  "folderHero.tile.share.desc":
+    "Send a private folder to a friend with one click. They get a notification and can view but not edit.",
+  "folderHero.tile.telegram.title": "Telegram inline scope",
+  "folderHero.tile.telegram.desc":
+    "Pick a folder as active in the bot and @vidsandgifsbot inline-searches just that one — your reaction set, anywhere.",
+  "folderHero.cta.create": "Create a folder",
+  "folderHero.cta.myFolders": "My folders",
+  "folderHero.cta.sharedWithMe": "Shared with me",
+  "folderHero.dismiss": "Dismiss",
+
   // ─── Anonymous viewer daily cap ───
   "anonViewLimit.callout":
     "You've watched {limit} videos today without an account.",
