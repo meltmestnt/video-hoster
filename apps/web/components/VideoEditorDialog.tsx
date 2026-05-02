@@ -505,14 +505,23 @@ export function VideoEditorDialog({ open, file, onCancel, onApply }: Props) {
               <Text size="2" weight="medium" style={{ minWidth: 76 }}>
                 {t("editor.crop")}
               </Text>
-              {/* Wrap the SegmentedControl so it can wrap to its own
-                  line on narrow viewports instead of forcing the whole
-                  dialog to scroll horizontally. */}
-              <Box style={{ flex: "1 1 200px", minWidth: 0 }}>
+              {/* The wrapper Box gets `overflow-x: auto` + `minWidth: 0`
+                  so a wide SegmentedControl (5 items, localized labels
+                  like "Оригінал" eat extra px) scrolls within its own
+                  slot instead of pushing the whole Dialog past the
+                  viewport edge. The SegmentedControl is sized to its
+                  content (no width:100%) so the scroll only kicks in
+                  when it actually overflows. */}
+              <Box
+                style={{
+                  flex: "1 1 200px",
+                  minWidth: 0,
+                  overflowX: "auto",
+                }}
+              >
                 <SegmentedControl.Root
                   value={cropAspect}
                   onValueChange={(v) => setCropAspect(v as CropAspect)}
-                  style={{ width: "100%" }}
                 >
                   {CROP_ASPECTS.map((c) => (
                     <SegmentedControl.Item key={c.value} value={c.value}>
