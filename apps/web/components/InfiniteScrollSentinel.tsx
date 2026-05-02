@@ -82,6 +82,32 @@ export function InfiniteScrollSentinel({
     return () => observer.disconnect();
   }, [hasMore, rootMargin]);
 
+  // Re-check the sentinel whenever a fetch completes. IntersectionObserver
+  // only fires on intersection-state *transitions* — if the user parks at
+  // the bottom waiting for the next page, the sentinel stays "intersecting"
+  // the whole time, the new page lands, and the observer never fires
+  // again. The grid sits stuck until the user scrolls, which on a short
+  // grid they can't really do. Watching isFetching here patches that:
+  // when it flips from true → false, we run the same in-view check the
+  // observer would have, and re-fire onLoadMore if the sentinel is still
+  // visible. Tracks via wasFetchingRef so we don't fire on initial mount
+  // (the observer-effect's sync fallback already handles that case).
+  const wasFetchingRef = useRef(isFetching);
+  useEffect(() => {
+    const justFinished = wasFetchingRef.current && !isFetching;
+    wasFetchingRef.current = isFetching;
+    if (!justFinished || !hasMore) return;
+    const node = ref.current;
+    if (!node) return;
+    const rect = node.getBoundingClientRect();
+    const viewportH = window.innerHeight || document.documentElement.clientHeight;
+    const inViewWithMargin =
+      rect.top - rootMargin < viewportH && rect.bottom + rootMargin > 0;
+    if (inViewWithMargin) {
+      onLoadMoreRef.current();
+    }
+  }, [isFetching, hasMore, rootMargin]);
+
   return <div ref={ref} className="infinite-sentinel" aria-hidden />;
 }
 
