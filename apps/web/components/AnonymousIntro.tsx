@@ -81,11 +81,16 @@ export function AnonymousIntro() {
       {/* The locale switcher is the only top-right control on the
           anonymous landing — pinned in absolute coordinates so it sits
           above the demo's gradient backdrop. The choice persists via
-          localStorage inside the i18n provider. */}
+          localStorage inside the i18n provider.
+          --panel-index drives the staggered slide-up (see
+          .intro-panel-fade-up in globals.css) — three hero panels in
+          sequence, 160ms apart. */}
       <Box
+        className="intro-panel-fade-up"
         style={{
           position: "relative",
           minHeight: 0,
+          ["--panel-index" as string]: 0,
         }}
       >
         <Box
@@ -103,8 +108,18 @@ export function AnonymousIntro() {
         <InstantGifDemo signedIn={false} />
       </Box>
 
-      <AnonTelegramPromo />
-      <AnonFoldersPromo />
+      <div
+        className="intro-panel-fade-up"
+        style={{ ["--panel-index" as string]: 1 }}
+      >
+        <AnonTelegramPromo />
+      </div>
+      <div
+        className="intro-panel-fade-up"
+        style={{ ["--panel-index" as string]: 2 }}
+      >
+        <AnonFoldersPromo />
+      </div>
 
       <Flex
         className="intro-cta-row"
