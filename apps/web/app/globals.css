@@ -54,10 +54,16 @@ a {
 @media (max-width: 1024px) {
   .dashboard-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    /* Tighter gap so two narrow phone-width cards breathe a bit
+       better — 28px is too much air on a 400px viewport. */
+    gap: 16px;
   }
 }
 
-@media (max-width: 600px) {
+/* Tiny phones (iPhone SE 1st gen at 320px, etc.) drop to a single
+   column — two cards at <=375px end up too cramped to scan. Modern
+   phones (376px+) keep the 2-up layout from the rule above. */
+@media (max-width: 375px) {
   .dashboard-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -462,6 +468,65 @@ button:disabled,
 @keyframes introBorderSpin {
   to {
     --intro-angle: 360deg;
+  }
+}
+
+/* Mobile header upload "+" button. Dark fill, crimson running highlight
+ * around the perimeter — same conic-gradient + mask trick as
+ * .intro-card so the two share the introBorderSpin keyframes and the
+ * --intro-angle custom property registration above. Sized to match
+ * the burger IconButton next to it (Radix size="2" is 32×32). */
+.topbar-add-mobile {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--gray-1);
+  color: var(--gray-12);
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  /* Default IconButton focus-ring uses Radix's accent — keep ours
+   * crimson so the highlight and focus ring agree visually. */
+}
+.topbar-add-mobile:focus-visible {
+  outline: 2px solid var(--crimson-9);
+  outline-offset: 2px;
+}
+.topbar-add-mobile:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.topbar-add-mobile::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--intro-angle),
+    transparent 0deg,
+    transparent 220deg,
+    var(--crimson-9) 280deg,
+    var(--crimson-11) 310deg,
+    var(--crimson-9) 340deg,
+    transparent 360deg
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 1;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .topbar-add-mobile::before {
+    animation: introBorderSpin 4.5s linear infinite;
   }
 }
 
