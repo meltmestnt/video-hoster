@@ -141,15 +141,37 @@ export function morphToPlayer(args: MorphArgs): boolean {
   let destLanded = false;
   let cleaned = false;
 
+  // Forced cleanup detaches every listener and removes the overlay
+  // immediately — used when the user navigates Back / restores from
+  // bfcache before the normal "morph + landed" handshake settles. Without
+  // this the overlay sticks around on top of the original page after
+  // popstate.
+  const detachAll = () => {
+    window.removeEventListener("videoplayer:morph:landed", onLanded);
+    window.removeEventListener("popstate", forceCleanup);
+    window.removeEventListener("pageshow", forceCleanup);
+    window.removeEventListener("hashchange", forceCleanup);
+    document.removeEventListener("visibilitychange", onVisibility);
+  };
+
   const cleanup = () => {
     if (cleaned) return;
     cleaned = true;
+    detachAll();
     overlay.style.transition = "opacity 120ms ease";
     overlay.style.opacity = "0";
     window.setTimeout(() => {
       overlay.remove();
       delete document.body.dataset.morphing;
     }, 140);
+  };
+
+  const forceCleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+    detachAll();
+    overlay.remove();
+    delete document.body.dataset.morphing;
   };
 
   const tryCleanup = () => {
@@ -162,13 +184,29 @@ export function morphToPlayer(args: MorphArgs): boolean {
   };
   window.addEventListener("videoplayer:morph:landed", onLanded, { once: true });
 
+  // Browser navigation (Back/Forward, bfcache restore, hash changes) means
+  // the destination's MorphLandingSignal will never arrive — and even if
+  // it does, we're no longer on the page that initiated the morph. Cut
+  // the overlay loose immediately on any of those signals so the user
+  // never sees it covering the list view they navigated back to.
+  window.addEventListener("popstate", forceCleanup);
+  window.addEventListener("pageshow", forceCleanup);
+  window.addEventListener("hashchange", forceCleanup);
+
+  // Some browsers (mobile Safari especially) fire pagehide+visibilitychange
+  // on tab switch without popstate; if the user backgrounds the tab and
+  // returns, treat it as "definitely past the morph window" and clean up.
+  const onVisibility = () => {
+    if (document.visibilityState === "visible") forceCleanup();
+  };
+  document.addEventListener("visibilitychange", onVisibility);
+
   window.setTimeout(() => {
     morphDone = true;
     tryCleanup();
   }, MORPH_MS + 60);
 
   window.setTimeout(() => {
-    window.removeEventListener("videoplayer:morph:landed", onLanded);
     destLanded = true;
     morphDone = true;
     tryCleanup();
