@@ -21,6 +21,7 @@ import { useUpload, isUploadBusy } from "@/lib/upload-context";
 import { useRequireAuth } from "@/lib/auth-required";
 import { useUploadDialog } from "@/lib/upload-dialog-context";
 import { useT } from "@/lib/i18n";
+import { useVerifyRequired } from "./VerifyRequiredDialog";
 import { ConvertDialog } from "./ConvertDialog";
 import { UploadProgressBar } from "./UploadProgressBar";
 import { UploadSuccessToast } from "./UploadSuccessToast";
@@ -60,6 +61,7 @@ export function TopBar({
   const uploadDisabled = busy || otherTabBusy;
   const requireAuth = useRequireAuth();
   const uploadDialog = useUploadDialog();
+  const verifyRequired = useVerifyRequired();
   const t = useT();
 
   const router = useRouter();
@@ -110,8 +112,17 @@ export function TopBar({
   };
 
   const openConvert = () => {
-    setConvertOpen(true);
     setDrawerOpen(false);
+    // Conversion is a verified-only feature even though it's all done
+    // client-side (ffmpeg.wasm) — keeps unverified accounts from using
+    // the site as a free generic transcoder. Same gate the upload flows
+    // use, just with kind="action" so the dialog copy doesn't talk
+    // about uploading.
+    if (!verified) {
+      verifyRequired.show("action", "unverified");
+      return;
+    }
+    setConvertOpen(true);
   };
 
   const searchPlaceholder = signedIn
@@ -167,7 +178,7 @@ export function TopBar({
                       size="2"
                       variant="soft"
                       color="gray"
-                      onClick={() => setConvertOpen(true)}
+                      onClick={openConvert}
                     >
                       {t("topbar.convert")}
                     </Button>

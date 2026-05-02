@@ -1,9 +1,11 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import {
+  AbortMultipartUploadCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListMultipartUploadsCommand,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -126,6 +128,54 @@ export class S3Service {
   async deleteObject(key: string): Promise<void> {
     await this.client.send(
       new DeleteObjectCommand({ Bucket: this.bucket, Key: key }),
+    );
+  }
+
+  /**
+   * Walk every in-progress multipart upload in the bucket, transparently
+   * paginating across the (KeyMarker, UploadIdMarker) cursor S3 hands
+   * out. Each yielded item carries the upload's Key + UploadId
+   * (needed to abort) and Initiated timestamp (needed to decide if it's
+   * stale).
+   *
+   * Multipart uploads aren't visible in normal ListObjects calls — they
+   * live in a separate S3-internal namespace until they're either
+   * completed (assembled into a real object) or aborted. Without active
+   * cleanup, abandoned ones bill for storage forever.
+   */
+  async *listAllMultipartUploads(prefix?: string): AsyncGenerator<{
+    key: string;
+    uploadId: string;
+    initiated: Date;
+  }> {
+    let keyMarker: string | undefined;
+    let uploadIdMarker: string | undefined;
+    for (;;) {
+      const res = await this.client.send(
+        new ListMultipartUploadsCommand({
+          Bucket: this.bucket,
+          Prefix: prefix,
+          KeyMarker: keyMarker,
+          UploadIdMarker: uploadIdMarker,
+        }),
+      );
+      for (const u of res.Uploads ?? []) {
+        if (!u.Key || !u.UploadId || !u.Initiated) continue;
+        yield { key: u.Key, uploadId: u.UploadId, initiated: u.Initiated };
+      }
+      if (!res.IsTruncated) return;
+      keyMarker = res.NextKeyMarker;
+      uploadIdMarker = res.NextUploadIdMarker;
+    }
+  }
+
+  async abortMultipartUpload(key: string, uploadId: string): Promise<void> {
+    await this.client.send(
+      new AbortMultipartUploadCommand({
+        Bucket: this.bucket,
+        Key: key,
+        UploadId: uploadId,
+      }),
     );
   }
 

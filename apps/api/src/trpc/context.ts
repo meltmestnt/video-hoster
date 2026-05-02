@@ -11,6 +11,7 @@ import type { NotificationsService } from "../notifications/notifications.servic
 import type { SubscriptionsService } from "../subscriptions/subscriptions.service";
 import type { AudioService } from "../audio/audio.service";
 import type { S3Service } from "../s3/s3.service";
+import type { S3CleanupService } from "../s3/s3-cleanup.service";
 import type { AuthService } from "../auth/auth.service";
 import type { BillingService } from "../billing/billing.service";
 import type { PushService } from "../push/push.service";
@@ -30,6 +31,7 @@ export interface Services {
   subscriptions: SubscriptionsService;
   audio: AudioService;
   s3: S3Service;
+  s3Cleanup: S3CleanupService;
   auth: AuthService;
   billing: BillingService;
   push: PushService;

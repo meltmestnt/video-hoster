@@ -12,6 +12,7 @@ import { NotificationsService } from "../notifications/notifications.service";
 import { SubscriptionsService } from "../subscriptions/subscriptions.service";
 import { AudioService } from "../audio/audio.service";
 import { S3Service } from "../s3/s3.service";
+import { S3CleanupService } from "../s3/s3-cleanup.service";
 import { AuthService } from "../auth/auth.service";
 import { BillingService } from "../billing/billing.service";
 import { PushService } from "../push/push.service";
@@ -37,6 +38,7 @@ export class TrpcService {
     private readonly subscriptions: SubscriptionsService,
     private readonly audio: AudioService,
     private readonly s3: S3Service,
+    private readonly s3Cleanup: S3CleanupService,
     private readonly auth: AuthService,
     private readonly billing: BillingService,
     private readonly push: PushService,
@@ -60,6 +62,7 @@ export class TrpcService {
       subscriptions: this.subscriptions,
       audio: this.audio,
       s3: this.s3,
+      s3Cleanup: this.s3Cleanup,
       auth: this.auth,
       billing: this.billing,
       push: this.push,

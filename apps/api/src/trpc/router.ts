@@ -897,6 +897,15 @@ export const appRouter = router({
           targetUserId: input.userId,
         }),
       ),
+
+    // Manual trigger for the daily multipart-upload cleanup. The cron
+    // (S3CleanupService at 03:00 UTC) does the same thing on a schedule,
+    // but having an explicit "run now" lets ops verify the integration
+    // works without waiting until 3 AM, and lets us nuke a stuck batch
+    // on demand. Returns counters so the caller can see what happened.
+    runS3Cleanup: adminProcedure.mutation(({ ctx }) =>
+      ctx.services.s3Cleanup.runOnce(),
+    ),
   }),
 
   billing: router({
