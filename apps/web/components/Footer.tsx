@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { Flex, Separator, Text } from "@radix-ui/themes";
-import { GitHubLogoIcon } from "@radix-ui/react-icons";
+import { GitHubLogoIcon, PaperPlaneIcon } from "@radix-ui/react-icons";
 import { useT } from "@/lib/i18n";
 import { LocaleSwitcher } from "./LocaleSwitcher";
+import { telegramBotUrl } from "@/lib/telegram-bot";
 
 // Custom event name used to coordinate the "Cookie settings" button in the
 // footer with the consent banner mounted in the root layout. When fired,
@@ -64,6 +65,25 @@ export function Footer() {
         >
           {t("footer.cookieSettings")}
         </button>
+        <Separator orientation="vertical" />
+        {/* Discoverability anchor for the bot — Telegram's name search
+            is popularity-gated, so a stable footer link gives every
+            visitor a one-tap path to @vidsandgifsbot. */}
+        <a
+          href={telegramBotUrl()}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            color: "inherit",
+            fontSize: "var(--font-size-1)",
+          }}
+        >
+          <PaperPlaneIcon width="13" height="13" />
+          {t("telegram.openBot.footer")}
+        </a>
         <Separator orientation="vertical" />
         {/* Surface the locale toggle on every page (it was previously
             only on the signed-out intro hero) so visitors who land on

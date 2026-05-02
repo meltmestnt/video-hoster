@@ -30,6 +30,7 @@ import { usePushSubscription } from "@/lib/push";
 import { AvatarUploadPane } from "./AvatarUploadPane";
 import { AvatarEditPane } from "./AvatarEditPane";
 import { Morph } from "./Morph";
+import { OpenInTelegramButton } from "./OpenInTelegramButton";
 
 type View = "profile" | "upload" | "edit";
 
@@ -402,6 +403,10 @@ function ProfilePane({
             <GearIcon /> {t("user.profile.settings")}
           </Link>
         </Button>
+        {/* Direct deep-link to the bot — Telegram's name search is
+            popularity-gated for newer bots, so this gives users a
+            reliable one-tap path to find @vidsandgifsbot. */}
+        <OpenInTelegramButton />
         <Button asChild variant="soft" color="amber">
           <Link href="/favorites">
             <StarIcon /> {t("user.profile.favorites")}

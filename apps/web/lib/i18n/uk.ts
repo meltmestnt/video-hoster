@@ -176,6 +176,10 @@ export const uk: EnDict = {
     "Надсилати сповіщення підписникам, коли ви публікуєте нове відео чи GIF.",
   "user.profile.notifySubs.toggleAria":
     "Перемкнути сповіщення підписників про завантаження",
+  "telegram.openBot": "Відкрити в Telegram",
+  "telegram.openBot.hint":
+    "Шукай і завантажуй GIF прямо з будь-якого чату.",
+  "telegram.openBot.footer": "Telegram-бот",
   "user.profile.telegram.label": "Telegram",
   "user.profile.telegram.hint":
     "Шукайте GIF у будь-якому чаті Telegram і завантажуйте свої через бота.",

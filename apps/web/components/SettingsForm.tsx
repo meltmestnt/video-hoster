@@ -14,6 +14,7 @@ import { trpc } from "@/lib/trpc";
 import { useLocale, useSetLocale, useT } from "@/lib/i18n";
 import { PushToggleRow } from "./UserMenu";
 import { TelegramConnectRow } from "./TelegramConnectRow";
+import { OpenInTelegramButton } from "./OpenInTelegramButton";
 
 interface Props {
   /** SSR-resolved miniPlayerEnabled so the toggle's first render
@@ -118,6 +119,19 @@ export function SettingsForm({
         <Separator size="4" />
 
         <PushToggleRow />
+
+        <Separator size="4" />
+
+        {/* "Open in Telegram" sits above the link/unlink row because
+            it works for everyone, even users who haven't (or won't)
+            link their account — useful for finding the bot at all
+            since Telegram's name search is popularity-gated. */}
+        <SettingRow
+          label={t("telegram.openBot")}
+          hint={t("telegram.openBot.hint")}
+        >
+          <OpenInTelegramButton size="1" />
+        </SettingRow>
 
         <Separator size="4" />
 

@@ -174,6 +174,9 @@ export const en = {
     "Send a notification to your subscribers when you publish a new video or GIF.",
   "user.profile.notifySubs.toggleAria":
     "Toggle subscriber notifications on upload",
+  "telegram.openBot": "Open in Telegram",
+  "telegram.openBot.hint": "Search and upload GIFs straight from any chat.",
+  "telegram.openBot.footer": "Telegram bot",
   "user.profile.telegram.label": "Telegram",
   "user.profile.telegram.hint":
     "Search GIFs in any Telegram chat and upload your own through the bot.",
