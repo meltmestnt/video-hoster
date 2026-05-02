@@ -1,24 +1,46 @@
-# Denis's videos
+# vids&gifs
 
-Minimalist dark-themed video hosting platform. Sign in with Google, upload videos (up to 3 GiB), watch with comments and tag-based suggestions.
+> Drop a video in your browser, get a shareable GIF in 30 seconds. No upload, no install, no waiting room.
+
+**Live:** [vidsandgifs.xyz](https://vidsandgifs.xyz)
+
+A self-hosted video and GIF host that runs the heavy work — trimming, encoding, palette generation — entirely in your tab via `ffmpeg.wasm`. Your file never leaves the page until you choose to host it. Sign in once afterwards and the same converter mints a hotlinkable URL on `vidsandgifs.xyz`.
+
+Plus a Telegram bot that puts your whole library one `@vidsandgifsbot` away from any chat: inline search to send your own GIFs without leaving Telegram, and forward-to-bot to upload new ones from your phone.
+
+---
+
+## What's interesting under the hood
+
+- **Convert MP4 → GIF entirely client-side.** `ffmpeg.wasm` runs the trim + 480p encode locally; the only thing that crosses the network is the final hotlink-PUT to S3, and only if you sign in. A 60-second 1080p clip becomes a 480p loopable GIF in ~12s on a mid-tier laptop, with a live preview while it encodes.
+- **Server-side URL ingest with serious SSRF guards.** Paste a `.gif` link and the server fetches it for you. The fetcher uses a custom `undici` Agent with a `connect.lookup` hook that re-validates every IP at every redirect — closes DNS rebinding, IPv4-mapped-IPv6 trickery, link-local (incl. AWS metadata), private ranges, and gzip-bomb amplification. ~470 lines of paranoid network code so that one feature can't become a portable port-scanner. See [`apps/api/src/s3/url-fetcher.ts`](apps/api/src/s3/url-fetcher.ts).
+- **Telegram bot with full upload + inline search.** Connect once via a one-time deep-link token, then send any GIF to the bot to upload it, or `@vidsandgifsbot anything` in any chat to inline-search your library. Mpeg4-gif results so files >1MB still play; static JPEG thumbnails so Telegram's previewer never silently drops them.
+- **Card-to-player morph navigation.** The thumbnail on the feed becomes the player frame on the detail page via a single conic-gradient overlay that re-uses the existing image — no double-fetch, no flash. Falls back gracefully if the destination's geometry can't be probed.
+- **Type-safe across every boundary.** tRPC end-to-end, zod schemas in a shared workspace package, `force-dynamic` SSR pages that hand-shake auth via JWT-bridge tokens (issuer + audience pinned, signed with `NEXTAUTH_SECRET`).
 
 ## Stack
 
-- **Monorepo** — pnpm workspaces + Turborepo
-- **Web** — Next.js 15 (App Router, SSR), Radix Themes (dark), NextAuth (Google), tRPC client, react-player
-- **API** — NestJS 10, tRPC server, TypeORM + Postgres, AWS S3 (presigned PUT for uploads + GET for playback)
-- **Shared** — `packages/shared`: zod schemas, constants
-- **DB** — Postgres 16 via Docker Compose
+| Layer | What |
+|---|---|
+| Web | Next.js 15 App Router, Radix Themes, NextAuth (Google + credentials + One Tap), tRPC client, ffmpeg.wasm |
+| API | NestJS 10, tRPC server, TypeORM + Postgres, S3 presigned PUT/GET, grammY for Telegram |
+| Shared | `packages/shared` — zod schemas, limits, error prefixes |
+| Infra | Railway (web + api + Postgres), AWS S3, Resend for email, Web Push (VAPID) |
+| Build | pnpm workspaces + Turborepo |
 
-## Prerequisites
+## Architecture in 6 lines
 
-- Node 20+
-- pnpm 9+
-- Docker (for Postgres)
-- Google OAuth credentials ([Google Cloud Console](https://console.cloud.google.com/apis/credentials)) with `http://localhost:3000/api/auth/callback/google` as an authorized redirect URI
-- An AWS S3 bucket (private) with CORS configured to accept `PUT` and `GET` from `http://localhost:3000` (see below)
+```
+Browser ──► Next.js (web) ──► tRPC ──► NestJS (api) ──► Postgres
+   │             │                          │              │
+   │             └──── NextAuth JWT ────────┘              │
+   │                                                       │
+   └────── Presigned PUT/GET (uploads, playback) ──► S3 ◄──┘
+   │
+   └──► Telegram bot ◄── grammY ── api (linked accounts only)
+```
 
-## Setup
+## Self-hosting
 
 ```bash
 # 1. Install
@@ -28,22 +50,28 @@ pnpm install
 cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env.local
 
-# Generate a secret and use the same value in both files for NEXTAUTH_SECRET
+# Generate one secret and use the same value in BOTH files for
+# NEXTAUTH_SECRET. The web mints JWTs with it; the api verifies
+# them with it. Mismatch = login redirect loop.
 openssl rand -base64 32
 
 # 3. Start Postgres
 docker compose up -d
 
-# 4. Build the shared package once (api/web depend on its compiled output)
+# 4. Build the shared package once (api/web depend on its compiled dist)
 pnpm -F @repo/shared build
 
 # 5. Run dev servers (web on :3000, api on :4000)
 pnpm dev
 ```
 
-The first time the api boots, TypeORM `synchronize` creates all tables.
+You'll need:
+- Node 20+ and pnpm 9+
+- Docker (for Postgres, or point `DATABASE_URL` at your own)
+- An S3 bucket (private; CORS below) and AWS credentials
+- Optional: Google OAuth credentials, Resend API key, Telegram bot token, VAPID keys for Web Push. Anything missing degrades gracefully — no Telegram token means the bot just doesn't run; no Resend means email confirmations are skipped (and surfaced as a warning rather than a hard failure).
 
-## S3 bucket CORS
+### S3 CORS
 
 ```json
 [
@@ -56,45 +84,26 @@ The first time the api boots, TypeORM `synchronize` creates all tables.
 ]
 ```
 
-The bucket should remain private. Uploads use presigned PUT URLs; playback uses presigned GET URLs (1-hour TTL).
+The bucket stays private. Every served byte goes through `MediaController` with a signed-query-param URL (HMAC-SHA256 over `(kind, id, exp)`); the bucket itself is never addressable by clients. Hotlink protection on the cost-heavy kinds (video/gif/audio/mpeg4) lets known scrapers (Discord, Slack, Twitter, Telegram link previewers) through while blocking anonymous third-party embeds.
 
-## Project layout
+## Layout
 
 ```
 apps/
-  api/              # NestJS + tRPC + TypeORM
-  web/              # Next.js App Router
+  api/              NestJS + tRPC + TypeORM + Telegram bot
+  web/              Next.js App Router, ffmpeg.wasm, NextAuth
 packages/
-  shared/           # zod schemas + constants used by both apps
-docker-compose.yml  # Postgres
-turbo.json          # pipeline
+  shared/           zod schemas, constants, error prefixes
+docker-compose.yml  Postgres 16
+turbo.json          dev/build/typecheck pipeline
 ```
 
-## How upload works
+## Built with Claude
 
-1. User picks a video in the upload dialog. Client validates `file.size <= 3 GiB`.
-2. `videos.createUpload` returns a presigned PUT URL plus the new video id.
-3. Browser PUTs the video bytes directly to S3 (XHR with progress events).
-4. `videos.finalizeUpload` HEADs the object, stores `sizeBytes`, flips status to `ready`, then runs the transcoder:
-   - downloads the source from S3 to a temp file
-   - probes duration, picks a random frame between 10% and 90% of duration
-   - extracts the frame to a JPEG with `fluent-ffmpeg` (using `ffmpeg-static`)
-   - uploads the JPEG to S3, creates a `Thumbnail` row
-5. Dashboard query is invalidated; the new card appears with its thumbnail.
+This repo started as a weekend tinker and got pushed to production over a single Saturday with a lot of help from Claude. Nearly every commit message after the initial scaffold was generated by Claude; the SSRF guard, the morph animation, the Telegram inline-mode bridge, and most of the i18n were paired through long Claude sessions. The architecture decisions are mine, the code is co-authored, and the bugs are very much shared.
 
-`TranscoderService.compressTo480p` is also wired (downloads source, encodes to 480p H.264 MP4, re-uploads), available for future use when you want a normalized playback variant.
+If you're curious what one developer + Claude can ship in a day, [the live site](https://vidsandgifs.xyz) is the answer. Clone it, run it locally, see what holds up.
 
-The upload state lives in a global React Context (`UploadProvider`) so it survives navigation. The Upload button is disabled while a previous upload is in flight.
+## License
 
-## Suggested videos
-
-Tag-overlap query — the more tags shared with the current video, the higher it ranks. See `apps/api/src/videos/videos.service.ts#suggested`.
-
-## Useful commands
-
-| Command | What it does |
-|---|---|
-| `pnpm dev` | Run both apps in dev (after `pnpm -F @repo/shared build` once) |
-| `pnpm build` | Build everything |
-| `pnpm typecheck` | Type-check all workspaces |
-| `pnpm db:up` / `pnpm db:down` | Start/stop Postgres |
+MIT — see [LICENSE](LICENSE). Use it, fork it, ship a competitor, just don't blame me.
