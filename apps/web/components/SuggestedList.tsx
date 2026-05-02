@@ -70,9 +70,8 @@ function SuggestedRow({ item }: { item: Item }) {
   const thumbRef = useRef<HTMLDivElement | null>(null);
   const href = `/videos/${item.id}`;
 
-  useEffect(() => {
-    router.prefetch(href);
-  }, [router, href]);
+  // No router.prefetch — see GifCard.tsx for the rationale (stale prefetch
+  // poisons the RSC cache and replays 404s on click).
 
   const navigate = (e: React.MouseEvent) => {
     if (e.metaKey || e.ctrlKey || e.button === 1) return;

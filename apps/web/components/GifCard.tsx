@@ -35,9 +35,13 @@ export function GifCard({
   // bytes arrive and the browser starts animating.
   const [hasFirstFrame, setHasFirstFrame] = useState(false);
 
-  useEffect(() => {
-    router.prefetch(href);
-  }, [router, href]);
+  // No router.prefetch here on purpose. App Router's prefetch caches the
+  // RSC payload; if a prefetch ever lands during a transient bad-auth or
+  // a server error, Next.js will replay that 404/error on the click that
+  // follows — even though a fresh full page-load of the same URL works
+  // fine. The morph animation already gives the click instant feedback,
+  // so we trade a sub-100ms theoretical speedup for navigation that is
+  // never poisoned by a stale prefetch.
 
   useEffect(() => {
     setHasFirstFrame(false);

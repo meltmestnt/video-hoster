@@ -92,9 +92,11 @@ export function VideoCard({
   const [thumbLoaded, setThumbLoaded] = useState(false);
   const [previewing, setPreviewing] = useState(false);
 
-  useEffect(() => {
-    router.prefetch(href);
-  }, [router, href]);
+  // Intentionally no router.prefetch — see GifCard.tsx for the rationale.
+  // Briefly: a prefetch that lands during a transient bad-auth state poisons
+  // the RSC cache and replays the 404 on the user's first click. The morph
+  // animation already covers perceived latency, so we skip prefetch for
+  // navigation that's never wrong.
 
   useEffect(
     () => () => {
