@@ -45,6 +45,8 @@ export default async function AppLayout({
             userEmail={session?.user.email ?? null}
             avatarUrl={me?.avatarUrl ?? session?.user.image ?? null}
             videoCount={me?.videoCount ?? 0}
+            gifCount={me?.gifCount ?? 0}
+            telegramLinked={me?.telegramLinked ?? false}
             verified={me?.status === "verified"}
             miniPlayerEnabled={me?.miniPlayerEnabled ?? true}
             isAdmin={me?.role === "admin"}

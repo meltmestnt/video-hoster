@@ -149,6 +149,7 @@ export const en = {
   "user.profile.verified": "Verified",
   "user.profile.unverified": "Unverified",
   "user.profile.videosUploaded": "Videos uploaded",
+  "user.profile.gifsUploaded": "GIFs uploaded",
   "user.profile.miniPlayer.label": "Mini player",
   "user.profile.miniPlayer.hint":
     "Show a floating player when leaving a video page.",
@@ -162,6 +163,8 @@ export const en = {
   "user.profile.telegram.hint":
     "Search GIFs in any Telegram chat and upload your own through the bot.",
   "user.profile.telegram.connected": "Connected.",
+  "user.profile.telegram.statusConnected": "Connected",
+  "user.profile.telegram.statusDisconnected": "Not connected",
   "user.profile.telegram.connectedAs": "Connected as {handle}.",
   "user.profile.telegram.connect": "Connect",
   "user.profile.telegram.connecting": "Opening…",
@@ -258,6 +261,13 @@ export const en = {
     "Recent videos and GIFs from everyone on vids&gifs.",
   "page.dashboard.empty":
     'Nothing here yet. Click "Upload" to add the first video or GIF.',
+  "dashboard.telegramPromo.title":
+    "Bring your GIFs into any Telegram chat",
+  "dashboard.telegramPromo.body":
+    "Connect the vids&gifs Telegram bot to search your library inline from any chat and upload new GIFs straight from Telegram.",
+  "dashboard.telegramPromo.connect": "Connect Telegram",
+  "dashboard.telegramPromo.connecting": "Opening…",
+  "dashboard.telegramPromo.dismiss": "Hide",
 
   "page.videos.heading": "All videos",
   "page.videos.subtitle": "Recent video uploads on vids&gifs.",

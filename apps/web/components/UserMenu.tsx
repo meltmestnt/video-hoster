@@ -16,7 +16,14 @@ import { signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { GearIcon, PersonIcon, StarIcon } from "@radix-ui/react-icons";
+import {
+  CheckCircledIcon,
+  CrossCircledIcon,
+  GearIcon,
+  PaperPlaneIcon,
+  PersonIcon,
+  StarIcon,
+} from "@radix-ui/react-icons";
 import { trpc } from "@/lib/trpc";
 import { useT } from "@/lib/i18n";
 import { usePushSubscription } from "@/lib/push";
@@ -31,6 +38,8 @@ interface Props {
   email: string;
   avatarUrl: string | null;
   videoCount: number;
+  gifCount: number;
+  telegramLinked: boolean;
   verified: boolean;
   miniPlayerEnabled: boolean;
   // Resolved from the server-rendered layout's auth.me call so the admin
@@ -44,6 +53,8 @@ export function UserMenu({
   email,
   avatarUrl,
   videoCount,
+  gifCount,
+  telegramLinked,
   verified,
   miniPlayerEnabled,
   isAdmin,
@@ -163,6 +174,8 @@ export function UserMenu({
               email={email}
               avatarUrl={displayAvatar}
               videoCount={videoCount}
+              gifCount={gifCount}
+              telegramLinked={telegramLinked}
               verified={verified}
               miniPlayerEnabled={miniPlayerEnabled}
               isAdmin={isAdmin}
@@ -203,6 +216,8 @@ interface ProfilePaneProps {
   email: string;
   avatarUrl: string | null;
   videoCount: number;
+  gifCount: number;
+  telegramLinked: boolean;
   verified: boolean;
   miniPlayerEnabled: boolean;
   isAdmin: boolean;
@@ -214,6 +229,8 @@ function ProfilePane({
   email,
   avatarUrl,
   videoCount,
+  gifCount,
+  telegramLinked,
   verified,
   miniPlayerEnabled,
   isAdmin,
@@ -311,13 +328,53 @@ function ProfilePane({
           margin: "4px 0",
         }}
       />
-      <Flex justify="between" align="center" px="1">
-        <Text size="2" color="gray">
-          {t("user.profile.videosUploaded")}
-        </Text>
-        <Text size="2" weight="medium">
-          {videoCount}
-        </Text>
+      <Flex direction="column" gap="2" px="1">
+        <Flex justify="between" align="center">
+          <Text size="2" color="gray">
+            {t("user.profile.videosUploaded")}
+          </Text>
+          <Text size="2" weight="medium">
+            {videoCount}
+          </Text>
+        </Flex>
+        <Flex justify="between" align="center">
+          <Text size="2" color="gray">
+            {t("user.profile.gifsUploaded")}
+          </Text>
+          <Text size="2" weight="medium">
+            {gifCount}
+          </Text>
+        </Flex>
+        <Flex justify="between" align="center">
+          <Flex align="center" gap="2">
+            <PaperPlaneIcon />
+            <Text size="2" color="gray">
+              {t("user.profile.telegram.label")}
+            </Text>
+          </Flex>
+          <Flex align="center" gap="1">
+            {telegramLinked ? (
+              <CheckCircledIcon
+                style={{ color: "var(--green-10)" }}
+                aria-hidden
+              />
+            ) : (
+              <CrossCircledIcon
+                style={{ color: "var(--gray-9)" }}
+                aria-hidden
+              />
+            )}
+            <Text
+              size="2"
+              weight="medium"
+              color={telegramLinked ? "green" : "gray"}
+            >
+              {telegramLinked
+                ? t("user.profile.telegram.statusConnected")
+                : t("user.profile.telegram.statusDisconnected")}
+            </Text>
+          </Flex>
+        </Flex>
       </Flex>
       <Box
         style={{

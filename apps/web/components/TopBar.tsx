@@ -29,6 +29,8 @@ interface TopBarProps {
   userEmail: string | null;
   avatarUrl: string | null;
   videoCount: number;
+  gifCount: number;
+  telegramLinked: boolean;
   verified: boolean;
   miniPlayerEnabled: boolean;
   isAdmin: boolean;
@@ -40,6 +42,8 @@ export function TopBar({
   userEmail,
   avatarUrl,
   videoCount,
+  gifCount,
+  telegramLinked,
   verified,
   miniPlayerEnabled,
   isAdmin,
@@ -190,6 +194,8 @@ export function TopBar({
                 email={userEmail ?? ""}
                 avatarUrl={avatarUrl}
                 videoCount={videoCount}
+                gifCount={gifCount}
+                telegramLinked={telegramLinked}
                 verified={verified}
                 miniPlayerEnabled={miniPlayerEnabled}
                 isAdmin={isAdmin}

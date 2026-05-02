@@ -410,6 +410,18 @@ button:disabled,
   z-index: 1;
 }
 
+.intro-card-blue::before {
+  background: conic-gradient(
+    from var(--intro-angle),
+    transparent 0deg,
+    transparent 220deg,
+    var(--blue-9) 280deg,
+    var(--blue-11) 310deg,
+    var(--blue-9) 340deg,
+    transparent 360deg
+  );
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .intro-card::before {
     animation: introBorderSpin 4.5s linear infinite;

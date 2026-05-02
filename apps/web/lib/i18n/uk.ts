@@ -151,6 +151,7 @@ export const uk: EnDict = {
   "user.profile.verified": "Підтверджено",
   "user.profile.unverified": "Не підтверджено",
   "user.profile.videosUploaded": "Завантажено відео",
+  "user.profile.gifsUploaded": "Завантажено GIF",
   "user.profile.miniPlayer.label": "Міні-плеєр",
   "user.profile.miniPlayer.hint":
     "Показувати плаваючий плеєр, коли ви виходите зі сторінки відео.",
@@ -164,6 +165,8 @@ export const uk: EnDict = {
   "user.profile.telegram.hint":
     "Шукайте GIF у будь-якому чаті Telegram і завантажуйте свої через бота.",
   "user.profile.telegram.connected": "Підʼєднано.",
+  "user.profile.telegram.statusConnected": "Підʼєднано",
+  "user.profile.telegram.statusDisconnected": "Не підʼєднано",
   "user.profile.telegram.connectedAs": "Підʼєднано як {handle}.",
   "user.profile.telegram.connect": "Підʼєднати",
   "user.profile.telegram.connecting": "Відкриваємо…",
@@ -263,6 +266,13 @@ export const uk: EnDict = {
     "Останні відео та GIF від усіх на vids&gifs.",
   "page.dashboard.empty":
     'Тут поки що порожньо. Натисніть «Завантажити», щоб додати перше відео або GIF.',
+  "dashboard.telegramPromo.title":
+    "Додайте свої GIF до будь-якого чату в Telegram",
+  "dashboard.telegramPromo.body":
+    "Підʼєднайте бота vids&gifs у Telegram, щоб шукати свою бібліотеку прямо в чатах і завантажувати нові GIF без виходу з месенджера.",
+  "dashboard.telegramPromo.connect": "Підʼєднати Telegram",
+  "dashboard.telegramPromo.connecting": "Відкриваємо…",
+  "dashboard.telegramPromo.dismiss": "Приховати",
 
   "page.videos.heading": "Усі відео",
   "page.videos.subtitle": "Останні завантаження відео на vids&gifs.",

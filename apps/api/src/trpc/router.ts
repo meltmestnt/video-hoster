@@ -78,8 +78,14 @@ export const appRouter = router({
   auth: router({
     me: publicProcedure.query(async ({ ctx }) => {
       if (!ctx.user) return null;
-      const videoCount = await ctx.services.videos.countByOwner(ctx.user.id);
-      const avatarUrl = await ctx.services.users.resolveAvatarUrl(ctx.user);
+      const [videoCount, gifCount, telegramLink, avatarUrl] = await Promise.all(
+        [
+          ctx.services.videos.countByOwner(ctx.user.id),
+          ctx.services.gifs.countByOwner(ctx.user.id),
+          ctx.services.telegramLinks.findByUserId(ctx.user.id),
+          ctx.services.users.resolveAvatarUrl(ctx.user),
+        ],
+      );
       return {
         id: ctx.user.id,
         email: ctx.user.email,
@@ -94,6 +100,8 @@ export const appRouter = router({
         role: ctx.user.role,
         approved: ctx.user.approved,
         videoCount,
+        gifCount,
+        telegramLinked: !!telegramLink,
         miniPlayerEnabled: ctx.user.miniPlayerEnabled,
         miniPlayerPromptSeen: ctx.user.miniPlayerPromptSeen,
         notifySubscribersOnUpload: ctx.user.notifySubscribersOnUpload,
