@@ -55,6 +55,22 @@ export const en = {
   "anonTelegram.cta.signInPrompt": "Already have an account?",
   "anonTelegram.cta.signIn": "Sign in",
 
+  // ─── Anonymous folders pitch (sits under the AnonTelegramPromo) ───
+  "anonFolders.badge": "Folders + Telegram",
+  "anonFolders.headline.before": "Your private GIF library,",
+  "anonFolders.headline.highlight": "ready in any chat.",
+  "anonFolders.subtitle":
+    "Group GIFs into private folders only you can see. Pick one as active in the Telegram bot — inline search and uploads scope to that folder, so your reaction set is one @mention away in any chat.",
+  "anonFolders.feature.private.title": "Private folders",
+  "anonFolders.feature.private.desc":
+    "Curate public GIFs from the site, or upload private ones — only you see what's inside.",
+  "anonFolders.feature.scopedSearch.title": "Scoped inline search",
+  "anonFolders.feature.scopedSearch.desc":
+    "@vidsandgifsbot <query> searches just the active folder. No more wading through the public library.",
+  "anonFolders.feature.autoTag.title": "Bot auto-tagging",
+  "anonFolders.feature.autoTag.desc":
+    "GIFs uploaded through the bot automatically land in the active folder. Build your library hands-free.",
+
   // ─── Instant GIF demo (landing hero) ───
   "instant.badge": "Free, runs in your browser",
   "instant.headline.before": "From a video to a ",

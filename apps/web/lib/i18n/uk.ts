@@ -57,6 +57,22 @@ export const uk: EnDict = {
   "anonTelegram.cta.signInPrompt": "Уже маєш акаунт?",
   "anonTelegram.cta.signIn": "Увійти",
 
+  // ─── Анонімний пітч про папки + Telegram (під AnonTelegramPromo) ───
+  "anonFolders.badge": "Папки + Telegram",
+  "anonFolders.headline.before": "Твоя приватна GIF-бібліотека —",
+  "anonFolders.headline.highlight": "готова до будь-якого чату.",
+  "anonFolders.subtitle":
+    "Складай GIF у приватні папки, які бачиш лише ти. Обери одну активною в Telegram-боті — інлайн-пошук та завантаження зосереджуються на ній, і твій набір реакцій за одним @-згадуванням у будь-якому чаті.",
+  "anonFolders.feature.private.title": "Приватні папки",
+  "anonFolders.feature.private.desc":
+    "Збирай публічні GIF із сайту або завантажуй приватні — вміст бачиш лише ти.",
+  "anonFolders.feature.scopedSearch.title": "Цільовий інлайн-пошук",
+  "anonFolders.feature.scopedSearch.desc":
+    "@vidsandgifsbot <запит> шукає лише в активній папці. Більше ніяких чужих бібліотек.",
+  "anonFolders.feature.autoTag.title": "Авто-сортування",
+  "anonFolders.feature.autoTag.desc":
+    "GIF, завантажені через бот, автоматично потрапляють в активну папку. Бібліотека росте без зусиль.",
+
   // ─── Демо миттєвого GIF (геро на лендінгу) ───
   "instant.badge": "Безкоштовно, працює в браузері",
   "instant.headline.before": "З відео в ",

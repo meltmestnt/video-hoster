@@ -13,6 +13,7 @@ import { T } from "@/lib/i18n";
 import { LocaleSwitcher } from "./LocaleSwitcher";
 import { InstantGifDemo } from "./InstantGifDemo";
 import { AnonTelegramPromo } from "./AnonTelegramPromo";
+import { AnonFoldersPromo } from "./AnonFoldersPromo";
 
 type Icon = typeof VideoIcon;
 
@@ -103,6 +104,7 @@ export function AnonymousIntro() {
       </Box>
 
       <AnonTelegramPromo />
+      <AnonFoldersPromo />
 
       <Flex
         className="intro-cta-row"
