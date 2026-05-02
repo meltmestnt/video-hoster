@@ -36,6 +36,21 @@ export function ViewCounter({ kind, id, initialCount }: Props) {
   const gifInc = trpc.gifs.incrementView.useMutation();
   const screenshotInc = trpc.screenshots.incrementView.useMutation();
 
+  // Reset the local count when the user navigates to a different item.
+  // App Router reuses the same ViewCounter instance across /gifs/<id1>
+  // → /gifs/<id2> nav, so useState's initial value (the FIRST gif's
+  // count) sticks until the new increment lands — visually the badge
+  // flashes the previous gif's number. Re-seeding from the latest
+  // `initialCount` whenever (kind, id) changes fixes that flash.
+  //
+  // `initialCount` is intentionally omitted from deps: a parent
+  // re-render that re-passes the same prop must not stomp our
+  // post-increment optimistic value.
+  useEffect(() => {
+    setCount(initialCount);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kind, id]);
+
   useEffect(() => {
     const key = `${SESSION_KEY_PREFIX}${kind}:${id}`;
     let alreadyViewed = false;
