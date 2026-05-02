@@ -22,9 +22,9 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
     "start.linkSaveFailed":
       "Не вдалося зберегти підʼєднання. Спробуйте /unlink, потім підʼєднайте знову з /settings.",
     help:
-      "/search <запит> — знайти GIF на vids&gifs прямо тут.\n/upload — як додати власний GIF на сайт.\nІнлайн-пошук: @{bot} <запит> — у будь-якому чаті.\n/lang — змінити мову.\n/unlink — відʼєднати Telegram від акаунту.",
+      "/search <запит> — знайти GIF за назвою або тегом.\n/upload — як додати власний GIF на сайт.\nІнлайн-пошук: @{bot} <запит> — у будь-якому чаті (теж шукає за тегами).\n/lang — змінити мову.\n/unlink — відʼєднати Telegram від акаунту.",
     "search.usage":
-      "Скористайтеся так: /search кошеня\nАбо повний пошук на сайті: {webOrigin}/search",
+      "Скористайтеся так: /search кошеня\nПошук працює і за назвами, і за тегами.\nАбо повний пошук на сайті: {webOrigin}/search",
     "search.empty":
       "Нічого не знайдено за запитом «{q}».\nПовний пошук: {webOrigin}/search?q={qEncoded}",
     "search.more":
@@ -35,7 +35,7 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
     "upload.help.notLinked":
       "Спочатку підʼєднайте акаунт vids&gifs на {webOrigin}/settings, потім поверніться сюди.",
     "upload.help.linked":
-      "Надішліть мені .gif як Файл (Документ — натисніть і утримуйте GIF у Telegram → «Надіслати як файл»). До 20 МБ. Підпис до файлу стане заголовком на сайті.",
+      "Надішліть мені .gif як Файл (Документ — натисніть і утримуйте GIF у Telegram → «Надіслати як файл») або як Анімацію. До 20 МБ. Я попрошу назву та теги, щоб GIF легше було знайти.",
     "unlink.notLinked":
       "Цей Telegram не підʼєднано до жодного акаунту.",
     "unlink.success":
@@ -50,9 +50,25 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
       "Підʼєднаний акаунт більше не існує. Виконайте /unlink і підʼєднайте знову з сайту.",
     "upload.success":
       'Завантажено як «{title}».\n{url}',
+    "upload.successWithTags":
+      'Завантажено як «{title}» (теги: {tags}).\n{url}',
     "upload.failed": "Не вдалося завантажити: {message}",
     "upload.convertFailed":
       "не вдалося перекодувати анімацію в GIF",
+    "upload.askTitle":
+      "Готово — отримав ваш GIF. Надішліть назву (до 200 символів) або /skip, щоб залишити «{default}». /cancel — скасувати.",
+    "upload.askTags":
+      "Тепер надішліть теги через кому (наприклад: «кіт, смішне, мем»; до 10 тегів). /skip — без тегів. /cancel — скасувати.",
+    "upload.cancelled": "Завантаження скасовано.",
+    "upload.expired":
+      "Сесія завантаження прострочена — надішліть GIF ще раз.",
+    "upload.titleTooLong":
+      "Назва задовга — максимум 200 символів. Спробуйте ще раз або /skip.",
+    "upload.tagsTooMany":
+      "Забагато тегів — максимум 10. Спробуйте ще раз або /skip.",
+    "upload.processing": "Завантажую «{title}»…",
+    "upload.noSession":
+      "Активного завантаження немає. Надішліть GIF, щоб почати.",
     "animation.hint":
       "Анімацію прийнято — конвертую у GIF і завантажую…",
     "lang.choose": "Оберіть мову.",
@@ -78,9 +94,9 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
     "start.linkSaveFailed":
       "Couldn't save the link. Try /unlink, then connect again from /settings.",
     help:
-      "/search <query> — find GIFs on vids&gifs right here.\n/upload — how to add your own GIF to the site.\nInline search: @{bot} <query> — works in any chat.\n/lang — change language.\n/unlink — detach this Telegram from your account.",
+      "/search <query> — find GIFs by title or tag.\n/upload — how to add your own GIF to the site.\nInline search: @{bot} <query> — works in any chat (also matches tags).\n/lang — change language.\n/unlink — detach this Telegram from your account.",
     "search.usage":
-      "Try it like: /search kitten\nOr full search on the site: {webOrigin}/search",
+      "Try it like: /search kitten\nSearch matches both titles and tags.\nOr full search on the site: {webOrigin}/search",
     "search.empty":
       'No matches for "{q}".\nFull search: {webOrigin}/search?q={qEncoded}',
     "search.more":
@@ -91,7 +107,7 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
     "upload.help.notLinked":
       "Link your vids&gifs account first at {webOrigin}/settings, then come back here.",
     "upload.help.linked":
-      "Send me a .gif as a File (Document — long-press the GIF in Telegram → \"Send as File\"). Up to 20 MB. Any caption you add becomes the title on the site.",
+      "Send me a .gif as a File (Document — long-press the GIF in Telegram → \"Send as File\") or as an Animation. Up to 20 MB. I'll ask for a name and tags so it's easier to find.",
     "unlink.notLinked": "This Telegram isn't linked to any account.",
     "unlink.success":
       "Unlinked. Inline search still works without an account.",
@@ -103,8 +119,24 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
     "upload.linkedAccountGone":
       "Your linked account doesn't exist anymore. Run /unlink and re-link from the website.",
     "upload.success": 'Uploaded as "{title}".\n{url}',
+    "upload.successWithTags":
+      'Uploaded as "{title}" (tags: {tags}).\n{url}',
     "upload.failed": "Upload failed: {message}",
     "upload.convertFailed": "couldn't transcode the animation to GIF",
+    "upload.askTitle":
+      'Got your GIF. Send a title (up to 200 characters) or /skip to keep "{default}". /cancel to abort.',
+    "upload.askTags":
+      'Now send tags separated by commas (e.g. "cat, funny, meme"; up to 10). /skip for no tags. /cancel to abort.',
+    "upload.cancelled": "Upload cancelled.",
+    "upload.expired":
+      "Upload session expired — please send the GIF again.",
+    "upload.titleTooLong":
+      "Title is too long — max 200 characters. Try again or /skip.",
+    "upload.tagsTooMany":
+      "Too many tags — max 10. Try again or /skip.",
+    "upload.processing": 'Uploading "{title}"…',
+    "upload.noSession":
+      "No upload in progress. Send me a GIF to start.",
     "animation.hint":
       "Animation received — converting to GIF and uploading…",
     "lang.choose": "Choose your language.",

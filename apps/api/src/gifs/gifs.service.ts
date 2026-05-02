@@ -257,6 +257,7 @@ export class GifsService {
     ownerApproved: boolean;
     title: string;
     buffer: Buffer;
+    tagNames?: string[];
   }): Promise<Gif> {
     if (args.buffer.length > MAX_GIF_BYTES) {
       throw new BadRequestException("GIF exceeds 20 MB limit");
@@ -306,6 +307,9 @@ export class GifsService {
     }
 
     const slug = slugify(args.title);
+    const tags = args.tagNames?.length
+      ? await this.tagsService.ensureTags(args.tagNames)
+      : [];
     const draft = this.gifs.create({
       ownerId: args.ownerId,
       title: args.title,
@@ -321,7 +325,7 @@ export class GifsService {
       // Drives the "uploaded via Telegram" badge on cards/detail pages
       // and the count on the user's profile.
       source: "telegram",
-      tags: [],
+      tags,
     });
     const saved = await this.gifs.save(draft);
     const s3Key = `gifs/${saved.id}/${slug}.gif`;

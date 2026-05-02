@@ -27,6 +27,23 @@ const SEARCH_PREVIEW_LIMIT = 5;
 // Telegram bots can `getFile` payloads up to 20 MiB without resorting to
 // the local Bot API server. Matches our existing GIF size cap.
 const MAX_TELEGRAM_FILE_BYTES = 20 * 1024 * 1024;
+// How long an upload-in-progress session waits for the user to send a
+// title/tags before being garbage-collected.
+const UPLOAD_SESSION_TTL_MS = 10 * 60 * 1000;
+const MAX_TITLE_LEN = 200;
+const MAX_TAGS = 10;
+
+type UploadStep = "title" | "tags";
+
+interface PendingUpload {
+  // GIF bytes ready to hand to gifs.createFromBuffer (already
+  // transcoded from video if the source was MP4/WebM/etc).
+  buffer: Buffer;
+  defaultTitle: string;
+  step: UploadStep;
+  title?: string;
+  expiresAt: number;
+}
 
 @Injectable()
 export class TelegramService
@@ -38,6 +55,11 @@ export class TelegramService
   // Flipped during onApplicationShutdown so the polling-restart loop
   // gracefully exits instead of fighting with itself during a deploy.
   private shuttingDown = false;
+  // Per-Telegram-user upload state. Holds the (already-sniffed)
+  // GIF buffer between the time the user sends the file and the time
+  // they finish answering the title/tag prompts. In-process only — a
+  // restart drops in-flight sessions, which is fine: users can re-send.
+  private readonly pendingUploads = new Map<string, PendingUpload>();
 
   constructor(
     private readonly config: ConfigService,
@@ -622,6 +644,44 @@ export class TelegramService
       });
     });
 
+    // ─── /cancel — abort an in-progress upload ───
+    bot.command("cancel", async (ctx) => {
+      const tgId = ctx.from?.id;
+      if (!tgId) return;
+      const locale = await this.resolveLocale(tgId);
+      const had = this.pendingUploads.delete(String(tgId));
+      await ctx.reply(
+        t(locale, had ? "upload.cancelled" : "upload.noSession"),
+      );
+    });
+
+    // ─── /skip — accept the default for the current step ───
+    bot.command("skip", async (ctx) => {
+      const tgId = ctx.from?.id;
+      if (!tgId) return;
+      const locale = await this.resolveLocale(tgId);
+      const session = this.takeFreshSession(String(tgId));
+      if (!session) {
+        await ctx.reply(t(locale, "upload.noSession"));
+        return;
+      }
+      await this.advanceUploadSession(ctx, locale, session, null);
+    });
+
+    // ─── Free-form text — title or tags input for an active upload ───
+    // Registered after all the slash-command handlers so commands take
+    // priority. If there's no active session this is a no-op (we don't
+    // want the bot replying to every random message in a group chat).
+    bot.on("message:text", async (ctx) => {
+      const tgId = ctx.from?.id;
+      if (!tgId) return;
+      const session = this.takeFreshSession(String(tgId));
+      if (!session) return;
+      const text = ctx.message.text.trim();
+      const locale = await this.resolveLocale(tgId);
+      await this.advanceUploadSession(ctx, locale, session, text);
+    });
+
     bot.catch((err) => {
       this.logger.error(
         `telegram.bot handler error: ${err.error}`,
@@ -631,14 +691,17 @@ export class TelegramService
   }
 
   /**
-   * Shared upload pipeline for both `message:document` and
-   * `message:animation`. Downloads the file Telegram is offering, sniffs
-   * the magic bytes, and routes:
+   * Entry point for `message:document` and `message:animation`.
+   * Downloads the file, sniffs the magic bytes, transcodes if it's
+   * a video container, then stashes the GIF buffer as a pending session
+   * and prompts the user for a title. Tags are collected in a follow-up
+   * step (see advanceUploadSession).
    *
    *   • GIF87a/89a header → use the buffer as-is (createFromBuffer
    *     compresses to SD internally).
    *   • Video container (MP4/MOV ftyp, WebM/MKV EBML) → transcode to
-   *     GIF first via the palette pipeline, then upload the result.
+   *     GIF first via the palette pipeline, then store as the session
+   *     buffer.
    *   • Anything else → reject with a clear "not a video or GIF" message.
    *
    * Mime types reported by Telegram are unreliable across clients
@@ -646,9 +709,12 @@ export class TelegramService
    * different Content-Type values), so we ignore them entirely and
    * trust the bytes.
    *
-   * Failures here are scoped to the conversation — we reply to the user
-   * with a localized message and log the cause for the operator. Never
-   * throws back into the grammY handler dispatcher.
+   * If the user is already mid-conversation on a previous upload (was
+   * waiting on a title or tags reply), that prior GIF is auto-finalized
+   * with its default title and no tags before this one starts a fresh
+   * prompt. This matches the natural "send a GIF, send another GIF"
+   * gesture: neither one is dropped, and the user only gets prompted
+   * about the latest one.
    */
   private async uploadFromTelegram(
     ctx: Context,
@@ -672,6 +738,17 @@ export class TelegramService
       return;
     }
 
+    // If the user is mid-conversation on a previous upload (asked for
+    // a title or tags but never replied), accept the prior GIF as-is
+    // with its default title and no tags. This matches the natural
+    // gesture of "send GIF, send another GIF" — neither one is lost,
+    // and the user only gets prompted for the most recent one.
+    const prior = this.takeFreshSession(String(tgUser.id));
+    if (prior) {
+      this.pendingUploads.delete(String(tgUser.id));
+      await this.finalizePendingUpload(ctx, locale, prior, []);
+    }
+
     try {
       const file = await ctx.api.getFile(args.fileId);
       if (!file.file_path) {
@@ -687,10 +764,6 @@ export class TelegramService
       // Byte-sniff first 16 bytes to decide between "store as-is" (real
       // GIF) and "transcode" (any video container). Mime types from
       // Telegram are unreliable, so the bytes are the source of truth.
-      // Explicit Buffer type — TS 5.7+ tightened Buffer's generic to
-      // <ArrayBuffer> while transcoder.compressGifToSd's return is
-      // <ArrayBufferLike>; without the annotation the inferred init
-      // type from `downloaded` won't accept the transcoded reassignment.
       const head16 = downloaded.subarray(0, 16);
       let gifBuffer: Buffer = downloaded;
       let kind: "gif" | "video" | "unknown";
@@ -720,35 +793,22 @@ export class TelegramService
         return;
       }
 
-      const account = await this.users.findById(link.userId);
-      if (!account) {
-        await ctx.reply(t(locale, "upload.linkedAccountGone"));
-        return;
-      }
-
-      const title =
+      const defaultTitle =
         (ctx.message?.caption ?? args.fileName ?? "Untitled GIF")
           .replace(/\.(gif|mp4)$/i, "")
-          .slice(0, 200) || "Untitled GIF";
+          .slice(0, MAX_TITLE_LEN) || "Untitled GIF";
 
-      const gif = await this.gifs.createFromBuffer({
-        ownerId: account.id,
-        ownerStatus: account.status,
-        ownerApproved: account.role === "admin" || account.approved,
-        title,
+      this.pendingUploads.set(String(tgUser.id), {
         buffer: gifBuffer,
+        defaultTitle,
+        step: "title",
+        expiresAt: Date.now() + UPLOAD_SESSION_TTL_MS,
       });
-      const webOrigin =
-        this.config.get<string>("WEB_ORIGIN") ?? "https://vidsandgifs.xyz";
       this.logger.log(
-        `telegram.upload ok kind=${kind} userId=${link.userId} gifId=${gif.id} downloaded=${downloaded.length} stored=${gifBuffer.length}`,
+        `telegram.upload pending kind=${kind} userId=${link.userId} downloaded=${downloaded.length} buffered=${gifBuffer.length}`,
       );
       await ctx.reply(
-        t(locale, "upload.success", {
-          title,
-          url: `${webOrigin}/gifs/${gif.id}`,
-        }),
-        { link_preview_options: { is_disabled: false } },
+        t(locale, "upload.askTitle", { default: defaultTitle }),
       );
     } catch (err) {
       this.logger.warn(
@@ -761,4 +821,148 @@ export class TelegramService
       );
     }
   }
+
+  /**
+   * Pull a session from the map iff it's still valid. Expired sessions
+   * are dropped — the caller can show an "expired, please re-send"
+   * message in that case (we don't reply here so /skip and free-form
+   * text both get a chance to no-op silently for users who never had
+   * a session).
+   */
+  private takeFreshSession(tgUserId: string): PendingUpload | null {
+    const session = this.pendingUploads.get(tgUserId);
+    if (!session) return null;
+    if (session.expiresAt < Date.now()) {
+      this.pendingUploads.delete(tgUserId);
+      return null;
+    }
+    return session;
+  }
+
+  /**
+   * Apply a user reply (or null = /skip) to the current upload step.
+   * - title step → record title (or default), advance to tags step.
+   * - tags step → parse tags (or none), finalize the upload.
+   *
+   * Validation failures (title too long, too many tags) leave the
+   * session in place so the user can retry without re-sending the GIF.
+   */
+  private async advanceUploadSession(
+    ctx: Context,
+    locale: BotLocale,
+    session: PendingUpload,
+    input: string | null,
+  ): Promise<void> {
+    const tgUserId = String(ctx.from?.id ?? "");
+    if (!tgUserId) return;
+
+    if (session.step === "title") {
+      let title = session.defaultTitle;
+      if (input !== null && input.length > 0) {
+        if (input.length > MAX_TITLE_LEN) {
+          // Keep the session alive so user can retry without re-uploading.
+          this.pendingUploads.set(tgUserId, session);
+          await ctx.reply(t(locale, "upload.titleTooLong"));
+          return;
+        }
+        title = input;
+      }
+      const next: PendingUpload = {
+        ...session,
+        step: "tags",
+        title,
+        expiresAt: Date.now() + UPLOAD_SESSION_TTL_MS,
+      };
+      this.pendingUploads.set(tgUserId, next);
+      await ctx.reply(t(locale, "upload.askTags"));
+      return;
+    }
+
+    // tags step
+    let tagNames: string[] = [];
+    if (input !== null && input.length > 0) {
+      tagNames = parseTagInput(input);
+      if (tagNames.length > MAX_TAGS) {
+        this.pendingUploads.set(tgUserId, session);
+        await ctx.reply(t(locale, "upload.tagsTooMany"));
+        return;
+      }
+    }
+    this.pendingUploads.delete(tgUserId);
+    await this.finalizePendingUpload(ctx, locale, session, tagNames);
+  }
+
+  private async finalizePendingUpload(
+    ctx: Context,
+    locale: BotLocale,
+    session: PendingUpload,
+    tagNames: string[],
+  ): Promise<void> {
+    const tgUser = ctx.from;
+    if (!tgUser) return;
+    const link = await this.links.findByTelegramUserId(String(tgUser.id));
+    const botName = this.botUsername ?? "vidsandgifsbot";
+    if (!link) {
+      // Edge case: user unlinked between sending the GIF and finishing
+      // the prompts. Fall back to the standard "link first" message.
+      await ctx.reply(t(locale, "upload.notLinked", { bot: botName }));
+      return;
+    }
+    const account = await this.users.findById(link.userId);
+    if (!account) {
+      await ctx.reply(t(locale, "upload.linkedAccountGone"));
+      return;
+    }
+    const title = session.title ?? session.defaultTitle;
+    await ctx.reply(t(locale, "upload.processing", { title }));
+    try {
+      const gif = await this.gifs.createFromBuffer({
+        ownerId: account.id,
+        ownerStatus: account.status,
+        ownerApproved: account.role === "admin" || account.approved,
+        title,
+        buffer: session.buffer,
+        tagNames,
+      });
+      const webOrigin =
+        this.config.get<string>("WEB_ORIGIN") ?? "https://vidsandgifs.xyz";
+      this.logger.log(
+        `telegram.upload ok userId=${link.userId} gifId=${gif.id} stored=${session.buffer.length} tags=${tagNames.length}`,
+      );
+      const url = `${webOrigin}/gifs/${gif.id}`;
+      const successKey =
+        tagNames.length > 0 ? "upload.successWithTags" : "upload.success";
+      await ctx.reply(
+        t(locale, successKey, { title, url, tags: tagNames.join(", ") }),
+        { link_preview_options: { is_disabled: false } },
+      );
+    } catch (err) {
+      this.logger.warn(
+        `telegram.upload finalize failed userId=${link.userId}: ${(err as Error).message}`,
+      );
+      await ctx.reply(
+        t(locale, "upload.failed", {
+          message: (err as Error).message ?? "unknown error",
+        }),
+      );
+    }
+  }
+}
+
+/**
+ * Parse a free-form tag list. Accepts commas, semicolons, or whitespace
+ * as separators; lowercases everything; strips a leading "#" so users
+ * who type "#cat #funny" get the obvious result; dedupes.
+ */
+function parseTagInput(raw: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const piece of raw.split(/[,;\s]+/)) {
+    const cleaned = piece.replace(/^#+/, "").trim().toLowerCase();
+    if (!cleaned) continue;
+    if (seen.has(cleaned)) continue;
+    seen.add(cleaned);
+    out.push(cleaned);
+  }
+  return out;
 }
