@@ -15,6 +15,7 @@ import { useLocale, useSetLocale, useT } from "@/lib/i18n";
 import { PushToggleRow } from "./UserMenu";
 import { TelegramConnectRow } from "./TelegramConnectRow";
 import { OpenInTelegramButton } from "./OpenInTelegramButton";
+import { FolderPickerSelect } from "./FolderPickerSelect";
 
 interface Props {
   /** SSR-resolved miniPlayerEnabled so the toggle's first render
@@ -139,6 +140,10 @@ export function SettingsForm({
 
         <Separator size="4" />
 
+        <TelegramActiveFolderRow />
+
+        <Separator size="4" />
+
         <SettingRow label={t("user.profile.language")}>
           <SegmentedControl.Root
             size="1"
@@ -176,6 +181,57 @@ function SettingRow({
         )}
       </Box>
       {children}
+    </Flex>
+  );
+}
+
+/**
+ * Picks which folder the user's Telegram bot operates against. Only
+ * meaningful when the Telegram link exists, so the picker is disabled
+ * (with an explanatory hint) when the link is missing.
+ */
+function TelegramActiveFolderRow() {
+  const t = useT();
+  const utils = trpc.useUtils();
+  const status = trpc.telegram.status.useQuery();
+  const active = trpc.folders.getTelegramActiveFolder.useQuery();
+  const set = trpc.folders.setTelegramActiveFolder.useMutation({
+    onSuccess: () => utils.folders.getTelegramActiveFolder.invalidate(),
+  });
+  const linked = !!status.data?.linked;
+  const value = active.data?.folderId ?? null;
+
+  const onChange = (next: string | null) => {
+    set.mutate({ folderId: next });
+  };
+
+  return (
+    <Flex justify="between" align="center" gap="3" wrap="wrap">
+      <Box style={{ minWidth: 0, flex: 1 }}>
+        <Text as="div" size="2">
+          {t("settings.folders.label")}
+        </Text>
+        <Text as="div" size="1" color="gray">
+          {t("settings.folders.hint")}
+        </Text>
+        {!linked && (
+          <Text as="div" size="1" color="gray" mt="1">
+            {t("settings.folders.linkRequired")}
+          </Text>
+        )}
+        {set.error && (
+          <Text as="div" size="1" color="red" mt="1">
+            {set.error.message}
+          </Text>
+        )}
+      </Box>
+      <FolderPickerSelect
+        value={value}
+        onChange={onChange}
+        disabled={!linked || set.isPending || active.isLoading}
+        noneLabel={t("settings.folders.none")}
+        ariaLabel={t("settings.folders.label")}
+      />
     </Flex>
   );
 }

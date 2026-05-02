@@ -10,9 +10,9 @@ export type BotStringKey = keyof typeof STRINGS.en;
 export const STRINGS: Record<BotLocale, Record<string, string>> = {
   uk: {
     "start.hello":
-      "Привіт! Якщо ви прийшли з vidsandgifs.xyz/settings, щоб підʼєднати акаунт — Telegram міг не передати посилання-токен. Поверніться на /settings і натисніть «Підʼєднати Telegram» ще раз; коли цей чат відкриється — натисніть кнопку START, якщо вона зʼявиться.\n\nІнакше: напишіть @{bot} <запит> у будь-якому чаті, щоб знайти GIF.",
+      "Привіт! Якщо ви прийшли з vidsandgifs.com/settings, щоб підʼєднати акаунт — Telegram міг не передати посилання-токен. Поверніться на /settings і натисніть «Підʼєднати Telegram» ще раз; коли цей чат відкриється — натисніть кнопку START, якщо вона зʼявиться.\n\nІнакше: напишіть @{bot} <запит> у будь-якому чаті, щоб знайти GIF.",
     "start.invalidToken":
-      "Це посилання застаріле або недійсне (термін дії 15 хв). Відкрийте vidsandgifs.xyz/settings і натисніть «Підʼєднати Telegram» ще раз.",
+      "Це посилання застаріле або недійсне (термін дії 15 хв). Відкрийте vidsandgifs.com/settings і натисніть «Підʼєднати Telegram» ще раз.",
     "start.accountGone":
       "Акаунт, на який вказувало це посилання, більше не існує. Створіть нове посилання на сайті.",
     "start.linked":
@@ -41,7 +41,7 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
     "unlink.success":
       "Відʼєднано. Інлайн-пошук працює і без акаунту.",
     "upload.notLinked":
-      "Спочатку підʼєднайте акаунт vids&gifs. Відкрийте vidsandgifs.xyz/settings, натисніть «Підʼєднати Telegram» і поверніться сюди до @{bot}.",
+      "Спочатку підʼєднайте акаунт vids&gifs. Відкрийте vidsandgifs.com/settings, натисніть «Підʼєднати Telegram» і поверніться сюди до @{bot}.",
     "upload.notGif":
       "Це не схоже на GIF. Надішліть .gif як Файл (Документ) або як Анімацію — обидва варіанти працюють.",
     "upload.tooBig":
@@ -81,15 +81,32 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
     "lang.button.uk": "🇺🇦 Українська",
     "lang.button.en": "🇬🇧 English",
     "bot.description.long":
-      "Шукайте та діліться GIF з vids&gifs у будь-якому чаті. Підʼєднайте акаунт на vidsandgifs.xyz/settings, щоб завантажувати власні GIF прямо звідси. Напишіть /help для інструкцій.",
+      "Шукайте та діліться GIF з vids&gifs у будь-якому чаті. Підʼєднайте акаунт на vidsandgifs.com/settings, щоб завантажувати власні GIF прямо звідси. Напишіть /help для інструкцій.",
     "bot.description.short":
       "Пошук та завантаження GIF з vids&gifs.",
+    "folder.usage":
+      "Керування активною папкою:\n/folders — показати ваші папки.\n/folder set <назва> — обрати активну папку (для інлайн-пошуку та завантажень).\n/folder clear — скинути активну папку.\nПапки створюються на сайті: {webOrigin}/settings",
+    "folder.list.empty":
+      "У вас ще немає папок. Створіть їх на сайті: {webOrigin}/settings",
+    "folder.list.header": "Ваші папки:",
+    "folder.list.item": "{n}. {name} — {count} GIF",
+    "folder.list.footer":
+      "Використовуйте /folder set <назва>, щоб обрати папку для інлайн-пошуку та завантажень.",
+    "folder.list.activeMark": " ★ активна",
+    "folder.set.usage": "Використання: /folder set <назва>",
+    "folder.set.notFound":
+      "Папку «{name}» не знайдено. Перегляньте список через /folders.",
+    "folder.set.ok": "Активна папка: {name}",
+    "folder.clear.ok":
+      "Активну папку скинуто. Інлайн-пошук тепер охоплює всі публічні GIF.",
+    "folder.create.usage":
+      "Папки створюються на сайті: {webOrigin}/settings",
   },
   en: {
     "start.hello":
-      'Hi! If you came from vidsandgifs.xyz/settings to link your account — Telegram may not have forwarded the link token. Go back to /settings and click "Connect Telegram" again; when this chat opens, tap the START button if it shows up.\n\nOtherwise: type @{bot} <query> in any chat to search GIFs.',
+      'Hi! If you came from vidsandgifs.com/settings to link your account — Telegram may not have forwarded the link token. Go back to /settings and click "Connect Telegram" again; when this chat opens, tap the START button if it shows up.\n\nOtherwise: type @{bot} <query> in any chat to search GIFs.',
     "start.invalidToken":
-      'That link is expired or invalid (15-min TTL). Open vidsandgifs.xyz/settings and click "Connect Telegram" again.',
+      'That link is expired or invalid (15-min TTL). Open vidsandgifs.com/settings and click "Connect Telegram" again.',
     "start.accountGone":
       "The account this link points to no longer exists. Generate a new link from the website.",
     "start.linked":
@@ -117,7 +134,7 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
     "unlink.success":
       "Unlinked. Inline search still works without an account.",
     "upload.notLinked":
-      'You need to link your vids&gifs account first. Open vidsandgifs.xyz/settings, click "Connect Telegram", and follow the link back to @{bot}.',
+      'You need to link your vids&gifs account first. Open vidsandgifs.com/settings, click "Connect Telegram", and follow the link back to @{bot}.',
     "upload.notGif":
       "That doesn't look like a GIF. Send a .gif file (Document) or an Animation — both work.",
     "upload.tooBig": "That GIF is over 20 MB — too big to upload.",
@@ -154,8 +171,25 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
     "lang.button.uk": "🇺🇦 Українська",
     "lang.button.en": "🇬🇧 English",
     "bot.description.long":
-      "Search and share GIFs from vids&gifs in any chat. Link your account at vidsandgifs.xyz/settings to upload your own GIFs straight from here. Send /help for instructions.",
+      "Search and share GIFs from vids&gifs in any chat. Link your account at vidsandgifs.com/settings to upload your own GIFs straight from here. Send /help for instructions.",
     "bot.description.short": "Search & upload GIFs from vids&gifs.",
+    "folder.usage":
+      "Manage your active folder:\n/folders — list your folders.\n/folder set <name> — pick the active folder (for inline search and uploads).\n/folder clear — clear the active folder.\nFolders are created on the website: {webOrigin}/settings",
+    "folder.list.empty":
+      "You don't have any folders yet. Create one on the website: {webOrigin}/settings",
+    "folder.list.header": "Your folders:",
+    "folder.list.item": "{n}. {name} — {count} GIFs",
+    "folder.list.footer":
+      "Use /folder set <name> to select one for inline search and uploads.",
+    "folder.list.activeMark": " ★ active",
+    "folder.set.usage": "Usage: /folder set <name>",
+    "folder.set.notFound":
+      'Folder "{name}" not found. List with /folders.',
+    "folder.set.ok": "Active folder: {name}",
+    "folder.clear.ok":
+      "Active folder cleared. Inline search now spans all public GIFs.",
+    "folder.create.usage":
+      "Folders are created on the website: {webOrigin}/settings",
   },
 } as const;
 

@@ -551,6 +551,127 @@ export class TelegramService
       await ctx.reply(t(locale, "unlink.success"));
     });
 
+    // ─── /folders — list the linked user's folders ───
+    // Read-only command that lets a user discover what folder names
+    // they can pass to /folder set. Marks whichever folder (if any) is
+    // currently active so the user can tell at a glance.
+    bot.command("folders", async (ctx) => {
+      const tgId = ctx.from?.id;
+      if (!tgId) return;
+      const locale = await this.resolveLocale(tgId);
+      const botName = this.botUsername ?? "vidsandgifsbot";
+      const webOrigin =
+        this.config.get<string>("WEB_ORIGIN") ?? "https://vidsandgifs.xyz";
+      const link = await this.links.findByTelegramUserId(String(tgId));
+      if (!link) {
+        await ctx.reply(t(locale, "upload.notLinked", { bot: botName }));
+        return;
+      }
+      const folders = await this.folders.listForOwner(link.userId);
+      if (folders.length === 0) {
+        await ctx.reply(t(locale, "folder.list.empty", { webOrigin }), {
+          link_preview_options: { is_disabled: true },
+        });
+        return;
+      }
+      const activeId = await this.prefs.getActiveFolderId(String(tgId));
+      const lines: string[] = [t(locale, "folder.list.header")];
+      folders.forEach((f, i) => {
+        const line = t(locale, "folder.list.item", {
+          n: i + 1,
+          name: f.name,
+          count: f.gifCount,
+        });
+        const marker =
+          f.id === activeId ? t(locale, "folder.list.activeMark") : "";
+        lines.push(`${line}${marker}`);
+      });
+      lines.push("");
+      lines.push(t(locale, "folder.list.footer"));
+      this.logger.log(
+        `telegram./folders from=${tgId} userId=${link.userId} count=${folders.length} active=${activeId ?? "none"}`,
+      );
+      await ctx.reply(lines.join("\n"), {
+        link_preview_options: { is_disabled: true },
+      });
+    });
+
+    // ─── /folder [set <name>|clear] — manage the active folder ───
+    // Single command with subcommand dispatch on the first whitespace-
+    // separated token. Bare /folder prints usage; unknown subcommands
+    // also fall through to usage so a typo doesn't silently no-op.
+    bot.command("folder", async (ctx) => {
+      const tgId = ctx.from?.id;
+      if (!tgId) return;
+      const locale = await this.resolveLocale(tgId);
+      const botName = this.botUsername ?? "vidsandgifsbot";
+      const webOrigin =
+        this.config.get<string>("WEB_ORIGIN") ?? "https://vidsandgifs.xyz";
+      const raw = (ctx.match ?? "").trim();
+      if (!raw) {
+        await ctx.reply(t(locale, "folder.usage", { webOrigin }), {
+          link_preview_options: { is_disabled: true },
+        });
+        return;
+      }
+      const spaceIdx = raw.search(/\s/);
+      const sub =
+        (spaceIdx === -1 ? raw : raw.slice(0, spaceIdx)).toLowerCase();
+      const rest = spaceIdx === -1 ? "" : raw.slice(spaceIdx + 1).trim();
+
+      if (sub === "set") {
+        if (!rest) {
+          await ctx.reply(t(locale, "folder.set.usage"));
+          return;
+        }
+        const link = await this.links.findByTelegramUserId(String(tgId));
+        if (!link) {
+          await ctx.reply(t(locale, "upload.notLinked", { bot: botName }));
+          return;
+        }
+        const folders = await this.folders.listForOwner(link.userId);
+        const target = rest.toLowerCase();
+        const match = folders.find((f) => f.name.toLowerCase() === target);
+        if (!match) {
+          this.logger.warn(
+            `telegram./folder set notFound from=${tgId} userId=${link.userId} name="${rest}"`,
+          );
+          await ctx.reply(t(locale, "folder.set.notFound", { name: rest }));
+          return;
+        }
+        await this.prefs.setActiveFolderId(String(tgId), match.id);
+        this.logger.log(
+          `telegram./folder set ok from=${tgId} userId=${link.userId} folderId=${match.id}`,
+        );
+        await ctx.reply(t(locale, "folder.set.ok", { name: match.name }), {
+          link_preview_options: { is_disabled: true },
+        });
+        return;
+      }
+
+      if (sub === "clear") {
+        const link = await this.links.findByTelegramUserId(String(tgId));
+        if (!link) {
+          await ctx.reply(t(locale, "upload.notLinked", { bot: botName }));
+          return;
+        }
+        await this.prefs.setActiveFolderId(String(tgId), null);
+        this.logger.log(
+          `telegram./folder clear from=${tgId} userId=${link.userId}`,
+        );
+        await ctx.reply(t(locale, "folder.clear.ok"), {
+          link_preview_options: { is_disabled: true },
+        });
+        return;
+      }
+
+      // Unknown subcommand → show usage (helps users discover the right
+      // syntax instead of silently no-opping on a typo).
+      await ctx.reply(t(locale, "folder.usage", { webOrigin }), {
+        link_preview_options: { is_disabled: true },
+      });
+    });
+
     // ─── /lang ───
     bot.command("lang", async (ctx) => {
       const tgId = ctx.from?.id;

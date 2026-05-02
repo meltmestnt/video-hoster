@@ -17,6 +17,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
+  ArchiveIcon,
   CheckCircledIcon,
   CrossCircledIcon,
   GearIcon,
@@ -407,6 +408,11 @@ function ProfilePane({
             popularity-gated for newer bots, so this gives users a
             reliable one-tap path to find @vidsandgifsbot. */}
         <OpenInTelegramButton />
+        <Button asChild variant="soft" color="iris">
+          <Link href="/folders">
+            <ArchiveIcon /> {t("folders.userMenu.link")}
+          </Link>
+        </Button>
         <Button asChild variant="soft" color="amber">
           <Link href="/favorites">
             <StarIcon /> {t("user.profile.favorites")}

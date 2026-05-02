@@ -20,6 +20,7 @@ import { trpc } from "@/lib/trpc";
 import { useT } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
 import { Morph } from "./Morph";
+import { FolderPickerSelect } from "./FolderPickerSelect";
 
 interface Props {
   open: boolean;
@@ -67,6 +68,7 @@ export function GifUploadDialog({ open, onOpenChange, initialFile }: Props) {
   const [tagsRaw, setTagsRaw] = useState("");
   const [visibility, setVisibility] = useState<"public" | "private">("public");
   const [outputKind, setOutputKind] = useState<"gif" | "mp4">("gif");
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [duration, setDuration] = useState<number | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -105,6 +107,7 @@ export function GifUploadDialog({ open, onOpenChange, initialFile }: Props) {
       setTagsRaw("");
       setVisibility("public");
       setOutputKind("gif");
+      setSelectedFolderId(null);
       setFile(null);
       setDuration(null);
       setDragging(false);
@@ -283,6 +286,7 @@ export function GifUploadDialog({ open, onOpenChange, initialFile }: Props) {
           description: description.trim(),
           tags,
           visibility,
+          folderId: selectedFolderId,
         });
         // Refresh the listings + my-profile counts so the new GIF
         // shows up wherever the user already is (feed, profile, etc.)
@@ -308,6 +312,10 @@ export function GifUploadDialog({ open, onOpenChange, initialFile }: Props) {
     try {
       if (outputKind === "gif") {
         const d = duration ?? (await gifDurationSeconds(file));
+        // selectedFolderId is honored on the URL path (above) but the
+        // file path goes through upload-context.startGif, which doesn't
+        // currently thread folderId into finalizeGifUpload. Folder
+        // placement for direct file uploads is a follow-up.
         await upload.startGif(
           file,
           {
@@ -444,6 +452,20 @@ export function GifUploadDialog({ open, onOpenChange, initialFile }: Props) {
                 ? t("upload.visibility.publicHint")
                 : t("upload.visibility.privateHint")}
             </Text>
+          </Flex>
+
+          <Flex direction="column" gap="1">
+            <Text size="2" weight="medium">
+              {t("gifUpload.folder.label")}
+            </Text>
+            <FolderPickerSelect
+              value={selectedFolderId}
+              onChange={setSelectedFolderId}
+              noneLabel={t("gifUpload.folder.none")}
+              allowCreate
+              disabled={working || urlSubmitting}
+              ariaLabel={t("gifUpload.folder.label")}
+            />
           </Flex>
 
           {source === "file" && (
