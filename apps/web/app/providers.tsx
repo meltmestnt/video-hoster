@@ -1,8 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { SessionProvider, useSession } from "next-auth/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { SessionProvider, signOut, useSession } from "next-auth/react";
+import {
+  MutationCache,
+  QueryCache,
+  QueryClient,
+  QueryClientProvider,
+} from "@tanstack/react-query";
 import { httpBatchLink } from "@trpc/client";
 import { trpc } from "@/lib/trpc";
 import { UploadProvider } from "@/lib/upload-context";
@@ -15,6 +20,16 @@ import { ScrollLock } from "@/components/ScrollLock";
 const apiUrl =
   (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000") + "/trpc";
 
+// tRPC's TRPCClientError surfaces the server's TRPCError shape on
+// `.data.code` and `.data.httpStatus`. Both fields can be populated;
+// either being UNAUTHORIZED/401 means the same thing.
+function isUnauthorized(err: unknown): boolean {
+  const data = (err as { data?: { code?: string; httpStatus?: number } } | null)
+    ?.data;
+  if (!data) return false;
+  return data.code === "UNAUTHORIZED" || data.httpStatus === 401;
+}
+
 function TrpcProviders({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
   // The trpc client is built once via useState; we route header lookups through
@@ -22,6 +37,28 @@ function TrpcProviders({ children }: { children: React.ReactNode }) {
   // mount time (which is null until next-auth finishes its first fetch).
   const tokenRef = useRef<string | undefined>(undefined);
   tokenRef.current = session?.apiToken;
+
+  // One-shot guard: only the FIRST 401 from an authed call triggers the
+  // sign-out redirect. Without this, a wave of in-flight queries all
+  // failing at once would each call signOut(), causing redirect thrash
+  // and wedging next-auth's CSRF flow.
+  const signedOutOnceRef = useRef(false);
+  const handleAuthError = useCallback((err: unknown) => {
+    // Only treat 401 as an "expired session" if we currently believe
+    // we have one. An anonymous viewer hitting a protected procedure
+    // should NOT get bounced to /login — that's a UI-side bug we'd
+    // want to see in the console, not paper over.
+    if (!tokenRef.current) return;
+    if (!isUnauthorized(err)) return;
+    if (signedOutOnceRef.current) return;
+    signedOutOnceRef.current = true;
+    // Land back on the same URL after re-auth. NextAuth signOut takes
+    // the callbackUrl literally as the post-signout destination, so we
+    // construct /login?callbackUrl=<currentPath> here.
+    const here = window.location.pathname + window.location.search;
+    const next = `/login?callbackUrl=${encodeURIComponent(here)}`;
+    void signOut({ callbackUrl: next });
+  }, []);
 
   const [queryClient] = useState(
     () =>
@@ -40,8 +77,28 @@ function TrpcProviders({ children }: { children: React.ReactNode }) {
             // affects passive timeline drift, which 60s of staleness
             // covers anyway.
             refetchOnWindowFocus: false,
+            // Don't retry auth failures — they aren't transient, and the
+            // default 3-retries-with-backoff turns one expired session
+            // into 3× per query × ~4 polling components = a 401 storm.
+            // Forbidden is in the same bucket: the user's role/tier won't
+            // change between two retries 200ms apart.
+            retry: (failureCount, error) => {
+              const data = (error as { data?: { httpStatus?: number } })
+                ?.data;
+              const status = data?.httpStatus;
+              if (status === 401 || status === 403) return false;
+              return failureCount < 3;
+            },
           },
         },
+        // Global hook for every failing query/mutation — fires once per
+        // failure. handleAuthError debounces sign-out across the wave.
+        queryCache: new QueryCache({
+          onError: (err) => handleAuthError(err),
+        }),
+        mutationCache: new MutationCache({
+          onError: (err) => handleAuthError(err),
+        }),
       }),
   );
   const [trpcClient] = useState(() =>
