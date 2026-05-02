@@ -361,7 +361,7 @@ export class TelegramService
   }
 
   private async resolveLocale(
-    telegramUserId: number | undefined,
+    telegramUserId: number | string | undefined,
   ): Promise<BotLocale> {
     if (!telegramUserId) return "uk";
     return this.prefs.getLocale(String(telegramUserId));
@@ -373,6 +373,55 @@ export class TelegramService
     return new InlineKeyboard()
       .text(mark("uk", "lang.button.uk"), "lang:uk")
       .text(mark("en", "lang.button.en"), "lang:en");
+  }
+
+  /**
+   * Render the user's folder list into chat. Shared between the /folders
+   * command and the /start folders deep-link fired by the inline-mode
+   * "Manage folders" button — keeping them in sync means tapping the
+   * button gives users the same listing they'd get if they typed the
+   * command manually.
+   */
+  private async replyWithFolderList(
+    ctx: Context,
+    tgId: number | string,
+  ): Promise<void> {
+    const locale = await this.resolveLocale(tgId);
+    const botName = this.botUsername ?? "vidsandgifsbot";
+    const webOrigin =
+      this.config.get<string>("WEB_ORIGIN") ?? "https://vidsandgifs.xyz";
+    const link = await this.links.findByTelegramUserId(String(tgId));
+    if (!link) {
+      await ctx.reply(t(locale, "upload.notLinked", { bot: botName }));
+      return;
+    }
+    const folders = await this.folders.listForOwner(link.userId);
+    if (folders.length === 0) {
+      await ctx.reply(t(locale, "folder.list.empty", { webOrigin }), {
+        link_preview_options: { is_disabled: true },
+      });
+      return;
+    }
+    const activeId = await this.prefs.getActiveFolderId(String(tgId));
+    const lines: string[] = [t(locale, "folder.list.header")];
+    folders.forEach((f, i) => {
+      const line = t(locale, "folder.list.item", {
+        n: i + 1,
+        name: f.name,
+        count: f.gifCount,
+      });
+      const marker =
+        f.id === activeId ? t(locale, "folder.list.activeMark") : "";
+      lines.push(`${line}${marker}`);
+    });
+    lines.push("");
+    lines.push(t(locale, "folder.list.footer"));
+    this.logger.log(
+      `telegram./folders from=${tgId} userId=${link.userId} count=${folders.length} active=${activeId ?? "none"}`,
+    );
+    await ctx.reply(lines.join("\n"), {
+      link_preview_options: { is_disabled: true },
+    });
   }
 
   private registerHandlers(bot: Bot): void {
@@ -413,6 +462,15 @@ export class TelegramService
         // Bare /start with no payload AND no existing link — most likely
         // the deep-link payload was stripped. Tell them how to fix it.
         await ctx.reply(t(locale, "start.hello", { bot: botName }));
+        return;
+      }
+
+      // Deep-link payload "folders" comes from the inline-mode "Manage
+      // folders" button. Render the same listing as /folders rather than
+      // attempting to redeem it as a link token, which would always
+      // fail with start.invalidToken and confuse the user.
+      if (payload === "folders") {
+        await this.replyWithFolderList(ctx, tgUser.id);
         return;
       }
 
@@ -562,42 +620,7 @@ export class TelegramService
     bot.command("folders", async (ctx) => {
       const tgId = ctx.from?.id;
       if (!tgId) return;
-      const locale = await this.resolveLocale(tgId);
-      const botName = this.botUsername ?? "vidsandgifsbot";
-      const webOrigin =
-        this.config.get<string>("WEB_ORIGIN") ?? "https://vidsandgifs.xyz";
-      const link = await this.links.findByTelegramUserId(String(tgId));
-      if (!link) {
-        await ctx.reply(t(locale, "upload.notLinked", { bot: botName }));
-        return;
-      }
-      const folders = await this.folders.listForOwner(link.userId);
-      if (folders.length === 0) {
-        await ctx.reply(t(locale, "folder.list.empty", { webOrigin }), {
-          link_preview_options: { is_disabled: true },
-        });
-        return;
-      }
-      const activeId = await this.prefs.getActiveFolderId(String(tgId));
-      const lines: string[] = [t(locale, "folder.list.header")];
-      folders.forEach((f, i) => {
-        const line = t(locale, "folder.list.item", {
-          n: i + 1,
-          name: f.name,
-          count: f.gifCount,
-        });
-        const marker =
-          f.id === activeId ? t(locale, "folder.list.activeMark") : "";
-        lines.push(`${line}${marker}`);
-      });
-      lines.push("");
-      lines.push(t(locale, "folder.list.footer"));
-      this.logger.log(
-        `telegram./folders from=${tgId} userId=${link.userId} count=${folders.length} active=${activeId ?? "none"}`,
-      );
-      await ctx.reply(lines.join("\n"), {
-        link_preview_options: { is_disabled: true },
-      });
+      await this.replyWithFolderList(ctx, tgId);
     });
 
     // ─── /folder [set <name>|clear] — manage the active folder ───
@@ -712,15 +735,31 @@ export class TelegramService
         // If the inline-querying user has an active folder selected,
         // scope results to that folder. We only honor the folder when
         // the user also has a linked website account that owns it —
-        // a stale folder id from a deleted folder would silently fall
-        // back to "no folder" via the search query's INNER JOIN
-        // returning nothing, which is fine.
+        // a stale folder id (folder was deleted) silently falls back
+        // to "no folder", and the manage-folders button still surfaces
+        // so the user has an obvious way out.
         let restrictToFolderId: string | null = null;
+        let activeFolderName: string | null = null;
+        let userIsLinked = false;
         if (ctx.from?.id) {
           const tgId = String(ctx.from.id);
           const link = await this.links.findByTelegramUserId(tgId);
           if (link) {
-            restrictToFolderId = await this.prefs.getActiveFolderId(tgId);
+            userIsLinked = true;
+            const folderId = await this.prefs.getActiveFolderId(tgId);
+            if (folderId) {
+              try {
+                const f = await this.folders.findOwned(folderId, link.userId);
+                restrictToFolderId = f.id;
+                activeFolderName = f.name;
+              } catch {
+                // Folder was deleted out from under the user — clear the
+                // stale pref and continue with no restriction so the user
+                // doesn't get stuck on an empty inline picker until they
+                // notice and clear it themselves.
+                await this.prefs.setActiveFolderId(tgId, null).catch(() => {});
+              }
+            }
           }
         }
         const items = await this.gifs.searchInlineForBot({
@@ -770,7 +809,7 @@ export class TelegramService
         // search and don't see this line, inline mode isn't enabled in
         // @BotFather → /setinline.
         this.logger.log(
-          `telegram.inline_query from=${fromId} q="${q}" matched=${items.length} returned=${results.length} backfill=${pendingBackfill.length}`,
+          `telegram.inline_query from=${fromId} q="${q}" matched=${items.length} returned=${results.length} backfill=${pendingBackfill.length} folderId=${restrictToFolderId ?? "none"}`,
         );
         // Don't await — ffmpeg can take a couple of seconds per gif and
         // Telegram only gives us a short window to answer the query.
@@ -788,9 +827,26 @@ export class TelegramService
         // when a folder is active. Unrestricted queries hit a public-
         // only filter so a shared cache is safe.
         const folderActive = restrictToFolderId !== null;
+        // Show a button above results for linked users so they always
+        // have a one-tap path to manage / change / clear their active
+        // folder. The button fires /start folders in the bot's PM, which
+        // we handle in the start command above.
+        const locale = await this.resolveLocale(ctx.from?.id);
+        let button:
+          | { text: string; start_parameter: string }
+          | undefined;
+        if (userIsLinked) {
+          const text = activeFolderName
+            ? t(locale, "inline.button.activeFolder", {
+                name: activeFolderName,
+              })
+            : t(locale, "inline.button.manageFolders");
+          button = { text, start_parameter: "folders" };
+        }
         await ctx.answerInlineQuery(results, {
           cache_time: folderActive ? 0 : INLINE_CACHE_SECONDS,
-          is_personal: folderActive,
+          is_personal: folderActive || userIsLinked,
+          ...(button ? { button } : {}),
         });
       } catch (err) {
         this.logger.warn(

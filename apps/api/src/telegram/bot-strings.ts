@@ -101,6 +101,10 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
       "Активну папку скинуто. Інлайн-пошук тепер охоплює всі публічні GIF.",
     "folder.create.usage":
       "Папки створюються на сайті: {webOrigin}/settings",
+    "inline.button.activeFolder":
+      "📁 Папка: {name} — керувати",
+    "inline.button.manageFolders":
+      "📁 Керувати папками",
   },
   en: {
     "start.hello":
@@ -190,6 +194,10 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
       "Active folder cleared. Inline search now spans all public GIFs.",
     "folder.create.usage":
       "Folders are created on the website: {webOrigin}/settings",
+    "inline.button.activeFolder":
+      "📁 Folder: {name} — manage",
+    "inline.button.manageFolders":
+      "📁 Manage folders",
   },
 } as const;
 
