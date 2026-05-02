@@ -424,6 +424,11 @@ export function GifUploadDialog({ open, onOpenChange, initialFile }: Props) {
                 {t("common.private")}
               </SegmentedControl.Item>
             </SegmentedControl.Root>
+            <Text size="1" color="gray">
+              {visibility === "public"
+                ? t("upload.visibility.publicHint")
+                : t("upload.visibility.privateHint")}
+            </Text>
           </Flex>
 
           {source === "file" && (
