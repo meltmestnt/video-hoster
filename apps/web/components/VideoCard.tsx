@@ -147,6 +147,14 @@ export function VideoCard({
     if (!thumb) return; // let the <a> navigate normally
 
     e.preventDefault();
+    // Hold for 100ms so the click registers as a deliberate action
+    // before the morph + scroll snap fire. preventDefault has already
+    // run synchronously, so the browser won't follow the <a> in the
+    // meantime.
+    window.setTimeout(() => runMorph(thumb), 100);
+  };
+
+  const runMorph = (thumb: HTMLDivElement) => {
     // Snap the listing to the top before measuring so the destination
     // page lands at scrollY=0 and the overlay's document-anchored math
     // lines up with where the destination .player-frame will actually

@@ -2,9 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Badge, Box, Card, Flex, Text } from "@radix-ui/themes";
+import { Badge, Box, Card, Flex, IconButton, Text } from "@radix-ui/themes";
+import { BookmarkIcon } from "@radix-ui/react-icons";
+import { useSession } from "next-auth/react";
 import { morphToPlayer } from "@/lib/morph-to-player";
 import { useT } from "@/lib/i18n";
+import { AddToFolderMenu } from "./AddToFolderMenu";
 
 interface GifCardData {
   id: string;
@@ -25,6 +28,8 @@ export function GifCard({
 }) {
   const router = useRouter();
   const t = useT();
+  const session = useSession();
+  const signedIn = session.status === "authenticated";
   const href = `/gifs/${gif.id}`;
   const thumbRef = useRef<HTMLDivElement | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
@@ -71,28 +76,36 @@ export function GifCard({
     const thumb = thumbRef.current;
     if (!thumb) return; // let the <a> navigate normally
     e.preventDefault();
-    // Snap the listing to the top before measuring/morphing so the
-    // destination page lands at scrollY=0 and the overlay's document-
-    // anchored math lines up with where the destination .player-frame
-    // will actually render. Without this, a click made deep in the list
-    // morphs to a point far below where Next.js then scroll-resets to.
-    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
-    // Push the route from inside onMorphStart so the destination page
-    // begins streaming as the overlay starts moving — same staging
-    // VideoCard uses.
-    const ok = morphToPlayer({
-      thumbEl: thumb,
-      imageUrl: gif.gifUrl,
-      backgroundColor: gif.gifUrl ? "var(--gray-3)" : "black",
-      // The destination GIF page renders the image with object-fit:contain,
-      // so the overlay should land in "contain" mode too. Source thumb is
-      // "cover", but the helper's overlay is square-ish during transit and
-      // "cover" reads better mid-flight; the brief mismatch on land is
-      // hidden when the overlay fades out.
-      objectFit: "cover",
-      onMorphStart: () => router.push(href),
-    });
-    if (!ok) router.push(href);
+    // Hold for 100ms so the click registers as a deliberate action
+    // before the morph + scroll snap fire. preventDefault has already
+    // run synchronously, so the browser won't follow the <a> in the
+    // meantime.
+    window.setTimeout(() => {
+      // Snap the listing to the top before measuring/morphing so the
+      // destination page lands at scrollY=0 and the overlay's document-
+      // anchored math lines up with where the destination .player-frame
+      // will actually render. Without this, a click made deep in the
+      // list morphs to a point far below where Next.js then scroll-
+      // resets to.
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+      // Push the route from inside onMorphStart so the destination page
+      // begins streaming as the overlay starts moving — same staging
+      // VideoCard uses.
+      const ok = morphToPlayer({
+        thumbEl: thumb,
+        imageUrl: gif.gifUrl,
+        backgroundColor: gif.gifUrl ? "var(--gray-3)" : "black",
+        // The destination GIF page renders the image with
+        // object-fit:contain, so the overlay should land in "contain"
+        // mode too. Source thumb is "cover", but the helper's overlay
+        // is square-ish during transit and "cover" reads better
+        // mid-flight; the brief mismatch on land is hidden when the
+        // overlay fades out.
+        objectFit: "cover",
+        onMorphStart: () => router.push(href),
+      });
+      if (!ok) router.push(href);
+    }, 100);
   };
 
   return (
@@ -144,6 +157,46 @@ export function GifCard({
               >
                 GIF
               </Badge>
+              {signedIn && (
+                <div
+                  // preventDefault on the wrapper kills the surrounding
+                  // <a>'s native navigation; stopPropagation in BUBBLE
+                  // (not capture) keeps the navigate onClick from firing
+                  // while still letting Radix's trigger receive the click
+                  // on its way down. mousedown is what kicks off the
+                  // morph helper's measurement, so we gate that too.
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                  }}
+                  style={{
+                    position: "absolute",
+                    top: 8,
+                    right: 8,
+                    zIndex: 2,
+                  }}
+                >
+                  <AddToFolderMenu
+                    gifId={gif.id}
+                    align="end"
+                  >
+                    <IconButton
+                      size="1"
+                      variant="solid"
+                      color="gray"
+                      highContrast
+                      aria-label={t("gifCard.menu.addToFolder")}
+                      title={t("gifCard.menu.addToFolder")}
+                      style={{ opacity: 0.92 }}
+                    >
+                      <BookmarkIcon />
+                    </IconButton>
+                  </AddToFolderMenu>
+                </div>
+              )}
             </>
           ) : (
             <Flex align="center" justify="center" style={{ height: "100%" }}>
