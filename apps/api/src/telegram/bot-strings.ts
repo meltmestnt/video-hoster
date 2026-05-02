@@ -10,19 +10,19 @@ export type BotStringKey = keyof typeof STRINGS.en;
 export const STRINGS: Record<BotLocale, Record<string, string>> = {
   uk: {
     "start.hello":
-      "Привіт! Якщо ви прийшли з vidsandgifs.com/settings, щоб підʼєднати акаунт — Telegram міг не передати посилання-токен. Поверніться на /settings і натисніть «Підʼєднати Telegram» ще раз; коли цей чат відкриється — натисніть кнопку START, якщо вона зʼявиться.\n\nІнакше: напишіть @{bot} <запит> у будь-якому чаті, щоб знайти GIF.",
+      "👋 Вітаю! Я бот @{bot} — пошук і завантаження GIF з vids&gifs.\n\nОсь що я вмію:\n\n🔍 Пошук у будь-якому чаті: напишіть @{bot} <запит> — і поділіться GIF одним тапом.\n⬆️ Завантаження: надішліть мені GIF як Файл/Анімацію або вставте публічну URL — я завантажу на сайт і поверну посилання.\n📁 Папки: підʼєднайте акаунт vidsandgifs.com — і я зможу шукати лише в обраній папці та автоматично складати туди завантаження.\n\nЯкщо ви прийшли з /settings, але посилання не спрацювало — натисніть «Підʼєднати Telegram» там ще раз.",
     "start.invalidToken":
       "Це посилання застаріле або недійсне (термін дії 15 хв). Відкрийте vidsandgifs.com/settings і натисніть «Підʼєднати Telegram» ще раз.",
     "start.accountGone":
       "Акаунт, на який вказувало це посилання, більше не існує. Створіть нове посилання на сайті.",
     "start.linked":
-      "Підʼєднано до {name}. Надішліть мені GIF як файл (Документ, не Анімацію) — і я завантажу його на vids&gifs.",
+      "✅ Підʼєднано до {name}.\n\nТепер можна:\n🔍 Шукати GIF у будь-якому чаті — @{bot} <запит>.\n⬆️ Завантажувати — надішліть GIF як Файл/Анімацію або URL.\n📁 Створіть папку на сайті, щоб організувати свою колекцію.\n\nКнопки знизу — швидкий доступ.",
     "start.alreadyLinked":
-      "Цей Telegram уже підʼєднано до {name}. Можете надсилати мені GIF як файли або шукати через інлайн у будь-якому чаті.",
+      "✅ Підʼєднано до {name}.\n\n🔍 Інлайн-пошук: @{bot} <запит> у будь-якому чаті.\n⬆️ Завантаження: надішліть GIF як Файл/Анімацію або вставте публічну URL.\n📁 Папки: /folders — список; /folder set <назва> — обрати активну.\n\nКнопки знизу — швидкий доступ до головного.",
     "start.linkSaveFailed":
       "Не вдалося зберегти підʼєднання. Спробуйте /unlink, потім підʼєднайте знову з /settings.",
     help:
-      "/search <запит> — знайти GIF за назвою або тегом.\n/upload — як додати власний GIF на сайт.\nІнлайн-пошук: @{bot} <запит> — у будь-якому чаті (теж шукає за тегами).\n/folders — показати ваші папки.\n/folder set <назва> — обрати активну папку (інлайн-пошук та завантаження звужуються до неї).\n/folder clear — скинути активну папку.\n/lang — змінити мову.\n/unlink — відʼєднати Telegram від акаунту.",
+      "Як користуватися ботом:\n\n🔍 Інлайн-пошук — @{bot} <запит> у будь-якому чаті. Працює і за назвами, і за тегами.\n   /search <запит> — той самий пошук, але всередині цього чату.\n\n⬆️ Завантаження GIF\n   • Надішліть .gif як Файл (Документ) або як Анімацію.\n   • Або вставте публічну URL — я сам завантажу.\n   • Я попрошу назву й теги. До 20 МБ.\n   /upload — детальна інструкція.\n\n📁 Папки (потрібен підʼєднаний акаунт)\n   /folders — список ваших папок.\n   /folder set <назва> — інлайн-пошук та завантаження звужуються до цієї папки.\n   /folder clear — скинути.\n   Створювати/перейменовувати/видаляти папки — на сайті.\n\nІнше\n   /lang — змінити мову.\n   /unlink — відʼєднати Telegram від акаунту.",
     "search.usage":
       "Скористайтеся так: /search кошеня\nПошук працює і за назвами, і за тегами.\nАбо повний пошук на сайті: {webOrigin}/search",
     "search.empty":
@@ -105,22 +105,26 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
       "📁 Папка: {name} — керувати",
     "inline.button.manageFolders":
       "📁 Керувати папками",
+    "home.button.tryInline": "🔍 Спробувати інлайн-пошук",
+    "home.button.upload": "⬆️ Як завантажити GIF",
+    "home.button.folders": "📁 Мої папки",
+    "home.button.website": "🌐 Відкрити сайт",
   },
   en: {
     "start.hello":
-      'Hi! If you came from vidsandgifs.com/settings to link your account — Telegram may not have forwarded the link token. Go back to /settings and click "Connect Telegram" again; when this chat opens, tap the START button if it shows up.\n\nOtherwise: type @{bot} <query> in any chat to search GIFs.',
+      "👋 Hi! I'm @{bot} — search and upload GIFs from vids&gifs.\n\nHere's what I do:\n\n🔍 Search in any chat: type @{bot} <query> — share a GIF in one tap.\n⬆️ Upload: send me a GIF as a File/Animation, or paste a public URL — I'll host it on the site and reply with the link.\n📁 Folders: link your vidsandgifs.com account and I can scope inline search to one folder and auto-add uploads to it.\n\nIf you came from /settings but the link didn't take — click \"Connect Telegram\" there again.",
     "start.invalidToken":
       'That link is expired or invalid (15-min TTL). Open vidsandgifs.com/settings and click "Connect Telegram" again.',
     "start.accountGone":
       "The account this link points to no longer exists. Generate a new link from the website.",
     "start.linked":
-      "Linked to {name}. Send me a GIF file (as a Document, not as Animation) and I'll upload it to vids&gifs.",
+      "✅ Linked to {name}.\n\nYou can now:\n🔍 Search GIFs in any chat — @{bot} <query>.\n⬆️ Upload — send a GIF as a File/Animation or paste a URL.\n📁 Create folders on the site to organize your collection.\n\nButtons below — quick access.",
     "start.alreadyLinked":
-      "This Telegram is already linked to {name}. You can send me GIFs as files, or search inline from any chat.",
+      "✅ Linked to {name}.\n\n🔍 Inline search: @{bot} <query> in any chat.\n⬆️ Upload: send a GIF as a File/Animation or paste a public URL.\n📁 Folders: /folders to list, /folder set <name> to scope inline search.\n\nButtons below — quick access to the main flows.",
     "start.linkSaveFailed":
       "Couldn't save the link. Try /unlink, then connect again from /settings.",
     help:
-      "/search <query> — find GIFs by title or tag.\n/upload — how to add your own GIF to the site.\nInline search: @{bot} <query> — works in any chat (also matches tags).\n/folders — list your folders.\n/folder set <name> — pick an active folder (scopes inline search and uploads to it).\n/folder clear — clear the active folder.\n/lang — change language.\n/unlink — detach this Telegram from your account.",
+      "How to use the bot:\n\n🔍 Inline search — type @{bot} <query> in any chat. Matches both titles and tags.\n   /search <query> — same search, but inside this chat.\n\n⬆️ Upload a GIF\n   • Send a .gif as a File (Document) or as an Animation.\n   • Or paste a public URL — I'll fetch it.\n   • I'll ask for a name and tags. Up to 20 MB.\n   /upload — detailed how-to.\n\n📁 Folders (requires a linked account)\n   /folders — list your folders.\n   /folder set <name> — scopes inline search and uploads to that folder.\n   /folder clear — reset.\n   Create / rename / delete folders on the website.\n\nOther\n   /lang — change language.\n   /unlink — detach this Telegram from your account.",
     "search.usage":
       "Try it like: /search kitten\nSearch matches both titles and tags.\nOr full search on the site: {webOrigin}/search",
     "search.empty":
@@ -198,6 +202,10 @@ export const STRINGS: Record<BotLocale, Record<string, string>> = {
       "📁 Folder: {name} — manage",
     "inline.button.manageFolders":
       "📁 Manage folders",
+    "home.button.tryInline": "🔍 Try inline search",
+    "home.button.upload": "⬆️ How to upload",
+    "home.button.folders": "📁 My folders",
+    "home.button.website": "🌐 Open website",
   },
 } as const;
 

@@ -376,6 +376,35 @@ export class TelegramService
   }
 
   /**
+   * Inline keyboard attached to /start and /help — gives users a one-tap
+   * path to the bot's main flows without having to remember slash
+   * commands. Shape:
+   *   [🔍 Try inline search] (switch_inline_query opens the picker)
+   *   [⬆️ How to upload]
+   *   [📁 My folders] (only when the user has a linked account)
+   *   [🌐 Open website]
+   */
+  private homeKeyboard(
+    locale: BotLocale,
+    opts: { isLinked: boolean; webOrigin: string },
+  ): InlineKeyboard {
+    // switchInline (not switchInlineCurrent) opens the chat picker so
+    // the user lands in inline mode in whatever chat they want to share
+    // a GIF in — that's the actual habitable use case, not pasting into
+    // the bot's own PM.
+    const kb = new InlineKeyboard()
+      .switchInline(t(locale, "home.button.tryInline"), "")
+      .row()
+      .text(t(locale, "home.button.upload"), "act:upload")
+      .row();
+    if (opts.isLinked) {
+      kb.text(t(locale, "home.button.folders"), "act:folders").row();
+    }
+    kb.url(t(locale, "home.button.website"), opts.webOrigin);
+    return kb;
+  }
+
+  /**
    * Render the user's folder list into chat. Shared between the /folders
    * command and the /start folders deep-link fired by the inline-mode
    * "Manage folders" button — keeping them in sync means tapping the
@@ -443,6 +472,8 @@ export class TelegramService
         `telegram./start from=${tgUser.id} username=${tgUser.username ?? "—"} payload=${payload ? `<${payload.length}ch>` : "<empty>"}`,
       );
 
+      const webOrigin =
+        this.config.get<string>("WEB_ORIGIN") ?? "https://vidsandgifs.xyz";
       if (!payload) {
         // Already-linked path: show the user their current binding rather
         // than the generic onboarding message — saves them from clicking
@@ -455,13 +486,27 @@ export class TelegramService
           await ctx.reply(
             t(locale, "start.alreadyLinked", {
               name: account?.name ?? "vids&gifs",
+              bot: botName,
             }),
+            {
+              link_preview_options: { is_disabled: true },
+              reply_markup: this.homeKeyboard(locale, {
+                isLinked: true,
+                webOrigin,
+              }),
+            },
           );
           return;
         }
         // Bare /start with no payload AND no existing link — most likely
         // the deep-link payload was stripped. Tell them how to fix it.
-        await ctx.reply(t(locale, "start.hello", { bot: botName }));
+        await ctx.reply(t(locale, "start.hello", { bot: botName }), {
+          link_preview_options: { is_disabled: true },
+          reply_markup: this.homeKeyboard(locale, {
+            isLinked: false,
+            webOrigin,
+          }),
+        });
         return;
       }
 
@@ -507,13 +552,31 @@ export class TelegramService
         await ctx.reply(t(locale, "start.linkSaveFailed"));
         return;
       }
-      await ctx.reply(t(locale, "start.linked", { name: account.name }));
+      await ctx.reply(
+        t(locale, "start.linked", { name: account.name, bot: botName }),
+        {
+          link_preview_options: { is_disabled: true },
+          reply_markup: this.homeKeyboard(locale, {
+            isLinked: true,
+            webOrigin,
+          }),
+        },
+      );
     });
 
     bot.command("help", async (ctx) => {
-      const locale = await this.resolveLocale(ctx.from?.id);
+      const tgId = ctx.from?.id;
+      const locale = await this.resolveLocale(tgId);
       const botName = this.botUsername ?? "vidsandgifsbot";
-      await ctx.reply(t(locale, "help", { bot: botName }));
+      const webOrigin =
+        this.config.get<string>("WEB_ORIGIN") ?? "https://vidsandgifs.xyz";
+      const isLinked = tgId
+        ? !!(await this.links.findByTelegramUserId(String(tgId)))
+        : false;
+      await ctx.reply(t(locale, "help", { bot: botName }), {
+        link_preview_options: { is_disabled: true },
+        reply_markup: this.homeKeyboard(locale, { isLinked, webOrigin }),
+      });
     });
 
     // ─── /search <query> ───
@@ -725,6 +788,34 @@ export class TelegramService
         // Editing fails when Telegram thinks the message hasn't changed
         // (e.g. user clicked the already-active button) — harmless.
       }
+    });
+
+    // ─── Home keyboard callbacks ───
+    // Buttons attached to /start and /help. We answer the callback first
+    // (so Telegram clears the loading spinner on the button) then send a
+    // fresh message — the alternative would be editing the parent
+    // message, but the user wants the answer alongside the original
+    // intro, not replacing it.
+    bot.callbackQuery("act:upload", async (ctx) => {
+      await ctx.answerCallbackQuery();
+      const tgId = ctx.from?.id;
+      const locale = await this.resolveLocale(tgId);
+      const webOrigin =
+        this.config.get<string>("WEB_ORIGIN") ?? "https://vidsandgifs.xyz";
+      const link = tgId
+        ? await this.links.findByTelegramUserId(String(tgId))
+        : null;
+      const key = link ? "upload.help.linked" : "upload.help.notLinked";
+      await ctx.reply(t(locale, key, { webOrigin }), {
+        link_preview_options: { is_disabled: true },
+      });
+    });
+
+    bot.callbackQuery("act:folders", async (ctx) => {
+      await ctx.answerCallbackQuery();
+      const tgId = ctx.from?.id;
+      if (!tgId) return;
+      await this.replyWithFolderList(ctx, tgId);
     });
 
     // ─── Inline mode ───
