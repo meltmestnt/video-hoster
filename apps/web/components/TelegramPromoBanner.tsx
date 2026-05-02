@@ -6,21 +6,26 @@ import { useEffect, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { useT } from "@/lib/i18n";
 
-const DISMISSED_KEY = "telegramPromoDismissed";
+// Per-user key so a different account signing in on the same browser
+// gets a fresh prompt — the previous tenant's dismissal shouldn't
+// follow them.
+function dismissedKey(userId: string): string {
+  return `telegramPromoDismissed:${userId}`;
+}
 
-function readDismissed(): boolean {
+function readDismissed(userId: string): boolean {
   if (typeof window === "undefined") return false;
   try {
-    return localStorage.getItem(DISMISSED_KEY) === "1";
+    return localStorage.getItem(dismissedKey(userId)) === "1";
   } catch {
     return false;
   }
 }
 
-function writeDismissed(): void {
+function writeDismissed(userId: string): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(DISMISSED_KEY, "1");
+    localStorage.setItem(dismissedKey(userId), "1");
   } catch {
     /* private mode — fine */
   }
@@ -38,14 +43,17 @@ export function TelegramPromoBanner() {
   const me = trpc.auth.me.useQuery();
   const utils = trpc.useUtils();
   const startLink = trpc.telegram.startLink.useMutation();
-  // Default true so the banner doesn't flash in during SSR / hydration —
-  // we flip to the actual value after mount.
+  // Tracks whether THIS user dismissed the banner. Defaults to true so
+  // nothing flashes in during SSR / hydration; the effect below flips
+  // it to the persisted value once we know which user we're rendering for.
   const [dismissed, setDismissed] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const userId = me.data?.id ?? null;
   useEffect(() => {
-    setDismissed(readDismissed());
-  }, []);
+    if (!userId) return;
+    setDismissed(readDismissed(userId));
+  }, [userId]);
 
   if (dismissed) return null;
   // Wait until auth.me has resolved before deciding — otherwise the
@@ -69,7 +77,7 @@ export function TelegramPromoBanner() {
   };
 
   const onDismiss = () => {
-    writeDismissed();
+    if (userId) writeDismissed(userId);
     setDismissed(true);
   };
 
