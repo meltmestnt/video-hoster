@@ -25,6 +25,7 @@ import { ExclamationTriangleIcon } from "@radix-ui/react-icons";
 import { extractFrame } from "@/lib/extract-frame";
 import { sniffIsVideoFile } from "@/lib/file-signatures";
 import { useT } from "@/lib/i18n";
+import { useRouter } from "next/navigation";
 import {
   VideoEditorDialog,
   type EditorOutput,
@@ -57,6 +58,8 @@ export function UploadDialog({ open, onOpenChange, initialFile }: Props) {
   // surface, just a busy flag while the mutation is in flight.
   const [urlSubmitting, setUrlSubmitting] = useState(false);
   const uploadFromUrl = trpc.videos.uploadFromUrl.useMutation();
+  const utils = trpc.useUtils();
+  const router = useRouter();
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -279,7 +282,7 @@ export function UploadDialog({ open, onOpenChange, initialFile }: Props) {
     }
     setUrlSubmitting(true);
     try {
-      await uploadFromUrl.mutateAsync({
+      const result = await uploadFromUrl.mutateAsync({
         url: url.trim(),
         title: title.trim(),
         description: description.trim(),
@@ -287,7 +290,17 @@ export function UploadDialog({ open, onOpenChange, initialFile }: Props) {
         visibility,
         downloadPolicy,
       });
+      // Refresh listings + my-profile counts so the new video shows
+      // up in the feed without a manual reload, then jump to its
+      // detail page so the user lands on the result they just made.
+      await Promise.all([
+        utils.videos.list.invalidate(),
+        utils.videos.search.invalidate().catch(() => {}),
+        utils.auth.me.invalidate().catch(() => {}),
+      ]);
+      router.refresh();
       onOpenChange(false);
+      router.push(`/videos/${result.videoId}`);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -640,6 +653,11 @@ export function UploadDialog({ open, onOpenChange, initialFile }: Props) {
           {source === "file" && fileError && (
             <Callout.Root color="red">
               <Callout.Text>{fileError}</Callout.Text>
+            </Callout.Root>
+          )}
+          {urlSubmitting && (
+            <Callout.Root color="iris">
+              <Callout.Text>{t("upload.url.fetching")}</Callout.Text>
             </Callout.Root>
           )}
           {error && (

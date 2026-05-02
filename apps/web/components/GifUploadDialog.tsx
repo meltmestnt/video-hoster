@@ -18,6 +18,7 @@ import { compressTo480p } from "@/lib/compress-video";
 import { sniffIsGifFile } from "@/lib/file-signatures";
 import { trpc } from "@/lib/trpc";
 import { useT } from "@/lib/i18n";
+import { useRouter } from "next/navigation";
 import { Morph } from "./Morph";
 
 interface Props {
@@ -58,6 +59,8 @@ export function GifUploadDialog({ open, onOpenChange, initialFile }: Props) {
   const [url, setUrl] = useState("");
   const [urlSubmitting, setUrlSubmitting] = useState(false);
   const uploadFromUrl = trpc.gifs.uploadFromUrl.useMutation();
+  const utils = trpc.useUtils();
+  const router = useRouter();
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -274,14 +277,25 @@ export function GifUploadDialog({ open, onOpenChange, initialFile }: Props) {
       // re-compresses the fetched GIF the same way as a normal upload.
       setUrlSubmitting(true);
       try {
-        await uploadFromUrl.mutateAsync({
+        const result = await uploadFromUrl.mutateAsync({
           url: url.trim(),
           title: title.trim(),
           description: description.trim(),
           tags,
           visibility,
         });
+        // Refresh the listings + my-profile counts so the new GIF
+        // appears in the feed without a manual reload, then navigate
+        // straight to its detail page so the user sees the result of
+        // the upload they just kicked off.
+        await Promise.all([
+          utils.gifs.list.invalidate(),
+          utils.gifs.search.invalidate().catch(() => {}),
+          utils.auth.me.invalidate().catch(() => {}),
+        ]);
+        router.refresh();
         onOpenChange(false);
+        router.push(`/gifs/${result.gifId}`);
       } catch (err) {
         setError((err as Error).message);
       } finally {
@@ -633,6 +647,11 @@ export function GifUploadDialog({ open, onOpenChange, initialFile }: Props) {
                   pct: Math.round(convertProgress * 100),
                 })}
               </Callout.Text>
+            </Callout.Root>
+          )}
+          {urlSubmitting && (
+            <Callout.Root color="iris">
+              <Callout.Text>{t("upload.url.fetching")}</Callout.Text>
             </Callout.Root>
           )}
           {error && (

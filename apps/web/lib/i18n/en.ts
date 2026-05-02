@@ -559,6 +559,8 @@ export const en = {
     "Direct https URL to a .gif file. The server fetches and validates it.",
   "upload.url.submit": "Fetch and upload",
   "upload.url.submitting": "Fetching from URL…",
+  "upload.url.fetching":
+    "Fetching the file from the URL and storing it. This usually takes a few seconds — keep this dialog open.",
   "upload.url.errorEmpty": "Paste a URL first.",
   "upload.url.errorBadProtocol": "URL must start with https://",
 
