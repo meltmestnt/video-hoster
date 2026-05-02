@@ -55,10 +55,10 @@ export function buildMediaDescription(args: MediaDescriptionArgs): string {
 
   const stats: string[] = [];
   if ((args.viewCount ?? 0) > 0) {
-    stats.push(`${formatCount(args.viewCount!)} views`);
+    stats.push(`${formatCount(args.viewCount!)} ${args.viewCount === 1 ? "view" : "views"}`);
   }
   if ((args.likeCount ?? 0) > 0) {
-    stats.push(`${formatCount(args.likeCount!)} likes`);
+    stats.push(`${formatCount(args.likeCount!)} ${args.likeCount === 1 ? "like" : "likes"}`);
   }
   const statsPart = stats.length > 0 ? ` ${stats.join(", ")}.` : "";
 

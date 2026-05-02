@@ -52,7 +52,7 @@ export default function Image() {
             color: "#64748b",
           }}
         >
-          vidsandgifs.xyz
+          vidsandgifs.com
         </div>
       </div>
     ),

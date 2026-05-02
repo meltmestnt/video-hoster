@@ -84,7 +84,7 @@ export const en = {
     "ffmpeg.wasm trims to 20 seconds, encodes a 480p GIF, and shows a live preview. Nothing uploads.",
   "instant.step3.title": "3 — Download or share",
   "instant.step3.body":
-    "Save the .gif locally for free, or sign in once to get a hotlinkable URL on vidsandgifs.xyz.",
+    "Save the .gif locally for free, or sign in once to get a hotlinkable URL on vidsandgifs.com.",
   "instant.privacy":
     "Conversion is fully on-device. Sign in is only needed for hosted URLs.",
   "instant.alsoUrl":
@@ -157,6 +157,7 @@ export const en = {
   "topbar.nav.gifs": "GIFs",
   "topbar.nav.screenshots": "Screenshots",
   "topbar.menu.toggle": "Open menu",
+  "topbar.telegram": "Telegram bot",
 
   // ─── User menu ───
   "user.menu.aria": "User menu for {name}",

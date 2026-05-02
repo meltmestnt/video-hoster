@@ -33,13 +33,13 @@ const COPY: Record<
     title: "vids & gifs — upload videos and GIFs, convert, share",
     ogTitle: "vids & gifs — upload videos and GIFs, convert, share",
     description:
-      "vids & gifs (vidsandgifs.xyz) — upload, share, convert, and download short videos, GIFs, and screenshots in your browser. Trim and compress videos, convert MP4 to GIF, capture frames as screenshots, and post them to your feed. Free, no installs, works on desktop and mobile.",
+      "vids & gifs (vidsandgifs.com) — upload, share, convert, and download short videos, GIFs, and screenshots in your browser. Trim and compress videos, convert MP4 to GIF, capture frames as screenshots, and post them to your feed. Free, no installs, works on desktop and mobile.",
   },
   uk: {
     title: "vids & gifs — завантажуй відео і GIF, конвертуй та ділись",
     ogTitle: "vids & gifs — завантажуй відео і GIF, конвертуй та ділись",
     description:
-      "vids & gifs (vidsandgifs.xyz) — завантажуй, ділись, конвертуй і качай короткі відео, GIF та скріншоти у браузері. Обрізай і стискай відео, перетворюй MP4 у GIF, зберігай кадри як скріншоти й публікуй у стрічці. Безкоштовно, без встановлення, працює на ПК і смартфоні.",
+      "vids & gifs (vidsandgifs.com) — завантажуй, ділись, конвертуй і качай короткі відео, GIF та скріншоти у браузері. Обрізай і стискай відео, перетворюй MP4 у GIF, зберігай кадри як скріншоти й публікуй у стрічці. Безкоштовно, без встановлення, працює на ПК і смартфоні.",
   },
 };
 

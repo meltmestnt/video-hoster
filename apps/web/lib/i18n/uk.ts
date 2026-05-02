@@ -86,7 +86,7 @@ export const uk: EnDict = {
     "ffmpeg.wasm обрізає до 20 секунд, кодує 480p GIF і показує живий перегляд. Нічого не вивантажується.",
   "instant.step3.title": "3 — Завантажте чи поділіться",
   "instant.step3.body":
-    "Збережіть .gif локально безкоштовно або увійдіть один раз, щоб отримати hotlink-посилання на vidsandgifs.xyz.",
+    "Збережіть .gif локально безкоштовно або увійдіть один раз, щоб отримати hotlink-посилання на vidsandgifs.com.",
   "instant.privacy":
     "Конвертація — повністю на пристрої. Вхід потрібен лише для розміщення на сайті.",
   "instant.alsoUrl":
@@ -159,6 +159,7 @@ export const uk: EnDict = {
   "topbar.nav.gifs": "GIF",
   "topbar.nav.screenshots": "Скріншоти",
   "topbar.menu.toggle": "Відкрити меню",
+  "topbar.telegram": "Telegram-бот",
 
   // ─── User menu ───
   "user.menu.aria": "Меню користувача {name}",

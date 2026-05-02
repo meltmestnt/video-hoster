@@ -21,6 +21,7 @@ import { useUpload, isUploadBusy } from "@/lib/upload-context";
 import { useRequireAuth } from "@/lib/auth-required";
 import { useUploadDialog } from "@/lib/upload-dialog-context";
 import { useT } from "@/lib/i18n";
+import { telegramBotUrl } from "@/lib/telegram-bot";
 import { useVerifyRequired } from "./VerifyRequiredDialog";
 import { ConvertDialog } from "./ConvertDialog";
 import { UploadProgressBar } from "./UploadProgressBar";
@@ -103,6 +104,14 @@ export function TopBar({
 
   const openUpload = () => {
     if (uploadDisabled) return;
+    // Mirror the convert gate: the upload API rejects unverified
+    // accounts, so opening the dialog is just a dead end. Show the
+    // verify-required dialog instead and skip the upload UI.
+    if (!verified) {
+      setDrawerOpen(false);
+      verifyRequired.show("action", "unverified");
+      return;
+    }
     if (onGifs) {
       uploadDialog.openGifUpload();
     } else {
@@ -219,6 +228,18 @@ export function TopBar({
           ) : (
             <Box className="topbar-desktop-only">
               <Flex align="center" gap="3">
+                {/* Discoverability path to @vidsandgifsbot for anon
+                    visitors — without this the bot lives only in the
+                    footer and the marketing pitch on the landing page. */}
+                <Button asChild size="2" variant="soft" color="gray">
+                  <a
+                    href={telegramBotUrl()}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {t("topbar.telegram")}
+                  </a>
+                </Button>
                 <Button asChild size="2" variant="soft">
                   <Link href="/login">{t("topbar.signIn")}</Link>
                 </Button>
@@ -322,6 +343,16 @@ export function TopBar({
               </Flex>
             ) : (
               <Flex direction="column" gap="2">
+                <Button asChild size="3" variant="soft" color="gray">
+                  <a
+                    href={telegramBotUrl()}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setDrawerOpen(false)}
+                  >
+                    {t("topbar.telegram")}
+                  </a>
+                </Button>
                 <Button asChild size="3" variant="soft">
                   <Link
                     href="/login"

@@ -895,7 +895,17 @@ export class GifsService {
        RETURNING "viewCount"`,
       [id],
     );
-    return { viewCount: result[0]?.viewCount ?? 0 };
+    const raw = result[0]?.viewCount ?? 0;
+    // Apply the same display floor as attachExtras so the body's
+    // post-increment count stays aligned with the SSR/SEO value.
+    // Without this the client overwrites the floored initialCount
+    // (derived from likes+dislikes) with the raw column, creating a
+    // visible discrepancy between body and meta description.
+    const c = (await this.reactionsService.gifCountsFor([id])).get(id) ?? {
+      likes: 0,
+      dislikes: 0,
+    };
+    return { viewCount: Math.max(raw, c.likes + c.dislikes) };
   }
 
   async byId(id: string, viewerId?: string | null, isAdmin = false) {

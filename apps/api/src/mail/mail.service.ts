@@ -359,7 +359,7 @@ function renderEmail(args: RenderEmailArgs): RenderedEmail {
           <td style="padding:28px 28px 24px;">
             <hr style="border:0;border-top:1px solid ${BRAND.hairline};margin:0 0 14px;" />
             <div style="font-size:12px;color:${BRAND.muted};">
-              ${footer}<a href="https://vidsandgifs.xyz" style="color:${BRAND.muted};text-decoration:underline;">vidsandgifs.xyz</a>
+              ${footer}<a href="https://vidsandgifs.com" style="color:${BRAND.muted};text-decoration:underline;">vidsandgifs.com</a>
             </div>
           </td>
         </tr>
@@ -374,7 +374,7 @@ function renderEmail(args: RenderEmailArgs): RenderedEmail {
   // "Label: URL" line, footer note, then the bare site URL.
   const ctaText = args.cta ? `\n\n${args.cta.label}: ${args.cta.url}` : "";
   const footerText = args.footerNote ? `\n\n${args.footerNote}` : "";
-  const text = `${args.heading}\n\n${args.bodyText}${ctaText}${footerText}\n\nvidsandgifs.xyz\n`;
+  const text = `${args.heading}\n\n${args.bodyText}${ctaText}${footerText}\n\nvidsandgifs.com\n`;
 
   return { html, text };
 }

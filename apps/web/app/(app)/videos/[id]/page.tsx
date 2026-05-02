@@ -170,6 +170,7 @@ export default async function VideoPage({
   const isOwner = !!session?.user?.id && session.user.id === video.owner.id;
   const isAdmin = me?.role === "admin";
   const canDelete = isOwner || isAdmin;
+  const verified = me?.status === "verified";
 
   const jsonLd =
     video.visibility === "private"
@@ -314,6 +315,7 @@ export default async function VideoPage({
                   videoMimeType={video.mimeType}
                   baseFilename={video.title}
                   policy={video.downloadPolicy}
+                  verified={verified}
                 />
               )}
             {canDelete && (

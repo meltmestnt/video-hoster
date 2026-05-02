@@ -5,12 +5,14 @@ import { Button, Flex, Text } from "@radix-ui/themes";
 import { DownloadIcon } from "@radix-ui/react-icons";
 import { extract } from "@/lib/compress-video";
 import { useT } from "@/lib/i18n";
+import { useVerifyRequired } from "@/components/VerifyRequiredDialog";
 
 interface Props {
   videoUrl: string;
   videoMimeType: string;
   baseFilename: string;
   policy: "full" | "audio" | "none";
+  verified: boolean;
 }
 
 const extensionForMime = (mime: string): string => {
@@ -37,8 +39,10 @@ export function VideoDownloadButtons({
   videoMimeType,
   baseFilename,
   policy,
+  verified,
 }: Props) {
   const t = useT();
+  const verifyRequired = useVerifyRequired();
   const [busy, setBusy] = useState<null | "video" | "audio">(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,6 +55,13 @@ export function VideoDownloadButtons({
     .slice(0, 60) || "video";
 
   const downloadVideo = async () => {
+    // Downloads are gated to verified accounts — UnverifiedBanner promises
+    // this in copy, and the rest of the app (Convert, uploads, reactions,
+    // etc.) already enforces it. Same dialog/kind as the convert gate.
+    if (!verified) {
+      verifyRequired.show("action", "unverified");
+      return;
+    }
     setError(null);
     setBusy("video");
     try {
@@ -68,6 +79,10 @@ export function VideoDownloadButtons({
   };
 
   const downloadAudio = async () => {
+    if (!verified) {
+      verifyRequired.show("action", "unverified");
+      return;
+    }
     setError(null);
     setBusy("audio");
     try {

@@ -32,21 +32,21 @@ const HOME_COPY: Record<
     title:
       "vids & gifs — upload videos and GIFs, convert MP4 to GIF, share in your browser",
     description:
-      "vids & gifs (vidsandgifs.xyz) lets you upload videos and GIFs, convert MP4 to GIF, extract audio, capture screenshots from any frame, and share them publicly or privately. Free, no installs, runs in your browser. Browse the latest community uploads or sign up to post your own.",
+      "vids & gifs (vidsandgifs.com) lets you upload videos and GIFs, convert MP4 to GIF, extract audio, capture screenshots from any frame, and share them publicly or privately. Free, no installs, runs in your browser. Browse the latest community uploads or sign up to post your own.",
     ogTitle:
       "vids & gifs — upload videos and GIFs, convert, share in your browser",
     ogDescription:
-      "Upload videos and GIFs, convert MP4 to GIF, extract audio, capture screenshots, and share. Free in-browser tools at vidsandgifs.xyz.",
+      "Upload videos and GIFs, convert MP4 to GIF, extract audio, capture screenshots, and share. Free in-browser tools at vidsandgifs.com.",
   },
   uk: {
     title:
       "vids & gifs — завантажуй відео і GIF, конвертуй MP4 у GIF, ділись у браузері",
     description:
-      "vids & gifs (vidsandgifs.xyz) дозволяє завантажувати відео й GIF, конвертувати MP4 у GIF, витягувати аудіо, зберігати кадри як скріншоти і ділитися ними публічно чи приватно. Безкоштовно, без встановлення, працює прямо в браузері. Переглядай останні завантаження спільноти або зареєструйся, щоб публікувати своє.",
+      "vids & gifs (vidsandgifs.com) дозволяє завантажувати відео й GIF, конвертувати MP4 у GIF, витягувати аудіо, зберігати кадри як скріншоти і ділитися ними публічно чи приватно. Безкоштовно, без встановлення, працює прямо в браузері. Переглядай останні завантаження спільноти або зареєструйся, щоб публікувати своє.",
     ogTitle:
       "vids & gifs — завантажуй відео і GIF, конвертуй, ділись у браузері",
     ogDescription:
-      "Завантажуй відео і GIF, конвертуй MP4 у GIF, витягуй аудіо, зберігай скріншоти й ділись. Безкоштовні інструменти у браузері на vidsandgifs.xyz.",
+      "Завантажуй відео і GIF, конвертуй MP4 у GIF, витягуй аудіо, зберігай скріншоти й ділись. Безкоштовні інструменти у браузері на vidsandgifs.com.",
   },
 };
 
