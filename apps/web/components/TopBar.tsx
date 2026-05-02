@@ -9,7 +9,11 @@ import {
   TextField,
   Tooltip,
 } from "@radix-ui/themes";
-import { Cross1Icon, HamburgerMenuIcon } from "@radix-ui/react-icons";
+import {
+  Cross1Icon,
+  HamburgerMenuIcon,
+  PlusIcon,
+} from "@radix-ui/react-icons";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -214,15 +218,44 @@ export function TopBar({
             </Box>
           )}
           <Box className="topbar-mobile-only">
-            <IconButton
-              variant="soft"
-              color="gray"
-              onClick={() => setDrawerOpen((v) => !v)}
-              aria-label={t("topbar.menu.toggle")}
-              aria-expanded={drawerOpen}
-            >
-              {drawerOpen ? <Cross1Icon /> : <HamburgerMenuIcon />}
-            </IconButton>
+            <Flex align="center" gap="2">
+              {signedIn && (
+                <Tooltip
+                  content={
+                    otherTabBusy
+                      ? t("topbar.uploadTooltip.otherTabBusy")
+                      : busy
+                        ? t("topbar.uploadTooltip.busy")
+                        : uploadTooltip
+                  }
+                >
+                  {/* Native button instead of Radix IconButton because the
+                      crimson running-border effect needs a ::before
+                      pseudo-element with a custom mask + conic-gradient,
+                      which conflicts with IconButton's own ::before for
+                      the soft surface. .topbar-add-mobile owns the
+                      visuals end-to-end. */}
+                  <button
+                    type="button"
+                    className="topbar-add-mobile"
+                    onClick={openUpload}
+                    disabled={uploadDisabled}
+                    aria-label={uploadLabel}
+                  >
+                    <PlusIcon />
+                  </button>
+                </Tooltip>
+              )}
+              <IconButton
+                variant="soft"
+                color="gray"
+                onClick={() => setDrawerOpen((v) => !v)}
+                aria-label={t("topbar.menu.toggle")}
+                aria-expanded={drawerOpen}
+              >
+                {drawerOpen ? <Cross1Icon /> : <HamburgerMenuIcon />}
+              </IconButton>
+            </Flex>
           </Box>
         </Flex>
       </Flex>
