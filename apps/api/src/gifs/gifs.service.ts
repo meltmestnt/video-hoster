@@ -647,10 +647,18 @@ export class GifsService {
    * Lightweight projection used by the Telegram bot's inline-query handler.
    * Public + ready only, optional title/tag substring filter, no extras
    * computed (we don't need likes/views to render the inline gif card).
+   *
+   * When `restrictToFolderId` is set, the public-visibility filter is
+   * lifted and an INNER JOIN against folder_gifs scopes results to the
+   * caller's selected folder. The caller must already have validated
+   * folder ownership upstream — at this point we trust the folder was
+   * resolved from the linked user's TelegramPref, which ties it back to
+   * the right account.
    */
   async searchInlineForBot(args: {
     q: string;
     limit: number;
+    restrictToFolderId?: string | null;
   }): Promise<
     Array<{
       id: string;
@@ -663,9 +671,21 @@ export class GifsService {
       .createQueryBuilder("g")
       .select(["g.id", "g.title", "g.mp4S3Key", "g.thumbS3Key"])
       .where("g.status = :s", { s: "ready" })
-      .andWhere("g.visibility = :pub", { pub: "public" })
       .orderBy("g.createdAt", "DESC")
       .take(args.limit);
+    if (args.restrictToFolderId) {
+      qb.innerJoin(
+        "folder_gifs",
+        "fg",
+        `fg."gifId" = g.id AND fg."folderId" = :folderId`,
+        { folderId: args.restrictToFolderId },
+      );
+    } else {
+      // Public-only when no folder is in play. Folders are personal, so
+      // a user navigating their own folder is allowed to see private
+      // gifs they uploaded into it.
+      qb.andWhere("g.visibility = :pub", { pub: "public" });
+    }
     const trimmed = args.q.trim();
     if (trimmed) {
       const escaped = trimmed.replace(/[\\%_]/g, (c) => `\\${c}`);
@@ -1046,6 +1066,21 @@ export class GifsService {
     return ids
       .map((id) => byId.get(id))
       .filter((g): g is Gif => g !== undefined);
+  }
+
+  /**
+   * Public hydrator used by the folders router. Takes a list of gif ids
+   * (already authorized — the caller validated folder ownership) and
+   * returns the same shape every other listing endpoint produces:
+   * gif rows + counts + viewer reaction + signed gif URL.
+   */
+  async hydrateByIds(
+    ids: string[],
+    viewerId: string | null,
+  ) {
+    if (ids.length === 0) return [];
+    const items = await this.loadByIds(ids);
+    return this.attachExtras(items, viewerId);
   }
 
   private async attachExtras(

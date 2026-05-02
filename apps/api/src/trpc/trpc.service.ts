@@ -3,6 +3,7 @@ import type { CreateExpressContextOptions } from "@trpc/server/adapters/express"
 import { UsersService } from "../users/users.service";
 import { VideosService } from "../videos/videos.service";
 import { GifsService } from "../gifs/gifs.service";
+import { FoldersService } from "../folders/folders.service";
 import { ScreenshotsService } from "../screenshots/screenshots.service";
 import { TagsService } from "../tags/tags.service";
 import { CommentsService } from "../comments/comments.service";
@@ -29,6 +30,7 @@ export class TrpcService {
     private readonly users: UsersService,
     private readonly videos: VideosService,
     private readonly gifs: GifsService,
+    private readonly folders: FoldersService,
     private readonly screenshots: ScreenshotsService,
     private readonly tags: TagsService,
     private readonly comments: CommentsService,
@@ -53,6 +55,7 @@ export class TrpcService {
       users: this.users,
       videos: this.videos,
       gifs: this.gifs,
+      folders: this.folders,
       screenshots: this.screenshots,
       tags: this.tags,
       comments: this.comments,

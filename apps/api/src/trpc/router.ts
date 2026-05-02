@@ -56,6 +56,12 @@ import {
   listByOwnerInputSchema,
   videoReactorsInputSchema,
   gifReactorsInputSchema,
+  folderIdInputSchema,
+  createFolderInputSchema,
+  renameFolderInputSchema,
+  folderGifInputSchema,
+  listFolderGifsInputSchema,
+  setActiveFolderInputSchema,
 } from "@repo/shared";
 import {
   router,
@@ -513,12 +519,22 @@ export const appRouter = router({
 
     finalizeUpload: verifiedProcedure
       .input(finalizeGifUploadInputSchema)
-      .mutation(({ ctx, input }) =>
-        ctx.services.gifs.finalizeUpload({
+      .mutation(async ({ ctx, input }) => {
+        const result = await ctx.services.gifs.finalizeUpload({
           gifId: input.gifId,
           ownerId: ctx.user.id,
-        }),
-      ),
+        });
+        if (input.folderId) {
+          // Best-effort: a failure to add to folder shouldn't undo the
+          // upload itself, but it should surface so the UI can retry.
+          await ctx.services.folders.addGif(
+            ctx.user.id,
+            input.folderId,
+            input.gifId,
+          );
+        }
+        return result;
+      }),
 
     uploadFromUrl: verifiedProcedure
       .use(
@@ -530,8 +546,8 @@ export const appRouter = router({
         }),
       )
       .input(uploadGifFromUrlInputSchema)
-      .mutation(({ ctx, input }) =>
-        ctx.services.gifs.uploadFromUrl({
+      .mutation(async ({ ctx, input }) => {
+        const result = await ctx.services.gifs.uploadFromUrl({
           ownerId: ctx.user.id,
           ownerStatus: ctx.user.status,
           ownerApproved: ctx.user.role === "admin" || ctx.user.approved,
@@ -540,8 +556,16 @@ export const appRouter = router({
           description: input.description,
           tagNames: input.tags,
           visibility: input.visibility,
-        }),
-      ),
+        });
+        if (input.folderId) {
+          await ctx.services.folders.addGif(
+            ctx.user.id,
+            input.folderId,
+            result.gifId,
+          );
+        }
+        return result;
+      }),
 
     delete: protectedProcedure
       .input(gifIdInputSchema)
@@ -611,6 +635,150 @@ export const appRouter = router({
           limit: input.limit,
         }),
       ),
+  }),
+
+  // ─── Personal folders ───
+  // Per-user organizational folders for GIFs. All routes are
+  // protectedProcedure or verifiedProcedure — folders are private to
+  // their owner, and creating/modifying them requires a verified
+  // account so signups can't grind through folder creation as a free
+  // storage tier.
+  folders: router({
+    list: protectedProcedure.query(({ ctx }) =>
+      ctx.services.folders.listForOwner(ctx.user.id),
+    ),
+
+    create: verifiedProcedure
+      .use(
+        rateLimit({
+          name: "folders.create",
+          keyBy: "userId",
+          max: 30,
+          windowMs: HOUR,
+        }),
+      )
+      .input(createFolderInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.folders.create(ctx.user.id, input.name),
+      ),
+
+    rename: verifiedProcedure
+      .input(renameFolderInputSchema)
+      .mutation(async ({ ctx, input }) => {
+        await ctx.services.folders.rename(
+          ctx.user.id,
+          input.folderId,
+          input.name,
+        );
+        return { ok: true as const };
+      }),
+
+    delete: verifiedProcedure
+      .input(folderIdInputSchema)
+      .mutation(async ({ ctx, input }) => {
+        await ctx.services.folders.delete(ctx.user.id, input.folderId);
+        // If the user had this folder selected as the bot's active
+        // folder, clear that pref so the next inline query falls back
+        // to the public library instead of looking up a dead UUID.
+        try {
+          const link = await ctx.services.telegramLinks.findByUserId(
+            ctx.user.id,
+          );
+          if (link) {
+            const current = await ctx.services.telegram.getActiveFolderId?.(
+              link.telegramUserId,
+            );
+            if (current === input.folderId) {
+              await ctx.services.telegram.clearActiveFolder?.(
+                link.telegramUserId,
+              );
+            }
+          }
+        } catch {
+          // The active-folder cleanup is best-effort.
+        }
+        return { ok: true as const };
+      }),
+
+    addGif: verifiedProcedure
+      .input(folderGifInputSchema)
+      .mutation(async ({ ctx, input }) => {
+        await ctx.services.folders.addGif(
+          ctx.user.id,
+          input.folderId,
+          input.gifId,
+        );
+        return { ok: true as const };
+      }),
+
+    removeGif: verifiedProcedure
+      .input(folderGifInputSchema)
+      .mutation(async ({ ctx, input }) => {
+        await ctx.services.folders.removeGif(
+          ctx.user.id,
+          input.folderId,
+          input.gifId,
+        );
+        return { ok: true as const };
+      }),
+
+    listGifs: protectedProcedure
+      .input(listFolderGifsInputSchema)
+      .query(async ({ ctx, input }) => {
+        const { ids, nextCursor } = await ctx.services.folders.listGifIds(
+          ctx.user.id,
+          input.folderId,
+          { cursor: input.cursor, limit: input.limit },
+        );
+        const items = await ctx.services.gifs.hydrateByIds(ids, ctx.user.id);
+        return { items, nextCursor };
+      }),
+
+    folderIdsForGif: protectedProcedure
+      .input(gifIdInputSchema)
+      .query(({ ctx, input }) =>
+        ctx.services.folders.folderIdsForGif(ctx.user.id, input.id),
+      ),
+
+    // Selects which folder the user's Telegram bot operates against —
+    // inline search filters to it, gif uploads via DM land in it.
+    // Pass null to clear. Verified-only because uploads via the bot
+    // are gated on having a verified email.
+    setTelegramActiveFolder: verifiedProcedure
+      .input(setActiveFolderInputSchema)
+      .mutation(async ({ ctx, input }) => {
+        if (input.folderId !== null) {
+          // Confirm the caller owns this folder before persisting it as
+          // the bot's active scope.
+          await ctx.services.folders.findOwned(input.folderId, ctx.user.id);
+        }
+        const link = await ctx.services.telegramLinks.findByUserId(
+          ctx.user.id,
+        );
+        if (!link) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message:
+              "Connect your Telegram account first, then choose a folder.",
+          });
+        }
+        await ctx.services.telegram.setActiveFolder(
+          link.telegramUserId,
+          input.folderId,
+        );
+        return { ok: true as const };
+      }),
+
+    getTelegramActiveFolder: protectedProcedure.query(async ({ ctx }) => {
+      const link = await ctx.services.telegramLinks.findByUserId(
+        ctx.user.id,
+      );
+      if (!link) return { folderId: null };
+      const folderId = await ctx.services.telegram.getActiveFolderId(
+        link.telegramUserId,
+      );
+      return { folderId };
+    }),
   }),
 
   screenshots: router({

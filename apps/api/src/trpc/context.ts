@@ -2,6 +2,7 @@ import type { User } from "../users/user.entity";
 import type { UsersService } from "../users/users.service";
 import type { VideosService } from "../videos/videos.service";
 import type { GifsService } from "../gifs/gifs.service";
+import type { FoldersService } from "../folders/folders.service";
 import type { ScreenshotsService } from "../screenshots/screenshots.service";
 import type { TagsService } from "../tags/tags.service";
 import type { CommentsService } from "../comments/comments.service";
@@ -22,6 +23,7 @@ export interface Services {
   users: UsersService;
   videos: VideosService;
   gifs: GifsService;
+  folders: FoldersService;
   screenshots: ScreenshotsService;
   tags: TagsService;
   comments: CommentsService;

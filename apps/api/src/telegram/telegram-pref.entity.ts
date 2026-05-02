@@ -22,6 +22,14 @@ export class TelegramPref {
   @Column({ type: "varchar", length: 8, default: "uk" })
   locale: BotLocale;
 
+  // Optional active folder used to scope inline search and route gif
+  // uploads via the bot. Nullable column with no FK constraint — if the
+  // folder is deleted out from under the user, we fall back to "no
+  // active folder" rather than orphaning the row, so the bot keeps
+  // working without manual cleanup.
+  @Column({ type: "uuid", nullable: true })
+  activeFolderId: string | null;
+
   @UpdateDateColumn()
   updatedAt: Date;
 }

@@ -6,6 +6,7 @@ import { TelegramLinkService } from "./telegram-link.service";
 import { TelegramPrefService } from "./telegram-pref.service";
 import { TelegramService } from "./telegram.service";
 import { GifsModule } from "../gifs/gifs.module";
+import { FoldersModule } from "../folders/folders.module";
 import { MediaModule } from "../media/media.module";
 import { S3Module } from "../s3/s3.module";
 import { TranscoderModule } from "../transcoder/transcoder.module";
@@ -15,6 +16,7 @@ import { UsersModule } from "../users/users.module";
   imports: [
     TypeOrmModule.forFeature([TelegramLink, TelegramPref]),
     GifsModule,
+    FoldersModule,
     MediaModule,
     S3Module,
     TranscoderModule,

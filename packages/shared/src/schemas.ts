@@ -73,6 +73,9 @@ export const uploadGifFromUrlInputSchema = z.object({
   description: z.string().trim().max(5000).default(""),
   tags: z.array(tagNameSchema).max(20).default([]),
   visibility: videoVisibilitySchema.default("public"),
+  // Optional folder to drop the new gif into. The server validates
+  // ownership before adding the membership row.
+  folderId: z.string().uuid().optional().nullable(),
 });
 export type UploadGifFromUrlInput = z.infer<typeof uploadGifFromUrlInputSchema>;
 
@@ -138,6 +141,9 @@ export type CreateGifUploadInput = z.infer<typeof createGifUploadInputSchema>;
 
 export const finalizeGifUploadInputSchema = z.object({
   gifId: z.string().uuid(),
+  // Optional folder to add the freshly-finalized gif to. Same shape as
+  // uploadGifFromUrl — keeps the two web upload paths symmetric.
+  folderId: z.string().uuid().optional().nullable(),
 });
 export type FinalizeGifUploadInput = z.infer<typeof finalizeGifUploadInputSchema>;
 

@@ -18,6 +18,7 @@ import { TranscoderService } from "../transcoder/transcoder.service";
 import { looksLikeGif, looksLikeVideo } from "../s3/file-signatures";
 import { TelegramLinkService } from "./telegram-link.service";
 import { TelegramPrefService } from "./telegram-pref.service";
+import { FoldersService } from "../folders/folders.service";
 import type { BotLocale } from "./telegram-pref.entity";
 import { STRINGS, t } from "./bot-strings";
 
@@ -88,8 +89,29 @@ export class TelegramService
     private readonly users: UsersService,
     private readonly links: TelegramLinkService,
     private readonly prefs: TelegramPrefService,
+    private readonly folders: FoldersService,
     private readonly transcoder: TranscoderService,
   ) {}
+
+  /**
+   * Active-folder accessors exposed to the tRPC router so the web app
+   * can read and write a Telegram-linked user's folder selection
+   * without taking a direct dep on TelegramPrefService. Returning null
+   * when no row exists keeps the bot's "no folder = full library"
+   * default working without forcing every linked user to have a row.
+   */
+  async getActiveFolderId(telegramUserId: string): Promise<string | null> {
+    return this.prefs.getActiveFolderId(telegramUserId);
+  }
+  async setActiveFolder(
+    telegramUserId: string,
+    folderId: string | null,
+  ): Promise<void> {
+    return this.prefs.setActiveFolderId(telegramUserId, folderId);
+  }
+  async clearActiveFolder(telegramUserId: string): Promise<void> {
+    return this.prefs.setActiveFolderId(telegramUserId, null);
+  }
 
   /**
    * Boot polling loop only when the token is configured. In dev we'll often
@@ -562,9 +584,24 @@ export class TelegramService
       const q = ctx.inlineQuery.query.trim();
       const fromId = ctx.from?.id ?? "?";
       try {
+        // If the inline-querying user has an active folder selected,
+        // scope results to that folder. We only honor the folder when
+        // the user also has a linked website account that owns it —
+        // a stale folder id from a deleted folder would silently fall
+        // back to "no folder" via the search query's INNER JOIN
+        // returning nothing, which is fine.
+        let restrictToFolderId: string | null = null;
+        if (ctx.from?.id) {
+          const tgId = String(ctx.from.id);
+          const link = await this.links.findByTelegramUserId(tgId);
+          if (link) {
+            restrictToFolderId = await this.prefs.getActiveFolderId(tgId);
+          }
+        }
         const items = await this.gifs.searchInlineForBot({
           q,
           limit: INLINE_RESULTS_MAX,
+          restrictToFolderId,
         });
         const results: InlineQueryResultMpeg4Gif[] = [];
         const pendingBackfill: string[] = [];
@@ -1073,10 +1110,25 @@ export class TelegramService
         buffer: session.buffer,
         tagNames,
       });
+      // If the user has an active folder selected for the bot, drop the
+      // newly-created gif into it. Best-effort: a folder-add failure
+      // shouldn't make the user think the upload itself failed.
+      const activeFolderId = await this.prefs.getActiveFolderId(
+        String(tgUser.id),
+      );
+      if (activeFolderId) {
+        try {
+          await this.folders.addGif(account.id, activeFolderId, gif.id);
+        } catch (err) {
+          this.logger.warn(
+            `telegram.upload folder-add failed userId=${link.userId} folderId=${activeFolderId} gifId=${gif.id}: ${(err as Error).message}`,
+          );
+        }
+      }
       const webOrigin =
         this.config.get<string>("WEB_ORIGIN") ?? "https://vidsandgifs.xyz";
       this.logger.log(
-        `telegram.upload ok userId=${link.userId} gifId=${gif.id} stored=${session.buffer.length} tags=${tagNames.length}`,
+        `telegram.upload ok userId=${link.userId} gifId=${gif.id} stored=${session.buffer.length} tags=${tagNames.length} folderId=${activeFolderId ?? "none"}`,
       );
       const url = `${webOrigin}/gifs/${gif.id}`;
       const successKey =

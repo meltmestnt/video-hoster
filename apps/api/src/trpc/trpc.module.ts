@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { UsersModule } from "../users/users.module";
 import { VideosModule } from "../videos/videos.module";
 import { GifsModule } from "../gifs/gifs.module";
+import { FoldersModule } from "../folders/folders.module";
 import { ScreenshotsModule } from "../screenshots/screenshots.module";
 import { TagsModule } from "../tags/tags.module";
 import { CommentsModule } from "../comments/comments.module";
@@ -22,6 +23,7 @@ import { TrpcService } from "./trpc.service";
     UsersModule,
     VideosModule,
     GifsModule,
+    FoldersModule,
     ScreenshotsModule,
     TagsModule,
     CommentsModule,
