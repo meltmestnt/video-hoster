@@ -94,14 +94,14 @@ export function GifCard({
       const ok = morphToPlayer({
         thumbEl: thumb,
         imageUrl: gif.gifUrl,
-        backgroundColor: gif.gifUrl ? "var(--gray-3)" : "black",
-        // The destination GIF page renders the image with
-        // object-fit:contain, so the overlay should land in "contain"
-        // mode too. Source thumb is "cover", but the helper's overlay
-        // is square-ish during transit and "cover" reads better
-        // mid-flight; the brief mismatch on land is hidden when the
-        // overlay fades out.
-        objectFit: "cover",
+        // Black letterboxing matches the destination .player-frame so
+        // the bars that contain-mode produces don't change color when
+        // the overlay fades out into the actual page.
+        backgroundColor: "black",
+        // Contain throughout — the source GIF is rarely 16:9, so cover
+        // would crop the thumbnail's edges and stretch them visibly as
+        // the overlay's aspect ratio shifts during morph.
+        objectFit: "contain",
         onMorphStart: () => router.push(href),
       });
       if (!ok) router.push(href);
