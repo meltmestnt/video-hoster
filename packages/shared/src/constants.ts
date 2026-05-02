@@ -27,8 +27,8 @@ export const UNVERIFIED_LIMIT_ERROR_PREFIX = "UNVERIFIED_LIMIT:";
 // hard cap (1 of each, total) and the verified+approved cap
 // (DAILY_VIDEO_UPLOAD_LIMIT). The server emits an error with the prefix
 // below so the client can show a "waiting on admin approval" message.
-export const UNAPPROVED_DAILY_VIDEO_LIMIT = 1;
-export const UNAPPROVED_DAILY_GIF_LIMIT = 1;
+export const UNAPPROVED_DAILY_VIDEO_LIMIT = 5;
+export const UNAPPROVED_DAILY_GIF_LIMIT = 5;
 export const UNAPPROVED_DAILY_SCREENSHOT_LIMIT = 10;
 export const UNAPPROVED_LIMIT_ERROR_PREFIX = "UNAPPROVED_LIMIT:";
 

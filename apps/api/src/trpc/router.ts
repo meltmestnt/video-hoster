@@ -305,7 +305,7 @@ export const appRouter = router({
       ctx.services.videos.getUploadQuota(ctx.user.id),
     ),
 
-    createUpload: protectedProcedure
+    createUpload: verifiedProcedure
       .use(
         rateLimit({
           name: "videos.createUpload",
@@ -454,7 +454,7 @@ export const appRouter = router({
         ),
       ),
 
-    createUpload: protectedProcedure
+    createUpload: verifiedProcedure
       .use(
         rateLimit({
           name: "gifs.createUpload",
@@ -577,7 +577,7 @@ export const appRouter = router({
         ctx.services.screenshots.byId(input.id, ctx.user?.id ?? null),
       ),
 
-    createUpload: protectedProcedure
+    createUpload: verifiedProcedure
       .use(
         rateLimit({
           name: "screenshots.createUpload",
@@ -1056,7 +1056,11 @@ export const appRouter = router({
       };
     }),
 
-    startLink: protectedProcedure.mutation(({ ctx }) => {
+    // Linking is the gate that lets a Telegram user upload via the bot,
+    // so require email verification on the web side first — otherwise a
+    // throwaway sign-up could acquire a Telegram-side upload channel
+    // without ever proving control of an inbox.
+    startLink: verifiedProcedure.mutation(({ ctx }) => {
       const start = ctx.services.telegram.buildStartLink(ctx.user.id);
       if (!start) {
         throw new TRPCError({
