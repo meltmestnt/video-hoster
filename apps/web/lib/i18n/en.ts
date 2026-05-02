@@ -49,7 +49,8 @@ export const en = {
   "anonTelegram.subtitle":
     "Connect the vids&gifs bot once and your whole library is one @mention away — search inline from any chat, send GIFs straight from Telegram, and upload new ones by forwarding them to the bot.",
   "anonTelegram.cta.signUp": "Sign up to connect",
-  "anonTelegram.cta.signIn": "Already have an account? Sign in",
+  "anonTelegram.cta.signInPrompt": "Already have an account?",
+  "anonTelegram.cta.signIn": "Sign in",
 
   // ─── Instant GIF demo (landing hero) ───
   "instant.badge": "Free, runs in your browser",

@@ -51,7 +51,8 @@ export const uk: EnDict = {
   "anonTelegram.subtitle":
     "Підʼєднай бота vids&gifs один раз — і вся твоя бібліотека за одним @-згадуванням. Шукай інлайн у будь-якому чаті, надсилай GIF прямо з Telegram і завантажуй нові, пересилаючи їх боту.",
   "anonTelegram.cta.signUp": "Зареєструватися та підʼєднати",
-  "anonTelegram.cta.signIn": "Уже маєш акаунт? Увійти",
+  "anonTelegram.cta.signInPrompt": "Уже маєш акаунт?",
+  "anonTelegram.cta.signIn": "Увійти",
 
   // ─── Демо миттєвого GIF (геро на лендінгу) ───
   "instant.badge": "Безкоштовно, працює в браузері",

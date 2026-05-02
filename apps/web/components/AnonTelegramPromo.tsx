@@ -84,17 +84,21 @@ export function AnonTelegramPromo() {
         >
           <T k="anonTelegram.subtitle" />
         </Text>
-        <Flex gap="3" mt="2" wrap="wrap">
+        <Flex gap="4" mt="2" align="center" wrap="wrap">
           <Button asChild size="3" variant="solid" color="blue">
             <Link href="/signup">
               <T k="anonTelegram.cta.signUp" />
             </Link>
           </Button>
-          <Button asChild size="3" variant="ghost" color="gray">
-            <Link href="/login">
+          <Text as="div" size="2" color="gray">
+            <T k="anonTelegram.cta.signInPrompt" />{" "}
+            <Link
+              href="/login"
+              style={{ color: "var(--blue-11)", textDecoration: "none" }}
+            >
               <T k="anonTelegram.cta.signIn" />
             </Link>
-          </Button>
+          </Text>
         </Flex>
       </Flex>
     </Box>
