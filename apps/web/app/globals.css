@@ -2,7 +2,13 @@ html,
 body {
   padding: 0;
   margin: 0;
-  background: var(--gray-1);
+  /* Radix's --gray-* tokens are only defined inside .radix-themes, so on
+   * <body> they fall back to white. That shows as a white band below the
+   * Theme wrapper whenever body grows taller than its child — most
+   * visibly under the fixed CookieConsent banner, which adds
+   * padding-bottom on body. Hardcode the dark page color (matching the
+   * meta themeColor) so any uncovered body area blends in. */
+  background: #0a0a0a;
   color: var(--gray-12);
   font-family:
     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
