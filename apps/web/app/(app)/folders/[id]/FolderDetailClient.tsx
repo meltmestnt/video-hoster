@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertDialog,
+  Badge,
   Box,
   Button,
   Callout,
@@ -16,8 +17,10 @@ import {
 } from "@radix-ui/themes";
 import {
   Cross2Icon,
+  MagnifyingGlassIcon,
   Pencil1Icon,
   Share1Icon,
+  StackIcon,
   TrashIcon,
 } from "@radix-ui/react-icons";
 import { trpc } from "@/lib/trpc";
@@ -30,6 +33,9 @@ import type { AppRouter } from "@repo/api";
 type ListGifsResult = inferRouterOutputs<AppRouter>["folders"]["listGifs"];
 
 const NAME_MAX = 80;
+const SEARCH_DEBOUNCE_MS = 200;
+const TAGS_CHIP_LIMIT = 16;
+const SIMILAR_LIMIT = 24;
 
 interface Props {
   folderId: string;
@@ -63,15 +69,68 @@ export function FolderDetailClient({
     ? folders.data?.find((f) => f.id === folderId)?.name ?? initialName
     : sharedFolders.data?.find((f) => f.id === folderId)?.name ?? initialName;
 
+  // Search + tag-chip + similar-mode state. The grid below derives its
+  // items from one of three sources depending on which mode is active:
+  //   - similarSource is set → folders.suggested results
+  //   - debouncedQ or activeTag is set → folders.listGifs with filters
+  //   - neither → unfiltered folders.listGifs (initial data wins)
+  const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
+  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [similarSource, setSimilarSource] = useState<
+    { id: string; title: string } | null
+  >(null);
+
+  useEffect(() => {
+    const id = window.setTimeout(
+      () => setDebouncedQ(q.trim()),
+      SEARCH_DEBOUNCE_MS,
+    );
+    return () => window.clearTimeout(id);
+  }, [q]);
+
+  // Hide initial data once the user starts filtering — otherwise the
+  // initial unfiltered page would briefly flash through during a
+  // refetch with new params. The unfiltered fetch keeps initialData so
+  // the first paint matches SSR.
+  const filtering =
+    debouncedQ.length > 0 || activeTag !== null || similarSource !== null;
+
   const gifs = trpc.folders.listGifs.useQuery(
-    { folderId, limit: 24 },
     {
-      initialData: initialGifs,
+      folderId,
+      limit: 24,
+      q: debouncedQ || null,
+      tag: activeTag,
+    },
+    {
+      initialData: filtering ? undefined : initialGifs,
       staleTime: 10_000,
+      enabled: similarSource === null,
     },
   );
 
-  const items = gifs.data?.items ?? [];
+  const tagChips = trpc.folders.listFolderTags.useQuery(
+    { folderId, limit: TAGS_CHIP_LIMIT },
+    { staleTime: 30_000 },
+  );
+
+  const similar = trpc.folders.suggested.useQuery(
+    similarSource
+      ? { folderId, gifId: similarSource.id, limit: SIMILAR_LIMIT }
+      : { folderId, gifId: "", limit: SIMILAR_LIMIT },
+    {
+      enabled: similarSource !== null,
+      staleTime: 30_000,
+    },
+  );
+
+  const items = useMemo(() => {
+    if (similarSource) return similar.data ?? [];
+    return gifs.data?.items ?? [];
+  }, [similarSource, similar.data, gifs.data?.items]);
+
+  const isLoadingItems = similarSource ? similar.isFetching : gifs.isFetching;
 
   const rename = trpc.folders.rename.useMutation();
   const remove = trpc.folders.delete.useMutation();
@@ -206,6 +265,118 @@ export function FolderDetailClient({
         </Flex>
       </div>
 
+      {/* Toolbar: search + tag chips. Hidden in similar mode — the
+          banner takes over and the chips/search would only confuse the
+          UX (a query inside a similar-set is rarely what the user wants). */}
+      {similarSource === null && (
+        <Flex direction="column" gap="3" mb="4">
+          <TextField.Root
+            placeholder={t("folders.detail.search.placeholder")}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          >
+            <TextField.Slot>
+              <MagnifyingGlassIcon height="16" width="16" />
+            </TextField.Slot>
+            {q && (
+              <TextField.Slot>
+                <IconButton
+                  size="1"
+                  variant="ghost"
+                  aria-label={t("folders.detail.search.clear")}
+                  onClick={() => setQ("")}
+                >
+                  <Cross2Icon />
+                </IconButton>
+              </TextField.Slot>
+            )}
+          </TextField.Root>
+          {tagChips.data && tagChips.data.length > 0 && (
+            <Flex gap="2" wrap="wrap" align="center">
+              <Text size="1" color="gray" mr="1">
+                {t("folders.detail.tags.label")}:
+              </Text>
+              <Badge
+                asChild
+                variant={activeTag === null ? "solid" : "soft"}
+                color="iris"
+                style={{ cursor: "pointer" }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setActiveTag(null)}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    padding: 0,
+                    color: "inherit",
+                    font: "inherit",
+                    cursor: "pointer",
+                  }}
+                >
+                  {t("folders.detail.tags.all")}
+                </button>
+              </Badge>
+              {tagChips.data.map((tag) => (
+                <Badge
+                  key={tag.name}
+                  asChild
+                  variant={activeTag === tag.name ? "solid" : "soft"}
+                  color="iris"
+                  style={{ cursor: "pointer" }}
+                >
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setActiveTag(activeTag === tag.name ? null : tag.name)
+                    }
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      padding: 0,
+                      color: "inherit",
+                      font: "inherit",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {tag.name} · {tag.count}
+                  </button>
+                </Badge>
+              ))}
+            </Flex>
+          )}
+        </Flex>
+      )}
+
+      {/* Similar-mode banner. Shows the source gif's title and a one-tap
+          escape hatch back to the full folder. */}
+      {similarSource && (
+        <Callout.Root color="iris" mb="4">
+          <Callout.Icon>
+            <StackIcon />
+          </Callout.Icon>
+          <Flex
+            justify="between"
+            align="center"
+            gap="3"
+            wrap="wrap"
+            style={{ width: "100%" }}
+          >
+            <Callout.Text>
+              {t("folders.detail.similar.title", { title: similarSource.title })}
+            </Callout.Text>
+            <Button
+              size="1"
+              variant="soft"
+              color="gray"
+              onClick={() => setSimilarSource(null)}
+            >
+              {t("folders.detail.similar.exit")}
+            </Button>
+          </Flex>
+        </Callout.Root>
+      )}
+
       {items.length === 0 ? (
         <Box
           style={{
@@ -216,18 +387,87 @@ export function FolderDetailClient({
             textAlign: "center",
           }}
         >
-          <Heading size="4" mb="2">
-            {t("folders.detail.empty.title")}
-          </Heading>
-          <Text as="p" color="gray" size="2">
-            {t("folders.detail.empty.body")}
-          </Text>
+          {/* Empty-state copy reflects which mode produced the empty
+              set — saves the user from wondering why their populated
+              folder looks empty. */}
+          {similarSource ? (
+            <>
+              <Heading size="4" mb="2">
+                {t("folders.detail.similar.title", {
+                  title: similarSource.title,
+                })}
+              </Heading>
+              <Text as="p" color="gray" size="2">
+                {t("folders.detail.similar.empty")}
+              </Text>
+            </>
+          ) : filtering ? (
+            <>
+              <Heading size="4" mb="2">
+                {t("folders.detail.search.empty")}
+              </Heading>
+              {!isLoadingItems && (
+                <Button
+                  variant="soft"
+                  color="gray"
+                  mt="3"
+                  onClick={() => {
+                    setQ("");
+                    setActiveTag(null);
+                  }}
+                >
+                  {t("folders.detail.search.clear")}
+                </Button>
+              )}
+            </>
+          ) : (
+            <>
+              <Heading size="4" mb="2">
+                {t("folders.detail.empty.title")}
+              </Heading>
+              <Text as="p" color="gray" size="2">
+                {t("folders.detail.empty.body")}
+              </Text>
+            </>
+          )}
         </Box>
       ) : (
         <div className="dashboard-grid">
           {items.map((g, i) => (
             <Box key={g.id} style={{ position: "relative" }}>
               <GifCard gif={g} index={i} />
+              {/* Per-card "find similar" button — visible to anyone with
+                  read access (suggested respects folder access on the
+                  server). Sits to the LEFT of the remove button when both
+                  are present so neither covers the other. */}
+              <div
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+                style={{
+                  position: "absolute",
+                  top: 8,
+                  right: isOwner ? 76 : 44,
+                  zIndex: 3,
+                }}
+              >
+                <IconButton
+                  size="1"
+                  variant="solid"
+                  color="iris"
+                  highContrast
+                  aria-label={t("folders.detail.similar.button")}
+                  title={t("folders.detail.similar.button")}
+                  style={{ opacity: 0.92 }}
+                  onClick={() => {
+                    setSimilarSource({ id: g.id, title: g.title });
+                  }}
+                >
+                  <StackIcon />
+                </IconButton>
+              </div>
               {isOwner && (
                 <div
                   onClick={(e) => {
