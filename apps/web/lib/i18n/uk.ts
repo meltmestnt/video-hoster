@@ -213,6 +213,26 @@ export const uk: EnDict = {
   "user.profile.telegram.unlink": "Відʼєднати",
   "user.profile.telegram.unlinking": "Відʼєднуємо…",
 
+  "user.profile.discord.label": "Discord",
+  "user.profile.discord.hint":
+    "Використовуйте /gif у будь-якому чаті Discord, щоб ділитися GIF з вашої бібліотеки, а /upload — щоб додати GIF за URL.",
+  "user.profile.discord.connect": "Підʼєднати",
+  "user.profile.discord.connecting": "Створюємо код…",
+  "user.profile.discord.connected": "Підʼєднано.",
+  "user.profile.discord.connectedAs": "Підʼєднано як {handle}.",
+  "user.profile.discord.statusConnected": "Підʼєднано",
+  "user.profile.discord.statusDisconnected": "Не підʼєднано",
+  "user.profile.discord.refresh": "Оновити статус",
+  "user.profile.discord.unlink": "Відʼєднати",
+  "user.profile.discord.unlinking": "Відʼєднуємо…",
+  "user.profile.discord.codeLabel": "Ваш одноразовий код (15 хв):",
+  "user.profile.discord.codeCopy": "Копіювати",
+  "user.profile.discord.codeCopied": "Скопійовано",
+  "user.profile.discord.installBot": "Встановити бота",
+  "user.profile.discord.runCommand":
+    "Потім у Discord виконайте /link code:<вставити>, щоб завершити підʼєднання.",
+  "user.profile.discord.dismiss": "Скасувати",
+
   // ─── Сторінка /settings ───
   "settings.heading": "Налаштування",
   "settings.subtitle":
@@ -247,6 +267,8 @@ export const uk: EnDict = {
   "auth.login.signInButton": "Увійти",
   "auth.login.signingIn": "Виконується вхід...",
   "auth.login.invalid": "Невірна пошта або пароль",
+  "auth.login.banned":
+    "Цей акаунт заблоковано. Зверніться до підтримки, якщо вважаєте, що це помилка.",
   "auth.login.newHere": "Тут уперше?",
   "auth.login.createAccount": "Створити обліковий запис",
 
@@ -599,6 +621,13 @@ export const uk: EnDict = {
   "manage.action.unapprove": "Зняти схвалення",
   "manage.status.approved": "Схвалено",
   "manage.status.unapproved": "Не схвалено",
+  "manage.status.banned": "Заблоковано",
+  "manage.action.ban": "Заблокувати",
+  "manage.action.unban": "Розблокувати",
+  "manage.banning": "Блокування...",
+  "manage.ban.title": "Заблокувати {name}?",
+  "manage.ban.body":
+    "{email} буде негайно вийде з акаунта та не зможе ввійти або створити новий акаунт з цією поштою. Контент залишиться — використовуйте Видалити, щоб його прибрати.",
   "manage.action.delete": "Видалити",
   "manage.unverifying": "Скасування...",
   "manage.deleting": "Видалення...",

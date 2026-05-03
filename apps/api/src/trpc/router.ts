@@ -91,14 +91,14 @@ export const appRouter = router({
   auth: router({
     me: publicProcedure.query(async ({ ctx }) => {
       if (!ctx.user) return null;
-      const [videoCount, gifCount, telegramLink, avatarUrl] = await Promise.all(
-        [
+      const [videoCount, gifCount, telegramLink, discordLink, avatarUrl] =
+        await Promise.all([
           ctx.services.videos.countByOwner(ctx.user.id),
           ctx.services.gifs.countByOwner(ctx.user.id),
           ctx.services.telegramLinks.findByUserId(ctx.user.id),
+          ctx.services.discordLinks.findByUserId(ctx.user.id),
           ctx.services.users.resolveAvatarUrl(ctx.user),
-        ],
-      );
+        ]);
       return {
         id: ctx.user.id,
         email: ctx.user.email,
@@ -115,6 +115,7 @@ export const appRouter = router({
         videoCount,
         gifCount,
         telegramLinked: !!telegramLink,
+        discordLinked: !!discordLink,
         miniPlayerEnabled: ctx.user.miniPlayerEnabled,
         miniPlayerPromptSeen: ctx.user.miniPlayerPromptSeen,
         notifySubscribersOnUpload: ctx.user.notifySubscribersOnUpload,
@@ -183,6 +184,27 @@ export const appRouter = router({
           avatarUrl: user.avatarUrl,
         };
       }),
+
+    // Login form fallback: when credentials sign-in fails, the page calls
+    // this endpoint to distinguish "wrong password" from "this email is
+    // banned" so the banned user sees a specific message instead of the
+    // generic invalid-credentials text. Rate-limited per-IP because it's
+    // a public-facing email lookup.
+    checkBanned: publicProcedure
+      .use(
+        rateLimit({
+          name: "checkBanned",
+          keyBy: "ip",
+          max: 30,
+          windowMs: HOUR,
+        }),
+      )
+      .input(z.object({ email: z.string().email().max(254) }))
+      .query(({ ctx, input }) =>
+        ctx.services.users
+          .isEmailBanned(input.email)
+          .then((banned) => ({ banned })),
+      ),
   }),
 
   videos: router({
@@ -685,6 +707,7 @@ export const appRouter = router({
         // If the user had this folder selected as the bot's active
         // folder, clear that pref so the next inline query falls back
         // to the public library instead of looking up a dead UUID.
+        // Mirrored for both Telegram and Discord — best-effort.
         try {
           const link = await ctx.services.telegramLinks.findByUserId(
             ctx.user.id,
@@ -700,7 +723,24 @@ export const appRouter = router({
             }
           }
         } catch {
-          // The active-folder cleanup is best-effort.
+          // best-effort
+        }
+        try {
+          const link = await ctx.services.discordLinks.findByUserId(
+            ctx.user.id,
+          );
+          if (link) {
+            const current = await ctx.services.discord.getActiveFolderId?.(
+              link.discordUserId,
+            );
+            if (current === input.folderId) {
+              await ctx.services.discord.clearActiveFolder?.(
+                link.discordUserId,
+              );
+            }
+          }
+        } catch {
+          // best-effort
         }
         return { ok: true as const };
       }),
@@ -1170,6 +1210,24 @@ export const appRouter = router({
         }),
       ),
 
+    banUser: adminProcedure
+      .input(userIdInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.users.adminBanUser({
+          actingUserId: ctx.user.id,
+          targetUserId: input.userId,
+        }),
+      ),
+
+    unbanUser: adminProcedure
+      .input(userIdInputSchema)
+      .mutation(({ ctx, input }) =>
+        ctx.services.users.adminUnbanUser({
+          actingUserId: ctx.user.id,
+          targetUserId: input.userId,
+        }),
+      ),
+
     // Manual trigger for the daily multipart-upload cleanup. The cron
     // (S3CleanupService at 03:00 UTC) does the same thing on a schedule,
     // but having an explicit "run now" lets ops verify the integration
@@ -1457,6 +1515,82 @@ export const appRouter = router({
     unlink: protectedProcedure.mutation(async ({ ctx }) => {
       await ctx.services.telegramLinks.unlinkByUserId(ctx.user.id);
       return { ok: true as const };
+    }),
+  }),
+
+  // ─── Discord bot integration ───
+  // Mirrors the telegram block: read-only `status` is public-safe so
+  // the settings card renders without flicker, mutations require auth.
+  // The link flow uses a paste-the-code pattern — Discord doesn't have
+  // a t.me-style deep-link-with-payload, so we hand the website-side
+  // user a short HMAC token they paste into `/link code:<…>` in the bot.
+  discord: router({
+    status: protectedProcedure.query(async ({ ctx }) => {
+      const link = await ctx.services.discordLinks.findByUserId(
+        ctx.user.id,
+      );
+      return {
+        linked: !!link,
+        discordUsername: link?.discordUsername ?? null,
+        linkedAt: link?.linkedAt ?? null,
+      };
+    }),
+
+    // Verified-only for the same reason Telegram is: bot-side uploads
+    // need email-verified status, so gate the link mint on it too — a
+    // throwaway sign-up shouldn't acquire a Discord upload channel
+    // without ever proving an inbox.
+    startLink: verifiedProcedure.mutation(({ ctx }) => {
+      const start = ctx.services.discord.buildStartLink(ctx.user.id);
+      if (!start) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Discord bot is not configured on this server.",
+        });
+      }
+      return start;
+    }),
+
+    unlink: protectedProcedure.mutation(async ({ ctx }) => {
+      await ctx.services.discordLinks.unlinkByUserId(ctx.user.id);
+      return { ok: true as const };
+    }),
+
+    // Active-folder accessors — same shape as the telegram pair so the
+    // web UI can drop in a Discord folder selector by reusing the
+    // existing TelegramActiveFolderRow code.
+    setActiveFolder: verifiedProcedure
+      .input(setActiveFolderInputSchema)
+      .mutation(async ({ ctx, input }) => {
+        if (input.folderId !== null) {
+          await ctx.services.folders.findOwned(input.folderId, ctx.user.id);
+        }
+        const link = await ctx.services.discordLinks.findByUserId(
+          ctx.user.id,
+        );
+        if (!link) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message:
+              "Connect your Discord account first, then choose a folder.",
+          });
+        }
+        await ctx.services.discord.setActiveFolder(
+          link.discordUserId,
+          input.folderId,
+        );
+        return { ok: true as const };
+      }),
+
+    getActiveFolder: protectedProcedure.query(async ({ ctx }) => {
+      const link = await ctx.services.discordLinks.findByUserId(
+        ctx.user.id,
+      );
+      if (!link) return { folderId: null };
+      const folderId = await ctx.services.discord.getActiveFolderId(
+        link.discordUserId,
+      );
+      return { folderId };
     }),
   }),
 });

@@ -22,6 +22,7 @@ import { MediaModule } from "./media/media.module";
 import { RemindersModule } from "./reminders/reminders.module";
 import { PushModule } from "./push/push.module";
 import { TelegramModule } from "./telegram/telegram.module";
+import { DiscordModule } from "./discord/discord.module";
 import { TrpcModule } from "./trpc/trpc.module";
 
 @Module({
@@ -51,6 +52,7 @@ import { TrpcModule } from "./trpc/trpc.module";
     RemindersModule,
     PushModule,
     TelegramModule,
+    DiscordModule,
     TrpcModule,
   ],
 })

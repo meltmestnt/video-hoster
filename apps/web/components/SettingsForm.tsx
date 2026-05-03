@@ -14,6 +14,7 @@ import { trpc } from "@/lib/trpc";
 import { useLocale, useSetLocale, useT } from "@/lib/i18n";
 import { PushToggleRow } from "./UserMenu";
 import { TelegramConnectRow } from "./TelegramConnectRow";
+import { DiscordConnectRow } from "./DiscordConnectRow";
 import { OpenInTelegramButton } from "./OpenInTelegramButton";
 import { FolderPickerSelect } from "./FolderPickerSelect";
 
@@ -141,6 +142,10 @@ export function SettingsForm({
         <Separator size="4" />
 
         <TelegramActiveFolderRow />
+
+        <Separator size="4" />
+
+        <DiscordConnectRow />
 
         <Separator size="4" />
 

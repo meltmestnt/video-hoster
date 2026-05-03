@@ -210,6 +210,26 @@ export const en = {
   "user.profile.telegram.unlink": "Unlink",
   "user.profile.telegram.unlinking": "Unlinking…",
 
+  "user.profile.discord.label": "Discord",
+  "user.profile.discord.hint":
+    "Use /gif in any Discord chat to share GIFs from your library, and /upload to ingest from a URL.",
+  "user.profile.discord.connect": "Connect",
+  "user.profile.discord.connecting": "Generating code…",
+  "user.profile.discord.connected": "Connected.",
+  "user.profile.discord.connectedAs": "Connected as {handle}.",
+  "user.profile.discord.statusConnected": "Connected",
+  "user.profile.discord.statusDisconnected": "Not connected",
+  "user.profile.discord.refresh": "Check status",
+  "user.profile.discord.unlink": "Unlink",
+  "user.profile.discord.unlinking": "Unlinking…",
+  "user.profile.discord.codeLabel": "Your one-time code (15 min):",
+  "user.profile.discord.codeCopy": "Copy",
+  "user.profile.discord.codeCopied": "Copied",
+  "user.profile.discord.installBot": "Install the bot",
+  "user.profile.discord.runCommand":
+    "Then in Discord, run /link code:<paste> to finish linking.",
+  "user.profile.discord.dismiss": "Cancel",
+
   // ─── /settings page ───
   "settings.heading": "Settings",
   "settings.subtitle":
@@ -242,6 +262,8 @@ export const en = {
   "auth.login.signInButton": "Sign in",
   "auth.login.signingIn": "Signing in...",
   "auth.login.invalid": "Invalid email or password",
+  "auth.login.banned":
+    "This account has been banned. Contact support if you think this is a mistake.",
   "auth.login.newHere": "New here?",
   "auth.login.createAccount": "Create an account",
 
@@ -587,6 +609,13 @@ export const en = {
   "manage.action.unapprove": "Unapprove",
   "manage.status.approved": "Approved",
   "manage.status.unapproved": "Unapproved",
+  "manage.status.banned": "Banned",
+  "manage.action.ban": "Ban",
+  "manage.action.unban": "Unban",
+  "manage.banning": "Banning...",
+  "manage.ban.title": "Ban {name}?",
+  "manage.ban.body":
+    "{email} will be signed out immediately and blocked from signing in or creating a new account with this address. Their content stays in place — use Delete to remove it.",
   "manage.action.delete": "Delete",
   "manage.unverifying": "Unverifying...",
   "manage.deleting": "Deleting...",

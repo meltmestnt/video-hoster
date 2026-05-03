@@ -19,6 +19,8 @@ import { BillingService } from "../billing/billing.service";
 import { PushService } from "../push/push.service";
 import { TelegramService } from "../telegram/telegram.service";
 import { TelegramLinkService } from "../telegram/telegram-link.service";
+import { DiscordService } from "../discord/discord.service";
+import { DiscordLinkService } from "../discord/discord-link.service";
 import { appRouter, type AppRouter } from "./router";
 import type { Context } from "./context";
 
@@ -46,6 +48,8 @@ export class TrpcService {
     private readonly push: PushService,
     private readonly telegram: TelegramService,
     private readonly telegramLinks: TelegramLinkService,
+    private readonly discord: DiscordService,
+    private readonly discordLinks: DiscordLinkService,
   ) {}
 
   createContext = async ({
@@ -71,6 +75,8 @@ export class TrpcService {
       push: this.push,
       telegram: this.telegram,
       telegramLinks: this.telegramLinks,
+      discord: this.discord,
+      discordLinks: this.discordLinks,
     };
 
     // Cloudflare's CF-Connecting-IP is a spoofing-resistant source for the
@@ -94,6 +100,10 @@ export class TrpcService {
           ? await this.users.findById(payload.sub)
           : await this.users.upsertFromAuthPayload(payload);
       if (!user) return { user: null, services, ip };
+      // Banned accounts: drop straight to anonymous so an existing JWT
+      // immediately stops working — no waiting for it to expire. Every
+      // protectedProcedure then returns UNAUTHORIZED.
+      if (user.bannedAt) return { user: null, services, ip };
       // Presence tracking — fire-and-forget, throttled inside
       // UsersService so a chatty SPA only writes once every 30s.
       this.users.bumpLastSeen(user.id);

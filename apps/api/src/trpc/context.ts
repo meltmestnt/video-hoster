@@ -18,6 +18,8 @@ import type { BillingService } from "../billing/billing.service";
 import type { PushService } from "../push/push.service";
 import type { TelegramLinkService } from "../telegram/telegram-link.service";
 import type { TelegramService } from "../telegram/telegram.service";
+import type { DiscordLinkService } from "../discord/discord-link.service";
+import type { DiscordService } from "../discord/discord.service";
 
 export interface Services {
   users: UsersService;
@@ -39,6 +41,8 @@ export interface Services {
   push: PushService;
   telegram: TelegramService;
   telegramLinks: TelegramLinkService;
+  discord: DiscordService;
+  discordLinks: DiscordLinkService;
 }
 
 export interface Context {

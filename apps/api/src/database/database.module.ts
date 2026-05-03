@@ -19,6 +19,8 @@ import { Screenshot } from "../screenshots/screenshot.entity";
 import { PushSubscription } from "../push/push-subscription.entity";
 import { TelegramLink } from "../telegram/telegram-link.entity";
 import { TelegramPref } from "../telegram/telegram-pref.entity";
+import { DiscordLink } from "../discord/discord-link.entity";
+import { DiscordPref } from "../discord/discord-pref.entity";
 import { Folder } from "../folders/folder.entity";
 import { FolderGif } from "../folders/folder-gif.entity";
 import { FolderShare } from "../folders/folder-share.entity";
@@ -54,6 +56,8 @@ import { FolderShare } from "../folders/folder-share.entity";
           PushSubscription,
           TelegramLink,
           TelegramPref,
+          DiscordLink,
+          DiscordPref,
           Folder,
           FolderGif,
           FolderShare,
