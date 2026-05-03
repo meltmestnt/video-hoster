@@ -5,13 +5,9 @@ import {
   OnApplicationShutdown,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import {
   ActionRowBuilder,
   ApplicationIntegrationType,
-  AttachmentBuilder,
   ButtonBuilder,
   ButtonStyle,
   Client,
@@ -34,7 +30,6 @@ import { MediaService } from "../media/media.service";
 import { UsersService } from "../users/users.service";
 import { FoldersService } from "../folders/folders.service";
 import { TranscoderService } from "../transcoder/transcoder.service";
-import { S3Service } from "../s3/s3.service";
 import { looksLikeGif, looksLikeVideo } from "../s3/file-signatures";
 import { DiscordLinkService } from "./discord-link.service";
 import { DiscordPrefService } from "./discord-pref.service";
@@ -74,7 +69,6 @@ export class DiscordService
     private readonly users: UsersService,
     private readonly folders: FoldersService,
     private readonly transcoder: TranscoderService,
-    private readonly s3: S3Service,
     private readonly links: DiscordLinkService,
     private readonly prefs: DiscordPrefService,
   ) {}
@@ -173,17 +167,6 @@ export class DiscordService
       // for the gateway to accept the connection. We never read messages
       // or member lists.
       intents: [GatewayIntentBits.Guilds],
-      rest: {
-        // discord.js's default REST timeout is 15 s. Attachment
-        // uploads from Railway → Discord can run longer than that
-        // on the multipart/form-data POST — the symptom is
-        // editReply with files: [...] resolving with "This
-        // operation was aborted" while the deferred interaction
-        // stays stuck on "is thinking…" until Discord's own
-        // 15 min timeout. 60 s gives slow upload paths a real
-        // shot, well under the interaction expiry.
-        timeout: 60_000,
-      },
     });
 
     this.client.once(Events.ClientReady, (c) => {
@@ -589,133 +572,42 @@ export class DiscordService
   }
 
   /**
-   * Pull the GIF bytes from S3 to a temp file and return an
-   * AttachmentBuilder pointing at that path. discord.js streams the
-   * file off disk into the multipart upload — turns out Buffer-based
-   * AttachmentBuilder uploads were stalling reliably in prod for
-   * reasons we can't fully pin down (likely an interaction between
-   * undici's body stream handling and discord.js's REST queue under
-   * Railway's outbound network), but file-path attachments use a
-   * fundamentally different upload path and don't exhibit the hang.
+   * Single-shot: turn a known gif id into a public reply containing
+   * the signed GIF URL. Discord auto-embeds .gif URLs as inline
+   * images.
    *
-   * Caller MUST call `cleanupAttachment(workDir)` when the upload
-   * resolves / rejects so the temp file doesn't leak.
+   * Why URL post and not attachment upload: we tried uploading the
+   * GIF bytes as a Discord attachment so Discord-hosted files could
+   * (in theory) bypass viewer auto-play settings. In practice
+   * Buffer + file-path attachments both stalled in prod (discord.js
+   * silently retried internal aborts up to 3× × 60 s, so a single
+   * /gif could take 2 minutes to resolve), and Discord's GIF render
+   * still respected the viewer's "Automatically play GIFs"
+   * accessibility setting either way — paying minutes of latency
+   * for a behaviour we couldn't actually guarantee. URL post lands
+   * in <1 s and the auto-play behaviour is identical.
    *
-   * Returns null when the gif can't be resolved or the S3 read fails.
-   */
-  private async fetchGifAttachment(
-    gifId: string,
-  ): Promise<{ attachment: AttachmentBuilder; workDir: string } | null> {
-    const key = await this.media.resolveKey("gif", gifId);
-    if (!key) return null;
-    const workDir = await mkdtemp(join(tmpdir(), "discord-gif-"));
-    const filePath = join(workDir, `${gifId}.gif`);
-    try {
-      await this.s3.downloadToFile(key, filePath);
-      const attachment = new AttachmentBuilder(filePath, {
-        name: `${gifId}.gif`,
-      });
-      this.logger.log(`discord.fetchGifAttachment ${gifId} ready filePath`);
-      return { attachment, workDir };
-    } catch (err) {
-      this.logger.warn(
-        `discord.fetchGifAttachment ${gifId} failed: ${(err as Error).message}`,
-      );
-      await rm(workDir, { recursive: true, force: true }).catch(() => {});
-      return null;
-    }
-  }
-
-  private async cleanupAttachment(workDir: string): Promise<void> {
-    await rm(workDir, { recursive: true, force: true }).catch(() => {});
-  }
-
-  /**
-   * Race a Discord REST call against an explicit timeout so we never
-   * depend on discord.js's internal abort firing on schedule. The
-   * caller catches the timeout and falls through to a URL fallback.
-   */
-  private async withUploadTimeout<T>(
-    promise: Promise<T>,
-    label: string,
-    timeoutMs = 45_000,
-  ): Promise<T> {
-    let timer: NodeJS.Timeout | undefined;
-    try {
-      return await Promise.race([
-        promise,
-        new Promise<T>((_, reject) => {
-          timer = setTimeout(
-            () => reject(new Error(`${label} timed out after ${timeoutMs}ms`)),
-            timeoutMs,
-          );
-        }),
-      ]);
-    } finally {
-      if (timer) clearTimeout(timer);
-    }
-  }
-
-  /**
-   * Single-shot: turn a known gif id into a public reply with the GIF
-   * uploaded as a Discord attachment so it animates regardless of the
-   * viewer's auto-play setting. Telegram inline-picker path stays on
-   * `kind: "mpeg4"` (separate code path; not affected by this).
-   *
-   * Falls back to a plain URL editReply when the multipart attachment
-   * upload aborts (Railway → Discord network blips) so the user
-   * always sees *something* instead of a stuck "thinking…" spinner
-   * until Discord times out the interaction.
+   * If a viewer sees a frozen first frame, the fix is on their end:
+   * Discord → Settings → Accessibility → Automatically play GIFs.
+   * Default is on; users with reduced-motion preferences turn it off.
    */
   private async postGifDirectly(
     interaction: ChatInputCommandInteraction,
     gifId: string,
     query: string,
   ): Promise<void> {
-    // Defer because the S3 fetch + attachment upload typically runs
-    // 1–2 s for a few-MiB gif — well past Discord's 3 s reply window.
-    await interaction.deferReply();
-    const fetched = await this.fetchGifAttachment(gifId);
-    if (!fetched) {
-      await interaction.editReply({
+    const url = await this.media.signUrl({ kind: "gif", id: gifId });
+    if (!url) {
+      await interaction.reply({
         content: "That GIF isn't available right now.",
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
-    try {
-      await this.withUploadTimeout(
-        interaction.editReply({ files: [fetched.attachment] }),
-        `editReply ${gifId}`,
-      );
-      this.logger.log(
-        `discord./gif direct from=${interaction.user.id} gifId=${gifId} q="${truncate(query, 60)}" mode=attachment`,
-      );
-    } catch (err) {
-      // Multipart upload failed (timeout, abort, Discord-side
-      // hiccup). Fall back to posting the signed URL — it auto-
-      // embeds, just doesn't always auto-play.
-      this.logger.warn(
-        `discord./gif attachment upload failed gifId=${gifId}: ${(err as Error).message}; falling back to URL`,
-      );
-      const url = await this.media.signUrl({ kind: "gif", id: gifId });
-      if (url) {
-        await interaction
-          .editReply({ content: url, files: [] })
-          .catch(() => {});
-        this.logger.log(
-          `discord./gif direct from=${interaction.user.id} gifId=${gifId} mode=url-fallback`,
-        );
-      } else {
-        await interaction
-          .editReply({
-            content: "That GIF couldn't be sent right now. Try again.",
-            files: [],
-          })
-          .catch(() => {});
-      }
-    } finally {
-      await this.cleanupAttachment(fetched.workDir);
-    }
+    await interaction.reply({ content: url });
+    this.logger.log(
+      `discord./gif direct from=${interaction.user.id} gifId=${gifId} q="${truncate(query, 60)}"`,
+    );
   }
 
   /**
@@ -819,16 +711,15 @@ export class DiscordService
         .catch(() => {});
       return;
     }
-    // Defer the button update — fetching the GIF bytes for the
-    // attachment upload runs longer than the 3 s response window.
-    await interaction.deferUpdate();
-    const fetched = await this.fetchGifAttachment(gifId);
-    if (!fetched) {
-      await interaction.editReply({
-        content: "That GIF isn't available anymore.",
-        embeds: [],
-        components: [],
-      });
+    const url = await this.media.signUrl({ kind: "gif", id: gifId });
+    if (!url) {
+      await interaction
+        .update({
+          content: "That GIF isn't available anymore.",
+          embeds: [],
+          components: [],
+        })
+        .catch(() => {});
       return;
     }
     let postedPublicly = false;
@@ -838,23 +729,14 @@ export class DiscordService
       // member; throws on permission denied (user-installed app in a
       // guild the bot isn't part of).
       if (interaction.channel && "send" in interaction.channel) {
-        // Cast to unknown — channel.send's return type narrows on
-        // DM vs guild union and Promise.race chokes on the union.
-        // We don't use the resolved Message, just await for side
-        // effects, so the cast is harmless.
-        await this.withUploadTimeout(
-          interaction.channel.send({
-            files: [fetched.attachment],
-          }) as Promise<unknown>,
-          `channel.send ${gifId}`,
-        );
+        await interaction.channel.send({ content: url });
         postedPublicly = true;
       }
     } catch {
       // expected in user-install non-member contexts — handled below
     }
     if (postedPublicly) {
-      await interaction.editReply({
+      await interaction.update({
         content: "✓ Sent",
         embeds: [],
         components: [],
@@ -862,16 +744,12 @@ export class DiscordService
     } else {
       // Fallback when the bot can't post publicly: surface the URL in
       // the ephemeral so the user can copy + paste it themselves.
-      const url = await this.media.signUrl({ kind: "gif", id: gifId });
-      await interaction.editReply({
-        content: url
-          ? `Couldn't post here directly — copy & paste:\n${url}`
-          : "Couldn't post here directly and the GIF URL has expired.",
+      await interaction.update({
+        content: `Couldn't post here directly — copy & paste:\n${url}`,
         embeds: [],
         components: [],
       });
     }
-    await this.cleanupAttachment(fetched.workDir);
     this.logger.log(
       `discord./gif gallery picked from=${interaction.user.id} gifId=${gifId} postedPublicly=${postedPublicly}`,
     );
