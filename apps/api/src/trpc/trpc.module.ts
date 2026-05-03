@@ -16,6 +16,7 @@ import { AuthModule } from "../auth/auth.module";
 import { BillingModule } from "../billing/billing.module";
 import { PushModule } from "../push/push.module";
 import { TelegramModule } from "../telegram/telegram.module";
+import { DiscordModule } from "../discord/discord.module";
 import { TrpcService } from "./trpc.service";
 
 @Module({
@@ -37,6 +38,7 @@ import { TrpcService } from "./trpc.service";
     BillingModule,
     PushModule,
     TelegramModule,
+    DiscordModule,
   ],
   providers: [TrpcService],
   exports: [TrpcService],
