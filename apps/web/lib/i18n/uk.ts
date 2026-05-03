@@ -233,6 +233,12 @@ export const uk: EnDict = {
     "Потім у Discord виконайте /link code:<вставити>, щоб завершити підʼєднання.",
   "user.profile.discord.dismiss": "Скасувати",
 
+  "dashboard.discordPromo.title": "Використовуйте vidsandgifs у Discord",
+  "dashboard.discordPromo.body":
+    "/gif автодоповнює з вашої бібліотеки, /upload-file приймає файли. Відкрийте налаштування, щоб встановити бота та підʼєднати акаунт за два кліки.",
+  "dashboard.discordPromo.connect": "Підʼєднати Discord",
+  "dashboard.discordPromo.dismiss": "Сховати",
+
   // ─── Сторінка /settings ───
   "settings.heading": "Налаштування",
   "settings.subtitle":
@@ -532,6 +538,11 @@ export const uk: EnDict = {
   "settings.folders.none": "Усі мої GIF (без фільтра по папці)",
   "settings.folders.linkRequired":
     "Спершу підʼєднайте Telegram, щоб обрати активну папку.",
+  "settings.discord.folders.label": "Активна папка для Discord",
+  "settings.discord.folders.hint":
+    "Автодоповнення /gif та команди /upload у Discord будуть обмежені цією папкою. Виберіть «Усі мої GIF», щоб скинути.",
+  "settings.discord.folders.linkRequired":
+    "Спершу підʼєднайте Discord, щоб обрати активну папку.",
 
   // ─── Unverified-account banner ───
   "unverified.banner.title": "Підтвердьте пошту, щоб діяти на сайті.",

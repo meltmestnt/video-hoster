@@ -37,6 +37,7 @@ interface TopBarProps {
   videoCount: number;
   gifCount: number;
   telegramLinked: boolean;
+  discordLinked: boolean;
   verified: boolean;
   miniPlayerEnabled: boolean;
   isAdmin: boolean;
@@ -50,6 +51,7 @@ export function TopBar({
   videoCount,
   gifCount,
   telegramLinked,
+  discordLinked,
   verified,
   miniPlayerEnabled,
   isAdmin,
@@ -220,6 +222,7 @@ export function TopBar({
                 videoCount={videoCount}
                 gifCount={gifCount}
                 telegramLinked={telegramLinked}
+                discordLinked={discordLinked}
                 verified={verified}
                 miniPlayerEnabled={miniPlayerEnabled}
                 isAdmin={isAdmin}

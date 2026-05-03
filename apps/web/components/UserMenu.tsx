@@ -18,6 +18,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ArchiveIcon,
+  ChatBubbleIcon,
   CheckCircledIcon,
   CrossCircledIcon,
   GearIcon,
@@ -42,6 +43,7 @@ interface Props {
   videoCount: number;
   gifCount: number;
   telegramLinked: boolean;
+  discordLinked: boolean;
   verified: boolean;
   miniPlayerEnabled: boolean;
   // Resolved from the server-rendered layout's auth.me call so the admin
@@ -57,6 +59,7 @@ export function UserMenu({
   videoCount,
   gifCount,
   telegramLinked,
+  discordLinked,
   verified,
   miniPlayerEnabled,
   isAdmin,
@@ -178,6 +181,7 @@ export function UserMenu({
               videoCount={videoCount}
               gifCount={gifCount}
               telegramLinked={telegramLinked}
+              discordLinked={discordLinked}
               verified={verified}
               miniPlayerEnabled={miniPlayerEnabled}
               isAdmin={isAdmin}
@@ -220,6 +224,7 @@ interface ProfilePaneProps {
   videoCount: number;
   gifCount: number;
   telegramLinked: boolean;
+  discordLinked: boolean;
   verified: boolean;
   miniPlayerEnabled: boolean;
   isAdmin: boolean;
@@ -233,6 +238,7 @@ function ProfilePane({
   videoCount,
   gifCount,
   telegramLinked,
+  discordLinked,
   verified,
   miniPlayerEnabled,
   isAdmin,
@@ -374,6 +380,36 @@ function ProfilePane({
               {telegramLinked
                 ? t("user.profile.telegram.statusConnected")
                 : t("user.profile.telegram.statusDisconnected")}
+            </Text>
+          </Flex>
+        </Flex>
+        <Flex justify="between" align="center">
+          <Flex align="center" gap="2">
+            <ChatBubbleIcon />
+            <Text size="2" color="gray">
+              {t("user.profile.discord.label")}
+            </Text>
+          </Flex>
+          <Flex align="center" gap="1">
+            {discordLinked ? (
+              <CheckCircledIcon
+                style={{ color: "var(--green-10)" }}
+                aria-hidden
+              />
+            ) : (
+              <CrossCircledIcon
+                style={{ color: "var(--gray-9)" }}
+                aria-hidden
+              />
+            )}
+            <Text
+              size="2"
+              weight="medium"
+              color={discordLinked ? "green" : "gray"}
+            >
+              {discordLinked
+                ? t("user.profile.discord.statusConnected")
+                : t("user.profile.discord.statusDisconnected")}
             </Text>
           </Flex>
         </Flex>

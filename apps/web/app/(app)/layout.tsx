@@ -47,6 +47,7 @@ export default async function AppLayout({
             videoCount={me?.videoCount ?? 0}
             gifCount={me?.gifCount ?? 0}
             telegramLinked={me?.telegramLinked ?? false}
+            discordLinked={me?.discordLinked ?? false}
             verified={me?.status === "verified"}
             miniPlayerEnabled={me?.miniPlayerEnabled ?? true}
             isAdmin={me?.role === "admin"}

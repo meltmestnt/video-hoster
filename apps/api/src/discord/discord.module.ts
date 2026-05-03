@@ -9,6 +9,7 @@ import { GifsModule } from "../gifs/gifs.module";
 import { FoldersModule } from "../folders/folders.module";
 import { MediaModule } from "../media/media.module";
 import { UsersModule } from "../users/users.module";
+import { TranscoderModule } from "../transcoder/transcoder.module";
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { UsersModule } from "../users/users.module";
     FoldersModule,
     MediaModule,
     UsersModule,
+    TranscoderModule,
   ],
   providers: [DiscordLinkService, DiscordPrefService, DiscordService],
   exports: [DiscordLinkService, DiscordPrefService, DiscordService],

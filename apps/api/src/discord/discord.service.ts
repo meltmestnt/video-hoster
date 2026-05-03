@@ -24,12 +24,22 @@ import { GifsService } from "../gifs/gifs.service";
 import { MediaService } from "../media/media.service";
 import { UsersService } from "../users/users.service";
 import { FoldersService } from "../folders/folders.service";
+import { TranscoderService } from "../transcoder/transcoder.service";
+import { looksLikeGif, looksLikeVideo } from "../s3/file-signatures";
 import { DiscordLinkService } from "./discord-link.service";
 import { DiscordPrefService } from "./discord-pref.service";
 
 const AUTOCOMPLETE_MAX = 25;
 const MAX_TITLE_LEN = 200;
 const MAX_TAGS = 10;
+// Discord lets free users attach up to 25 MiB and Nitro tiers higher
+// still. We accept up to 50 MiB for non-GIF inputs so a moderately
+// long video has room to transcode down — the post-transcode buffer
+// is what gets validated against the 20 MiB GIF cap inside
+// gifs.createFromBuffer, so a too-large source video is rejected
+// only after the encode work, but a clearly-abusive 100 MiB upload
+// is bounced at the door.
+const MAX_DISCORD_ATTACHMENT_BYTES = 50 * 1024 * 1024;
 
 @Injectable()
 export class DiscordService
@@ -46,6 +56,7 @@ export class DiscordService
     private readonly media: MediaService,
     private readonly users: UsersService,
     private readonly folders: FoldersService,
+    private readonly transcoder: TranscoderService,
     private readonly links: DiscordLinkService,
     private readonly prefs: DiscordPrefService,
   ) {}
@@ -297,7 +308,41 @@ export class DiscordService
       .setIntegrationTypes(bothInstalls)
       .setContexts(allContexts);
 
-    return [gif, link, unlink, folder, upload].map((c) => c.toJSON());
+    const uploadFile = new SlashCommandBuilder()
+      .setName("upload-file")
+      .setDescription("Upload a GIF (or video — auto-converted) by attaching a file")
+      .addAttachmentOption((o) =>
+        o
+          .setName("file")
+          .setDescription("GIF, MP4, MOV, WebM, or MKV")
+          .setRequired(true),
+      )
+      .addStringOption((o) =>
+        o
+          .setName("title")
+          .setDescription("Title for the GIF")
+          .setRequired(true)
+          .setMaxLength(MAX_TITLE_LEN),
+      )
+      .addStringOption((o) =>
+        o
+          .setName("tags")
+          .setDescription("Optional comma-separated tags")
+          .setRequired(false)
+          .setMaxLength(200),
+      )
+      .setIntegrationTypes(bothInstalls)
+      .setContexts(allContexts);
+
+    const help = new SlashCommandBuilder()
+      .setName("help")
+      .setDescription("How to use the vidsandgifs bot")
+      .setIntegrationTypes(bothInstalls)
+      .setContexts(allContexts);
+
+    return [gif, link, unlink, folder, upload, uploadFile, help].map((c) =>
+      c.toJSON(),
+    );
   }
 
   // ─── Dispatch ──────────────────────────────────────────────────────
@@ -323,6 +368,12 @@ export class DiscordService
         return;
       case "upload":
         await this.onUpload(interaction);
+        return;
+      case "upload-file":
+        await this.onUploadFile(interaction);
+        return;
+      case "help":
+        await this.onHelp(interaction);
         return;
     }
   }
@@ -708,6 +759,169 @@ export class DiscordService
         content: `Upload failed: ${truncate(message, 200)}`,
       });
     }
+  }
+
+  // ─── /upload-file ──────────────────────────────────────────────────
+
+  private async onUploadFile(
+    interaction: ChatInputCommandInteraction,
+  ): Promise<void> {
+    const attachment = interaction.options.getAttachment("file", true);
+    const title = interaction.options.getString("title", true).trim();
+    const rawTags = interaction.options.getString("tags", false) ?? "";
+    const tagNames = rawTags
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, MAX_TAGS);
+    const discordUserId = interaction.user.id;
+    const link = await this.links.findByDiscordUserId(discordUserId);
+    if (!link) {
+      await interaction.reply({
+        content:
+          "Connect your account first with `/link code:<from-website>` to upload.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+    const account = await this.users.findById(link.userId);
+    if (!account) {
+      await interaction.reply({
+        content: "Account not found. Try `/unlink` then `/link` again.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+    if (account.status !== "verified") {
+      await interaction.reply({
+        content:
+          "Verify your email at vidsandgifs.xyz first to enable bot uploads.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+    if (attachment.size > MAX_DISCORD_ATTACHMENT_BYTES) {
+      const mb = Math.round(MAX_DISCORD_ATTACHMENT_BYTES / 1024 / 1024);
+      await interaction.reply({
+        content: `That file is over ${mb} MB. Trim it down and try again.`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    // Download + magic-byte sniff + optional video transcode can take
+    // several seconds on a worst-case input. Defer immediately so we
+    // don't blow the 3 s interaction-response window.
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    let downloaded: Buffer;
+    try {
+      // Attachment URLs are scoped to cdn.discordapp.com — Discord's
+      // own CDN, not user-controlled — so no SSRF surface to harden
+      // against here. The size cap above already bounded the body.
+      const response = await fetch(attachment.url);
+      if (!response.ok) {
+        throw new Error(`download returned ${response.status}`);
+      }
+      downloaded = Buffer.from(await response.arrayBuffer());
+    } catch (err) {
+      this.logger.warn(
+        `discord./upload-file download failed userId=${account.id}: ${(err as Error).message}`,
+      );
+      await interaction.editReply({
+        content: `Couldn't fetch that attachment: ${truncate((err as Error).message ?? "", 160)}`,
+      });
+      return;
+    }
+
+    // Same sniff-then-transcode pipeline the Telegram bot uses: trust
+    // the bytes, not the Content-Type, since Discord clients can label
+    // the same file as image/gif, video/mp4, or application/octet-stream
+    // depending on how it was attached. GIF → use as-is (createFromBuffer
+    // re-compresses to SD internally). Video → transcode to GIF first
+    // via the existing palette pipeline. Anything else → reject.
+    const head16 = downloaded.subarray(0, 16);
+    let gifBuffer: Buffer = downloaded;
+    if (looksLikeGif(head16)) {
+      // happy path
+    } else if (looksLikeVideo(head16)) {
+      try {
+        gifBuffer = await this.transcoder.compressGifToSd(downloaded);
+      } catch (err) {
+        this.logger.warn(
+          `discord./upload-file video→gif failed userId=${account.id}: ${(err as Error).message}`,
+        );
+        await interaction.editReply({
+          content:
+            "Couldn't convert that video to a GIF. Try a shorter or simpler clip.",
+        });
+        return;
+      }
+    } else {
+      await interaction.editReply({
+        content:
+          "That file doesn't look like a GIF or supported video (MP4, MOV, WebM, MKV).",
+      });
+      return;
+    }
+
+    try {
+      const gif = await this.gifs.createFromBuffer({
+        ownerId: account.id,
+        ownerStatus: account.status,
+        ownerApproved: account.approved,
+        title,
+        buffer: gifBuffer,
+        tagNames,
+      });
+      const folderId = await this.prefs.getActiveFolderId(discordUserId);
+      if (folderId) {
+        await this.folders
+          .addGif(account.id, folderId, gif.id)
+          .catch(() => {});
+      }
+      const webOrigin =
+        this.config.get<string>("WEB_ORIGIN") ?? "https://vidsandgifs.xyz";
+      await interaction.editReply({
+        content: `Uploaded **${truncate(title, 80)}** → ${webOrigin}/gifs/${gif.id}`,
+      });
+      this.logger.log(
+        `discord./upload-file from=${discordUserId} userId=${account.id} gifId=${gif.id} sourceBytes=${downloaded.length} storedBytes=${gifBuffer.length}`,
+      );
+    } catch (err) {
+      const message = (err as Error).message ?? "Upload failed.";
+      await interaction.editReply({
+        content: `Upload failed: ${truncate(message, 200)}`,
+      });
+    }
+  }
+
+  // ─── /help ─────────────────────────────────────────────────────────
+
+  private async onHelp(
+    interaction: ChatInputCommandInteraction,
+  ): Promise<void> {
+    const webOrigin =
+      this.config.get<string>("WEB_ORIGIN") ?? "https://vidsandgifs.xyz";
+    const lines = [
+      "**vidsandgifs bot — commands**",
+      "",
+      "`/gif query:<…>` — search and post a GIF (autocompletes as you type)",
+      "`/link code:<…>` — connect your account (get the code at " +
+        `${webOrigin}/settings)`,
+      "`/unlink` — disconnect your account",
+      "`/folder list` — list your folders",
+      "`/folder use name:<…>` — scope `/gif` to one folder",
+      "`/folder clear` — clear the active folder",
+      "`/upload url:<…> title:<…> tags:<…>` — upload a GIF from a URL",
+      "`/upload-file file:<…> title:<…> tags:<…>` — upload a GIF or video file",
+      "",
+      `Open the website: ${webOrigin}`,
+    ];
+    await interaction.reply({
+      content: lines.join("\n"),
+      flags: MessageFlags.Ephemeral,
+    });
   }
 }
 

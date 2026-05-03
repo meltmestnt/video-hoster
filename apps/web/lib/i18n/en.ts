@@ -230,6 +230,12 @@ export const en = {
     "Then in Discord, run /link code:<paste> to finish linking.",
   "user.profile.discord.dismiss": "Cancel",
 
+  "dashboard.discordPromo.title": "Use vidsandgifs in Discord",
+  "dashboard.discordPromo.body":
+    "/gif autocompletes from your library, /upload-file ingests files. Open settings to install the bot and link in two clicks.",
+  "dashboard.discordPromo.connect": "Connect Discord",
+  "dashboard.discordPromo.dismiss": "Dismiss",
+
   // ─── /settings page ───
   "settings.heading": "Settings",
   "settings.subtitle":
@@ -520,6 +526,11 @@ export const en = {
   "settings.folders.none": "All my GIFs (no folder filter)",
   "settings.folders.linkRequired":
     "Connect your Telegram account first to set an active folder.",
+  "settings.discord.folders.label": "Discord active folder",
+  "settings.discord.folders.hint":
+    "/gif autocomplete and /upload* commands in Discord will be scoped to this folder. Pick “All my GIFs” to clear.",
+  "settings.discord.folders.linkRequired":
+    "Connect your Discord account first to set an active folder.",
 
   // ─── Unverified-account banner ───
   "unverified.banner.title": "Verify your email to participate.",
