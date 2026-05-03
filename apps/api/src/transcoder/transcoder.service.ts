@@ -24,6 +24,12 @@ export interface TranscodeResult {
   mimeType: "video/mp4";
 }
 
+export interface Mp4Probe {
+  width: number;
+  height: number;
+  durationSeconds: number;
+}
+
 @Injectable()
 export class TranscoderService {
   private readonly logger = new Logger(TranscoderService.name);
@@ -175,7 +181,7 @@ export class TranscoderService {
   async gifToMp4(
     sourceKey: string,
     outputKey?: string,
-  ): Promise<TranscodeResult | null> {
+  ): Promise<(TranscodeResult & { probe: Mp4Probe | null }) | null> {
     if (!ffmpegStatic) {
       this.logger.warn("ffmpeg unavailable; skipping gif → mp4 transcode");
       return null;
@@ -189,16 +195,89 @@ export class TranscoderService {
       await this.s3.downloadToFile(sourceKey, inputPath);
       await this.runGifToMp4(inputPath, outputPath);
 
+      // Probe the freshly-encoded mp4 right here while the file is
+      // still on disk — saves a second download for the inline-query
+      // backfill path. Probe failure is non-fatal (we'd just fall
+      // back to the 320×240 default downstream).
+      const probe = await this.probeMp4FromPath(outputPath).catch((err) => {
+        this.logger.warn(
+          `transcoder.gifToMp4 probe failed for ${sourceKey}: ${(err as Error).message}`,
+        );
+        return null;
+      });
+
       const outKey = outputKey ?? this.deriveMp4Key(sourceKey);
       const stats = await stat(outputPath);
       this.logger.log(
-        `transcoder.gifToMp4 src=${sourceKey} → ${outKey} (${stats.size} bytes)`,
+        `transcoder.gifToMp4 src=${sourceKey} → ${outKey} (${stats.size} bytes, ${probe?.width ?? "?"}×${probe?.height ?? "?"}, ${probe?.durationSeconds?.toFixed(2) ?? "?"}s)`,
       );
       await this.s3.uploadFile(outKey, outputPath, "video/mp4");
-      return { key: outKey, sizeBytes: stats.size, mimeType: "video/mp4" };
+      return {
+        key: outKey,
+        sizeBytes: stats.size,
+        mimeType: "video/mp4",
+        probe,
+      };
     } finally {
       await rm(workDir, { recursive: true, force: true }).catch(() => {});
     }
+  }
+
+  /**
+   * ffprobe an existing MP4 in S3 and return its real dimensions +
+   * duration. Used to backfill the mpeg4Width/Height/DurationSeconds
+   * columns for rows that pre-date them (lazy on the inline-query
+   * path so we don't probe every gif on boot).
+   *
+   * Downloads to a temp file because the static ffmpeg/ffprobe
+   * binaries are flaky over signed URLs (see the comment in
+   * generateThumbnail) — keeping it on disk is cheap and reliable.
+   */
+  async probeMp4(s3Key: string): Promise<Mp4Probe | null> {
+    if (!ffmpegStatic) return null;
+    const workDir = await mkdtemp(join(tmpdir(), "mp4-probe-"));
+    const localPath = join(workDir, "probe.mp4");
+    try {
+      await this.s3.downloadToFile(s3Key, localPath);
+      return await this.probeMp4FromPath(localPath);
+    } catch (err) {
+      this.logger.warn(
+        `transcoder.probeMp4 ${s3Key} failed: ${(err as Error).message}`,
+      );
+      return null;
+    } finally {
+      await rm(workDir, { recursive: true, force: true }).catch(() => {});
+    }
+  }
+
+  private probeMp4FromPath(filePath: string): Promise<Mp4Probe> {
+    return new Promise((resolve, reject) => {
+      ffmpeg.ffprobe(filePath, (err, data) => {
+        if (err) return reject(err);
+        const videoStream = data.streams.find(
+          (s) => s.codec_type === "video",
+        );
+        if (!videoStream) {
+          return reject(new Error("no video stream"));
+        }
+        const width = Number(videoStream.width);
+        const height = Number(videoStream.height);
+        if (!Number.isFinite(width) || !Number.isFinite(height)) {
+          return reject(new Error("video stream missing dimensions"));
+        }
+        // Container duration is more reliable than the stream's own —
+        // the gif → mp4 path forces CFR with a -t cap so the format-
+        // level duration stays accurate even when stream-level metadata
+        // is weird. Default to 0 if it's missing rather than failing
+        // (Telegram treats mpeg4_duration as optional).
+        const rawDuration = data.format?.duration;
+        const durationSeconds =
+          typeof rawDuration === "number" && Number.isFinite(rawDuration)
+            ? rawDuration
+            : 0;
+        resolve({ width, height, durationSeconds });
+      });
+    });
   }
 
   private runGifToMp4(

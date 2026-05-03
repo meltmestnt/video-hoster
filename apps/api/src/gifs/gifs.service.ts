@@ -666,10 +666,30 @@ export class GifsService implements OnApplicationBootstrap {
     if (this.mp4InFlight.has(gifId)) return null;
     const gif = await this.gifs.findOne({
       where: { id: gifId },
-      select: ["id", "s3Key", "mp4S3Key", "thumbS3Key", "status"],
+      select: [
+        "id",
+        "s3Key",
+        "mp4S3Key",
+        "thumbS3Key",
+        "mpeg4Width",
+        "mpeg4Height",
+        "mpeg4DurationSeconds",
+        "status",
+      ],
     });
     if (!gif || gif.status !== "ready" || !gif.s3Key) return null;
-    if (gif.mp4S3Key && gif.thumbS3Key) return gif.mp4S3Key;
+    // Early return only when *all* derived assets are present —
+    // including the dimension probe. Rows that pre-date the
+    // mpeg4Width column have mp4S3Key + thumbS3Key set but null dims;
+    // they need to fall through to the probe-only branch below.
+    if (
+      gif.mp4S3Key &&
+      gif.thumbS3Key &&
+      gif.mpeg4Width != null &&
+      gif.mpeg4Height != null
+    ) {
+      return gif.mp4S3Key;
+    }
 
     this.mp4InFlight.add(gifId);
     try {
@@ -682,12 +702,19 @@ export class GifsService implements OnApplicationBootstrap {
       // throw away the other's output. Plain Promise.all here would
       // mean a hung thumb encode forfeits the (already-finished) mp4
       // as well, leaving the row stuck in "missing both forever".
-      const [mp4Key, thumbKey] = await Promise.all([
+      const [mp4Result, thumbKey] = await Promise.all([
         gif.mp4S3Key
-          ? Promise.resolve(gif.mp4S3Key)
+          ? Promise.resolve(
+              { key: gif.mp4S3Key, probe: null } as {
+                key: string;
+                probe: { width: number; height: number; durationSeconds: number } | null;
+              },
+            )
           : this.transcoder
               .gifToMp4(gif.s3Key)
-              .then((r) => r?.key ?? null)
+              .then((r) =>
+                r ? { key: r.key, probe: r.probe } : null,
+              )
               .catch((err) => {
                 this.logger.warn(
                   `gifs.ensureMp4 mp4 transcode failed gifId=${gifId}: ${(err as Error).message}`,
@@ -706,9 +733,36 @@ export class GifsService implements OnApplicationBootstrap {
                 return null;
               }),
       ]);
+      const mp4Key = mp4Result?.key ?? null;
+      let probe = mp4Result?.probe ?? null;
+
+      // Lazy backfill: if the mp4 already existed but pre-dates the
+      // dimension columns, probe the existing object now. Skipped on
+      // the fresh-transcode path (probe is set inline above) and on
+      // the failed-transcode path (no point probing what we just
+      // failed to generate).
+      if (
+        mp4Key &&
+        !probe &&
+        gif.mp4S3Key === mp4Key &&
+        (gif.mpeg4Width == null || gif.mpeg4Height == null)
+      ) {
+        probe = await this.transcoder.probeMp4(mp4Key).catch((err) => {
+          this.logger.warn(
+            `gifs.ensureMp4 probe backfill failed gifId=${gifId}: ${(err as Error).message}`,
+          );
+          return null;
+        });
+      }
+
       const updates: Partial<Gif> = {};
       if (mp4Key && !gif.mp4S3Key) updates.mp4S3Key = mp4Key;
       if (thumbKey && !gif.thumbS3Key) updates.thumbS3Key = thumbKey;
+      if (probe) {
+        updates.mpeg4Width = probe.width;
+        updates.mpeg4Height = probe.height;
+        updates.mpeg4DurationSeconds = probe.durationSeconds;
+      }
       if (Object.keys(updates).length > 0) {
         await this.gifs.update({ id: gifId }, updates);
       }
@@ -740,6 +794,9 @@ export class GifsService implements OnApplicationBootstrap {
       title: string;
       mp4S3Key: string | null;
       thumbS3Key: string | null;
+      mpeg4Width: number | null;
+      mpeg4Height: number | null;
+      mpeg4DurationSeconds: number | null;
     }>
   > {
     // Use limit() rather than take() — when restrictToFolderId triggers
@@ -751,7 +808,15 @@ export class GifsService implements OnApplicationBootstrap {
     // folder filter can't produce duplicate rows, so no DISTINCT needed.
     const qb = this.gifs
       .createQueryBuilder("g")
-      .select(["g.id", "g.title", "g.mp4S3Key", "g.thumbS3Key"])
+      .select([
+        "g.id",
+        "g.title",
+        "g.mp4S3Key",
+        "g.thumbS3Key",
+        "g.mpeg4Width",
+        "g.mpeg4Height",
+        "g.mpeg4DurationSeconds",
+      ])
       .where("g.status = :s", { s: "ready" })
       .orderBy("g.createdAt", "DESC")
       .limit(args.limit);

@@ -1026,22 +1026,42 @@ export class TelegramService
             pendingBackfill.push(g.id);
             continue;
           }
+          // Dimensions present but null is a separate backfill —
+          // ensureMp4 will probe an existing mp4 and save the dims.
+          // We still serve the result this round (fallback to 320×240
+          // hints) so the user doesn't see fewer results during the
+          // backfill window.
+          if (g.mpeg4Width == null || g.mpeg4Height == null) {
+            pendingBackfill.push(g.id);
+          }
           const [mpegUrl, thumbUrl] = await Promise.all([
             this.media.signUrl({ kind: "mpeg4", id: g.id }),
             this.media.signUrl({ kind: "preview", id: g.id }),
           ]);
           if (!mpegUrl || !thumbUrl) continue;
+          // Real dimensions come from ffprobe (populated either at
+          // gif → mp4 transcode time or via the lazy backfill in
+          // ensureMp4). Fall back to a 320×240 4:3 hint when probe
+          // hasn't run yet — better than dropping the result, but
+          // iOS Telegram lays out picker cells eagerly from these
+          // and a wrong aspect ratio is what was rendering the
+          // thumbnail invisible against the cell box.
+          const mpeg4Width = g.mpeg4Width ?? 320;
+          const mpeg4Height = g.mpeg4Height ?? 240;
+          // mpeg4_duration is optional but improves layout on some
+          // clients (and is a known iOS Telegram fast-path). Round
+          // to seconds since Telegram's field is integer-typed.
+          const mpeg4Duration =
+            g.mpeg4DurationSeconds != null
+              ? Math.max(1, Math.round(g.mpeg4DurationSeconds))
+              : undefined;
           results.push({
             type: "mpeg4_gif",
             id: g.id,
             mpeg4_url: mpegUrl,
-            // Some Telegram clients eagerly compute picker grid cell
-            // sizes from mpeg4_width / mpeg4_height and silently drop
-            // results without dimensions. 320×240 is a plausible 4:3
-            // default — Telegram treats these as layout hints, it
-            // doesn't validate them against the actual file.
-            mpeg4_width: 320,
-            mpeg4_height: 240,
+            mpeg4_width: mpeg4Width,
+            mpeg4_height: mpeg4Height,
+            ...(mpeg4Duration ? { mpeg4_duration: mpeg4Duration } : {}),
             thumbnail_url: thumbUrl,
             thumbnail_mime_type: "image/jpeg",
             title: g.title,

@@ -64,6 +64,26 @@ export class Gif {
   @Column({ type: "text", nullable: true })
   thumbS3Key: string | null;
 
+  // Real pixel dimensions + duration of the MP4 transcode, populated
+  // by ffprobe on the same path as the encode (and lazily backfilled
+  // on the inline-query path for rows that pre-date these columns).
+  // The Telegram inline-query handler hands these to clients as
+  // `mpeg4_width` / `mpeg4_height` / `mpeg4_duration`. iOS Telegram
+  // lays out the inline picker grid cells eagerly from the dimension
+  // values — when we hardcoded 320×240 for everything, a 16:9 source
+  // rendered into a 4:3 cell and the JPEG thumbnail silently failed
+  // to display, which was the "black picker on iOS while desktop
+  // works" symptom. Nullable so existing rows keep working through
+  // the lazy backfill window.
+  @Column({ type: "int", nullable: true })
+  mpeg4Width: number | null;
+
+  @Column({ type: "int", nullable: true })
+  mpeg4Height: number | null;
+
+  @Column({ type: "real", nullable: true })
+  mpeg4DurationSeconds: number | null;
+
   @Column({ type: "bigint", nullable: true, transformer: bigintToNumber })
   sizeBytes: number | null;
 
