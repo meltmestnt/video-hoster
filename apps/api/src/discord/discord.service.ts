@@ -8,6 +8,7 @@ import { ConfigService } from "@nestjs/config";
 import {
   ActionRowBuilder,
   ApplicationIntegrationType,
+  AttachmentBuilder,
   ButtonBuilder,
   ButtonStyle,
   Client,
@@ -572,27 +573,63 @@ export class DiscordService
   }
 
   /**
-   * Single-shot: turn a known gif id into a public reply containing
-   * the animated GIF URL. Discord renders animated `.gif` URLs as
-   * auto-playing inline images (no click-to-play overlay). The
-   * Telegram inline path stays on `kind: "mpeg4"` because Telegram
-   * silently drops inline gif results > 1 MB; Discord doesn't have
-   * that limit so we hand it the actual GIF.
+   * Fetch the GIF bytes and wrap them in an AttachmentBuilder so we
+   * can upload to Discord as a real file. Discord-hosted attachments
+   * auto-play unconditionally; URL embeds (.gif or otherwise) are
+   * gated on the recipient's "Automatically play GIFs" setting and
+   * frequently render frozen as a result. Pulling the bytes through
+   * the bot adds ~1–2 s of latency per send but makes the "GIF
+   * actually animates" guarantee not depend on every viewer's
+   * accessibility settings.
+   *
+   * Returns null when the gif can't be resolved or fetched — caller
+   * surfaces an "unavailable" reply.
+   */
+  private async fetchGifAttachment(
+    gifId: string,
+  ): Promise<AttachmentBuilder | null> {
+    const url = await this.media.signUrl({ kind: "gif", id: gifId });
+    if (!url) return null;
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        this.logger.warn(
+          `discord.fetchGifAttachment ${gifId} fetch returned ${response.status}`,
+        );
+        return null;
+      }
+      const buffer = Buffer.from(await response.arrayBuffer());
+      return new AttachmentBuilder(buffer, { name: `${gifId}.gif` });
+    } catch (err) {
+      this.logger.warn(
+        `discord.fetchGifAttachment ${gifId} failed: ${(err as Error).message}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Single-shot: turn a known gif id into a public reply with the GIF
+   * uploaded as a Discord attachment so it animates regardless of the
+   * viewer's auto-play setting. Telegram inline-picker path stays on
+   * `kind: "mpeg4"` (separate code path; not affected by this).
    */
   private async postGifDirectly(
     interaction: ChatInputCommandInteraction,
     gifId: string,
     query: string,
   ): Promise<void> {
-    const url = await this.media.signUrl({ kind: "gif", id: gifId });
-    if (!url) {
-      await interaction.reply({
+    // Defer because the S3 fetch + attachment upload typically runs
+    // 1–2 s for a few-MiB gif — well past Discord's 3 s reply window.
+    await interaction.deferReply();
+    const attachment = await this.fetchGifAttachment(gifId);
+    if (!attachment) {
+      await interaction.editReply({
         content: "That GIF isn't available right now.",
-        flags: MessageFlags.Ephemeral,
       });
       return;
     }
-    await interaction.reply({ content: url });
+    await interaction.editReply({ files: [attachment] });
     this.logger.log(
       `discord./gif direct from=${interaction.user.id} gifId=${gifId} q="${truncate(query, 60)}"`,
     );
@@ -699,18 +736,18 @@ export class DiscordService
         .catch(() => {});
       return;
     }
-    const url = await this.media.signUrl({ kind: "gif", id: gifId });
-    if (!url) {
-      await interaction
-        .update({
-          content: "That GIF isn't available anymore.",
-          embeds: [],
-          components: [],
-        })
-        .catch(() => {});
+    // Defer the button update — fetching the GIF bytes for the
+    // attachment upload runs longer than the 3 s response window.
+    await interaction.deferUpdate();
+    const attachment = await this.fetchGifAttachment(gifId);
+    if (!attachment) {
+      await interaction.editReply({
+        content: "That GIF isn't available anymore.",
+        embeds: [],
+        components: [],
+      });
       return;
     }
-    await interaction.deferUpdate();
     let postedPublicly = false;
     try {
       // `channel.send` posts a regular (non-ephemeral) message in the
@@ -718,7 +755,7 @@ export class DiscordService
       // member; throws on permission denied (user-installed app in a
       // guild the bot isn't part of).
       if (interaction.channel && "send" in interaction.channel) {
-        await interaction.channel.send({ content: url });
+        await interaction.channel.send({ files: [attachment] });
         postedPublicly = true;
       }
     } catch {
@@ -731,8 +768,15 @@ export class DiscordService
         components: [],
       });
     } else {
+      // Fallback when the bot can't post publicly: surface the URL in
+      // the ephemeral so the user can copy + paste it themselves.
+      // Re-mint a fresh signed URL (the AttachmentBuilder consumed
+      // the buffer, but the signed URL is still valid).
+      const url = await this.media.signUrl({ kind: "gif", id: gifId });
       await interaction.editReply({
-        content: `Couldn't post here directly — copy & paste:\n${url}`,
+        content: url
+          ? `Couldn't post here directly — copy & paste:\n${url}`
+          : "Couldn't post here directly and the GIF URL has expired.",
         embeds: [],
         components: [],
       });
