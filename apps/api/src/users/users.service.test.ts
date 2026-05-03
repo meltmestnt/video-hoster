@@ -462,9 +462,13 @@ describe("UsersService — admin actions", () => {
 describe("UsersService.startAvatarUpload + finalizeAvatarUpload", () => {
   it("startAvatarUpload generates a per-user S3 key and presigned URL", async () => {
     const { svc, s3 } = makeSvc();
-    const out = await svc.startAvatarUpload("u-1", "image/jpeg");
+    const out = await svc.startAvatarUpload("u-1", "image/jpeg", 12_345);
     expect(out.s3Key).toMatch(/^avatars\/u-1\/.*\.jpg$/);
-    expect(s3.presignPut).toHaveBeenCalledWith(out.s3Key, "image/jpeg");
+    expect(s3.presignPut).toHaveBeenCalledWith(
+      out.s3Key,
+      "image/jpeg",
+      12_345,
+    );
   });
 
   it("finalizeAvatarUpload rejects an s3Key that doesn't belong to the user", async () => {

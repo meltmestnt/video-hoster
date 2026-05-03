@@ -44,6 +44,46 @@ export interface RateLimitOpts {
   name: string;
 }
 
+/**
+ * Low-level bucket check, callable both from the middleware below and
+ * from inside resolvers that need to rate-limit on a value pulled from
+ * the validated input (e.g. an email on the sign-in handler that the
+ * middleware can't see yet). Throws TOO_MANY_REQUESTS when the bucket
+ * is over budget.
+ */
+export const enforceRateLimit = (
+  key: string,
+  max: number,
+  windowMs: number,
+): void => {
+  const now = Date.now();
+  const cutoff = now - windowMs;
+  const bucket = buckets.get(key) ?? { hits: [] };
+
+  let firstLive = 0;
+  while (firstLive < bucket.hits.length && bucket.hits[firstLive] <= cutoff) {
+    firstLive++;
+  }
+  if (firstLive > 0) bucket.hits.splice(0, firstLive);
+
+  if (bucket.hits.length >= max) {
+    const retryAfterMs = bucket.hits[0] + windowMs - now;
+    throw new TRPCError({
+      code: "TOO_MANY_REQUESTS",
+      message: `Too many requests. Try again in ${Math.ceil(retryAfterMs / 1000)}s.`,
+    });
+  }
+
+  bucket.hits.push(now);
+  // Map keeps insertion order — `set` on an existing key does NOT refresh
+  // its position, so the eviction sweep would happily drop hot keys.
+  // Delete then set bumps the key to the most-recent slot, giving us
+  // proper LRU eviction.
+  buckets.delete(key);
+  buckets.set(key, bucket);
+  evictIfNeeded();
+};
+
 export const rateLimit = (opts: RateLimitOpts) =>
   t.middleware(({ ctx, next }) => {
     const id =
@@ -51,35 +91,6 @@ export const rateLimit = (opts: RateLimitOpts) =>
         ? ctx.user?.id ?? `ip:${ctx.ip}`
         : ctx.ip;
     const key = `${opts.name}:${opts.keyBy}:${id}`;
-
-    const now = Date.now();
-    const cutoff = now - opts.windowMs;
-    const bucket = buckets.get(key) ?? { hits: [] };
-
-    // Drop expired hits. Hits are pushed in order so we can stop at the
-    // first one inside the window.
-    let firstLive = 0;
-    while (firstLive < bucket.hits.length && bucket.hits[firstLive] <= cutoff) {
-      firstLive++;
-    }
-    if (firstLive > 0) bucket.hits.splice(0, firstLive);
-
-    if (bucket.hits.length >= opts.max) {
-      const retryAfterMs = bucket.hits[0] + opts.windowMs - now;
-      throw new TRPCError({
-        code: "TOO_MANY_REQUESTS",
-        message: `Too many requests. Try again in ${Math.ceil(retryAfterMs / 1000)}s.`,
-      });
-    }
-
-    bucket.hits.push(now);
-    // Map keeps insertion order — `set` on an existing key does NOT refresh
-    // its position, so the eviction sweep would happily drop hot keys.
-    // Delete then set bumps the key to the most-recent slot, giving us
-    // proper LRU eviction.
-    buckets.delete(key);
-    buckets.set(key, bucket);
-    evictIfNeeded();
-
+    enforceRateLimit(key, opts.max, opts.windowMs);
     return next();
   });

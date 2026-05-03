@@ -49,7 +49,7 @@ import {
   updateCommentInputSchema,
   videoIdInputSchema,
   adminListUsersInputSchema,
-  billingCheckoutInputSchema,
+  // billingCheckoutInputSchema, // paused (LS)
   pushSubscribeInputSchema,
   pushUnsubscribeInputSchema,
   usernameInputSchema,
@@ -75,7 +75,7 @@ import {
   verifiedProcedure,
   adminProcedure,
 } from "./trpc";
-import { rateLimit } from "./rate-limit";
+import { rateLimit, enforceRateLimit } from "./rate-limit";
 import { enforceAnonView } from "./anon-view-limit";
 import { Logger } from "@nestjs/common";
 
@@ -170,6 +170,18 @@ export const appRouter = router({
       )
       .input(signInInputSchema)
       .mutation(async ({ ctx, input }) => {
+        // Per-email bucket on top of the per-IP one above. Without it a
+        // distributed attacker rotating across IPs could keep grinding
+        // bcrypt against a single weak password forever — the per-IP
+        // limit doesn't slow them down at all in that scenario. 10
+        // attempts per hour per email lets a real user stumble through
+        // typos without locking themselves out, while making
+        // credential-stuffing essentially pointless.
+        enforceRateLimit(
+          `signIn:email:${input.email.toLowerCase()}`,
+          10,
+          HOUR,
+        );
         const user = await ctx.services.users.verifyPassword(input);
         if (!user) {
           throw new TRPCError({
@@ -185,26 +197,13 @@ export const appRouter = router({
         };
       }),
 
-    // Login form fallback: when credentials sign-in fails, the page calls
-    // this endpoint to distinguish "wrong password" from "this email is
-    // banned" so the banned user sees a specific message instead of the
-    // generic invalid-credentials text. Rate-limited per-IP because it's
-    // a public-facing email lookup.
-    checkBanned: publicProcedure
-      .use(
-        rateLimit({
-          name: "checkBanned",
-          keyBy: "ip",
-          max: 30,
-          windowMs: HOUR,
-        }),
-      )
-      .input(z.object({ email: z.string().email().max(254) }))
-      .query(({ ctx, input }) =>
-        ctx.services.users
-          .isEmailBanned(input.email)
-          .then((banned) => ({ banned })),
-      ),
+    // The previous `checkBanned` endpoint was removed: it took an email
+    // and returned whether that account was banned, which let an
+    // unauthenticated visitor probe email registration status one
+    // request at a time (rate-limit alone wasn't enough — distributed
+    // attackers can pace below the 30/hour-per-IP threshold). Banned
+    // users now see the same generic "Invalid email or password" the
+    // sign-in handler returns to anyone with bad credentials.
   }),
 
   videos: router({
@@ -1112,7 +1111,11 @@ export const appRouter = router({
     createAvatarUpload: protectedProcedure
       .input(createAvatarUploadInputSchema)
       .mutation(({ ctx, input }) =>
-        ctx.services.users.startAvatarUpload(ctx.user.id, input.mimeType),
+        ctx.services.users.startAvatarUpload(
+          ctx.user.id,
+          input.mimeType,
+          input.sizeBytes,
+        ),
       ),
 
     finalizeAvatarUpload: protectedProcedure
@@ -1286,30 +1289,32 @@ export const appRouter = router({
       }),
   }),
 
-  billing: router({
-    me: protectedProcedure.query(({ ctx }) => ({
-      tier: ctx.user.subscriptionTier,
-      status: ctx.user.subscriptionStatus,
-      periodEnd: ctx.user.subscriptionPeriodEnd,
-      hasSubscription: !!ctx.user.lemonSubscriptionId,
-    })),
-
-    createCheckoutSession: protectedProcedure
-      .input(billingCheckoutInputSchema)
-      .mutation(({ ctx, input }) => {
-        const origin = process.env.WEB_ORIGIN ?? "http://localhost:3000";
-        return ctx.services.billing.createCheckoutSession({
-          userId: ctx.user.id,
-          successUrl: `${origin}${input.successPath}?checkout=success`,
-        });
-      }),
-
-    // LemonSqueezy scopes the "manage subscription" portal per-subscription
-    // and the URL is short-lived, so we fetch a fresh one on every click.
-    getPortalUrl: protectedProcedure.mutation(({ ctx }) =>
-      ctx.services.billing.getPortalUrl({ userId: ctx.user.id }),
-    ),
-  }),
+  // Paid subscriptions (Lemon Squeezy) paused — re-enable along with
+  // BillingModule and the /billing UI. The shape below is preserved so a
+  // future revival just needs uncommenting plus restoring `billing` on
+  // the Services context.
+  // billing: router({
+  //   me: protectedProcedure.query(({ ctx }) => ({
+  //     tier: ctx.user.subscriptionTier,
+  //     status: ctx.user.subscriptionStatus,
+  //     periodEnd: ctx.user.subscriptionPeriodEnd,
+  //     hasSubscription: !!ctx.user.lemonSubscriptionId,
+  //   })),
+  //
+  //   createCheckoutSession: protectedProcedure
+  //     .input(billingCheckoutInputSchema)
+  //     .mutation(({ ctx, input }) => {
+  //       const origin = process.env.WEB_ORIGIN ?? "http://localhost:3000";
+  //       return ctx.services.billing.createCheckoutSession({
+  //         userId: ctx.user.id,
+  //         successUrl: `${origin}${input.successPath}?checkout=success`,
+  //       });
+  //     }),
+  //
+  //   getPortalUrl: protectedProcedure.mutation(({ ctx }) =>
+  //     ctx.services.billing.getPortalUrl({ userId: ctx.user.id }),
+  //   ),
+  // }),
 
   subscriptions: router({
     toggle: verifiedProcedure
@@ -1350,24 +1355,26 @@ export const appRouter = router({
         ctx.services.subscriptions.followerCount(input.userId),
       ),
 
-    // Users you subscribe to. Defaults to the signed-in user when no userId
-    // is supplied, so the /subscriptions page can call without args.
+    // Lists are scoped to the signed-in user. The schema still carries an
+    // optional userId field for backwards compatibility with cached clients,
+    // but it's intentionally ignored — exposing an arbitrary user's
+    // follower / following graph would let any authenticated visitor
+    // enumerate the social graph of the entire site.
     following: protectedProcedure
       .input(listSubscriptionsInputSchema)
       .query(({ ctx, input }) =>
         ctx.services.subscriptions.listFollowing(
-          input.userId ?? ctx.user.id,
+          ctx.user.id,
           input.cursor,
           input.limit,
         ),
       ),
 
-    // Users who subscribe to you (or to a given userId).
     followers: protectedProcedure
       .input(listSubscriptionsInputSchema)
       .query(({ ctx, input }) =>
         ctx.services.subscriptions.listFollowers(
-          input.userId ?? ctx.user.id,
+          ctx.user.id,
           input.cursor,
           input.limit,
         ),

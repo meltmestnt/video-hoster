@@ -47,13 +47,35 @@ export class S3Service {
     });
   }
 
-  presignPut(key: string, contentType: string): Promise<string> {
+  /**
+   * Sign a single-shot PUT URL. When `contentLength` is supplied it is
+   * baked into the signature, so the client must send a Content-Length
+   * header with that exact value or S3 rejects the upload before any
+   * bytes are written. Without it a malicious uploader could legitimately
+   * obtain a signed URL for a 100-byte avatar and then PUT a 5 GB blob
+   * to the same key — the post-upload size check in finalize would
+   * still reject the row, but the bytes already burned bandwidth and
+   * storage and counted against the per-IP budget.
+   */
+  presignPut(
+    key: string,
+    contentType: string,
+    contentLength?: number,
+  ): Promise<string> {
     const command = new PutObjectCommand({
       Bucket: this.bucket,
       Key: key,
       ContentType: contentType,
+      ...(contentLength !== undefined ? { ContentLength: contentLength } : {}),
     });
-    return getSignedUrl(this.client, command, { expiresIn: PUT_TTL });
+    return getSignedUrl(this.client, command, {
+      expiresIn: PUT_TTL,
+      // Force Content-Length into the signed-headers list so a tampered
+      // request with a different length fails signature validation.
+      ...(contentLength !== undefined
+        ? { unhoistableHeaders: new Set(["content-length"]) }
+        : {}),
+    });
   }
 
   presignGet(key: string): Promise<string> {

@@ -265,7 +265,11 @@ export class GifsService implements OnApplicationBootstrap {
     await this.gifs.update({ id: saved.id }, { s3Key });
     saved.s3Key = s3Key;
 
-    const uploadUrl = await this.s3.presignPut(s3Key, "image/gif");
+    const uploadUrl = await this.s3.presignPut(
+      s3Key,
+      "image/gif",
+      args.sizeBytes,
+    );
     this.logger.log(
       `gifs.createUpload ownerId=${args.ownerId} size=${args.sizeBytes} mime=image/gif visibility=${args.visibility} s3Key=${s3Key} gifId=${saved.id}`,
     );

@@ -150,6 +150,7 @@ describe("GifsService.createUpload — happy path", () => {
     expect(s3.presignPut).toHaveBeenCalledWith(
       "gifs/g-new/my-loop.gif",
       "image/gif",
+      1_000_000,
     );
   });
 });

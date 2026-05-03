@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Box, Heading, Separator, Text } from "@radix-ui/themes";
 import { absoluteUrl } from "@/lib/site";
+import { jsonLdScript } from "@/lib/seo";
 import {
   FAQ_ITEMS_EN,
   FAQ_ITEMS_UK,
@@ -36,10 +37,7 @@ export default function FaqPage() {
           requires — hidden answers get the page demoted instead. */}
       <script
         type="application/ld+json"
-        // The library function returns plain JSON-serializable objects,
-        // so JSON.stringify is safe. dangerouslySetInnerHTML is the
-        // documented Next.js way to ship JSON-LD.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }}
       />
 
       <Heading size="6" mb="2">

@@ -123,6 +123,7 @@ export class UsersService implements OnModuleInit {
   async startAvatarUpload(
     userId: string,
     mimeType: AllowedAvatarMimeType,
+    sizeBytes: number,
   ): Promise<{ s3Key: string; uploadUrl: string }> {
     if (!ALLOWED_AVATAR_MIME_TYPES.includes(mimeType)) {
       throw new BadRequestException("Unsupported avatar image type");
@@ -130,7 +131,7 @@ export class UsersService implements OnModuleInit {
     const ext = AVATAR_EXT_BY_MIME[mimeType];
     const token = randomBytes(8).toString("hex");
     const s3Key = `avatars/${userId}/${Date.now()}-${token}.${ext}`;
-    const uploadUrl = await this.s3.presignPut(s3Key, mimeType);
+    const uploadUrl = await this.s3.presignPut(s3Key, mimeType, sizeBytes);
     return { s3Key, uploadUrl };
   }
 

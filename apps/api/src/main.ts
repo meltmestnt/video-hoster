@@ -17,17 +17,18 @@ async function bootstrap() {
   // rate limiting buckets on.
   expressApp.set("trust proxy", true);
 
-  expressApp.use(
-    "/webhook/lemonsqueezy",
-    express.raw({ type: "application/json", limit: "1mb" }),
-    (req, _res, next) => {
-      // Stash the raw bytes where the controller can read them; the
-      // controller parses JSON itself since we already have the bytes.
-      (req as express.Request & { rawBody?: Buffer }).rawBody =
-        req.body as Buffer;
-      next();
-    },
-  );
+  // Paid subscriptions (Lemon Squeezy) are paused — webhook raw-body
+  // parsing stays commented out alongside BillingModule. Re-enable
+  // together when the Pro flow comes back.
+  // expressApp.use(
+  //   "/webhook/lemonsqueezy",
+  //   express.raw({ type: "application/json", limit: "1mb" }),
+  //   (req, _res, next) => {
+  //     (req as express.Request & { rawBody?: Buffer }).rawBody =
+  //       req.body as Buffer;
+  //     next();
+  //   },
+  // );
   expressApp.use(express.json({ limit: "10mb" }));
   expressApp.use(express.urlencoded({ extended: true, limit: "10mb" }));
 

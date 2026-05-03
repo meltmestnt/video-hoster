@@ -15,7 +15,8 @@ import { AudioService } from "../audio/audio.service";
 import { S3Service } from "../s3/s3.service";
 import { S3CleanupService } from "../s3/s3-cleanup.service";
 import { AuthService } from "../auth/auth.service";
-import { BillingService } from "../billing/billing.service";
+// Paid subscriptions paused — see app.module.ts.
+// import { BillingService } from "../billing/billing.service";
 import { PushService } from "../push/push.service";
 import { TelegramService } from "../telegram/telegram.service";
 import { TelegramLinkService } from "../telegram/telegram-link.service";
@@ -44,7 +45,7 @@ export class TrpcService {
     private readonly s3: S3Service,
     private readonly s3Cleanup: S3CleanupService,
     private readonly auth: AuthService,
-    private readonly billing: BillingService,
+    // private readonly billing: BillingService, // paused
     private readonly push: PushService,
     private readonly telegram: TelegramService,
     private readonly telegramLinks: TelegramLinkService,
@@ -71,7 +72,7 @@ export class TrpcService {
       s3: this.s3,
       s3Cleanup: this.s3Cleanup,
       auth: this.auth,
-      billing: this.billing,
+      // billing: this.billing, // paused
       push: this.push,
       telegram: this.telegram,
       telegramLinks: this.telegramLinks,

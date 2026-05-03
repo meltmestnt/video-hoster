@@ -17,7 +17,9 @@ import { TranscoderModule } from "./transcoder/transcoder.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { SubscriptionsModule } from "./subscriptions/subscriptions.module";
 import { AudioModule } from "./audio/audio.module";
-import { BillingModule } from "./billing/billing.module";
+// Paid subscriptions (Lemon Squeezy) are paused — keep the import commented
+// out so a single uncomment re-enables the feature once we want it back.
+// import { BillingModule } from "./billing/billing.module";
 import { MediaModule } from "./media/media.module";
 import { RemindersModule } from "./reminders/reminders.module";
 import { PushModule } from "./push/push.module";
@@ -49,7 +51,7 @@ import { TrpcModule } from "./trpc/trpc.module";
     NotificationsModule,
     SubscriptionsModule,
     AudioModule,
-    BillingModule,
+    // BillingModule, // paused
     MediaModule,
     RemindersModule,
     PushModule,

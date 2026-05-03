@@ -14,7 +14,8 @@ import type { AudioService } from "../audio/audio.service";
 import type { S3Service } from "../s3/s3.service";
 import type { S3CleanupService } from "../s3/s3-cleanup.service";
 import type { AuthService } from "../auth/auth.service";
-import type { BillingService } from "../billing/billing.service";
+// Paid subscriptions paused — see app.module.ts.
+// import type { BillingService } from "../billing/billing.service";
 import type { PushService } from "../push/push.service";
 import type { TelegramLinkService } from "../telegram/telegram-link.service";
 import type { TelegramService } from "../telegram/telegram.service";
@@ -37,7 +38,7 @@ export interface Services {
   s3: S3Service;
   s3Cleanup: S3CleanupService;
   auth: AuthService;
-  billing: BillingService;
+  // billing: BillingService; // paused
   push: PushService;
   telegram: TelegramService;
   telegramLinks: TelegramLinkService;

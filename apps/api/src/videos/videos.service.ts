@@ -290,7 +290,12 @@ export class VideosService {
     const thumbnailS3Key = `videos/${saved.id}/thumb-${Date.now()}.jpg`;
 
     const [uploadUrl, thumbnailUploadUrl] = await Promise.all([
-      this.s3.presignPut(s3Key, args.mimeType),
+      // Pin the signed Content-Length so a client can't legitimately get
+      // a presign for a 4 MB clip and then PUT 4 GB to the same key.
+      // The thumbnail is small but auto-generated client-side and we
+      // don't have a declared size, so leave it unconstrained — the
+      // post-upload finalize step still caps it.
+      this.s3.presignPut(s3Key, args.mimeType, args.sizeBytes),
       this.s3.presignPut(thumbnailS3Key, "image/jpeg"),
     ]);
 

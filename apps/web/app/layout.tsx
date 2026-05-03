@@ -7,6 +7,7 @@ import { PlausibleScript } from "@/components/PlausibleScript";
 import { RegisterSW } from "@/components/RegisterSW";
 import { Providers } from "./providers";
 import { siteUrl } from "@/lib/site";
+import { jsonLdScript } from "@/lib/seo";
 import { getServerLocale } from "@/lib/i18n/server";
 import type { Locale } from "@/lib/i18n/locale";
 
@@ -273,7 +274,7 @@ export default async function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify(websiteJsonLd(description)),
+            __html: jsonLdScript(websiteJsonLd(description)),
           }}
         />
         <Theme appearance="dark" accentColor="iris" radius="large" scaling="100%">

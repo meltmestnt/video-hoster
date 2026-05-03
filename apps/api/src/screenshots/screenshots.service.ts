@@ -24,6 +24,7 @@ import {
 } from "./screenshot.entity";
 import { S3Service } from "../s3/s3.service";
 import { MediaService } from "../media/media.service";
+import { looksLikeScreenshotImage } from "../s3/file-signatures";
 
 interface CreateUploadArgs {
   ownerId: string;
@@ -129,7 +130,11 @@ export class ScreenshotsService {
     await this.screenshots.update({ id: saved.id }, { s3Key });
     saved.s3Key = s3Key;
 
-    const uploadUrl = await this.s3.presignPut(s3Key, args.mimeType);
+    const uploadUrl = await this.s3.presignPut(
+      s3Key,
+      args.mimeType,
+      args.sizeBytes,
+    );
     this.logger.log(
       `screenshots.createUpload ownerId=${args.ownerId} size=${args.sizeBytes} mime=${args.mimeType} visibility=${args.visibility} s3Key=${s3Key} screenshotId=${saved.id}`,
     );
@@ -161,6 +166,21 @@ export class ScreenshotsService {
       await this.s3.deleteObject(shot.s3Key).catch(() => {});
       throw new BadRequestException(
         `Uploaded object has type "${head.contentType}", not an image`,
+      );
+    }
+    // Magic-byte check is authoritative — the Content-Type metadata above
+    // was set client-side and can be lied about, so a malicious upload
+    // could otherwise stash arbitrary bytes (a polyglot, a script, etc.)
+    // under an image/* key. Refuse anything whose first bytes don't
+    // match the format the upload claimed to be.
+    const headBytes = await this.s3.readObjectHead(shot.s3Key, 32);
+    if (
+      !headBytes ||
+      !looksLikeScreenshotImage(headBytes, shot.mimeType)
+    ) {
+      await this.s3.deleteObject(shot.s3Key).catch(() => {});
+      throw new BadRequestException(
+        "Uploaded file does not look like a real image",
       );
     }
     shot.sizeBytes = head.size;

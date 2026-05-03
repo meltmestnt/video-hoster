@@ -13,7 +13,8 @@ import { SubscriptionsModule } from "../subscriptions/subscriptions.module";
 import { AudioModule } from "../audio/audio.module";
 import { S3Module } from "../s3/s3.module";
 import { AuthModule } from "../auth/auth.module";
-import { BillingModule } from "../billing/billing.module";
+// Paid subscriptions (Lemon Squeezy) paused — see app.module.ts.
+// import { BillingModule } from "../billing/billing.module";
 import { PushModule } from "../push/push.module";
 import { TelegramModule } from "../telegram/telegram.module";
 import { DiscordModule } from "../discord/discord.module";
@@ -35,7 +36,7 @@ import { TrpcService } from "./trpc.service";
     AudioModule,
     S3Module,
     AuthModule,
-    BillingModule,
+    // BillingModule, // paused
     PushModule,
     TelegramModule,
     DiscordModule,

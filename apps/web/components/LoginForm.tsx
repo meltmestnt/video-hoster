@@ -14,11 +14,9 @@ import {
   TextField,
 } from "@radix-ui/themes";
 import { useT } from "@/lib/i18n";
-import { trpc } from "@/lib/trpc";
 
 export function LoginForm() {
   const t = useT();
-  const utils = trpc.useUtils();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState(searchParams.get("email") ?? "");
   const [password, setPassword] = useState("");
@@ -37,21 +35,14 @@ export function LoginForm() {
     });
     setPending(false);
     if (!res || res.error) {
-      // signIn() can't tell us *why* it failed (NextAuth flattens every
-      // authorize() rejection into a generic CredentialsSignin). Probe the
-      // ban-status endpoint so a banned user sees a specific message
-      // instead of the misleading "invalid credentials". Best-effort —
-      // network failure here just falls back to the generic error.
-      try {
-        const { banned } = await utils.client.auth.checkBanned.query({
-          email,
-        });
-        setError(
-          banned ? t("auth.login.banned") : t("auth.login.invalid"),
-        );
-      } catch {
-        setError(t("auth.login.invalid"));
-      }
+      // Always show the generic invalid-credentials message regardless of
+      // why authorize() rejected. The previous flow probed a ban-status
+      // endpoint to render a more helpful "your account is banned"
+      // message, but that endpoint also let unauthenticated visitors
+      // enumerate which emails were registered. Banned users now see the
+      // same text as anyone with bad credentials — they can email support
+      // if they want a real explanation.
+      setError(t("auth.login.invalid"));
       return;
     }
     window.location.href = res.url ?? "/";

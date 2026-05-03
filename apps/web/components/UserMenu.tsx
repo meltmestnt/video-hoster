@@ -459,15 +459,15 @@ function ProfilePane({
             {t("user.profile.subscriptions")}
           </Link>
         </Button>
-        {/* Admins bypass the Pro paywall (proProcedure short-circuits for
-            them, useTier() returns "pro"), so the billing page is just
-            noise for them — hide it. Trust the server prop on first paint,
-            let the live query take over once it lands. */}
-        {!(me.data ? me.data.role === "admin" : isAdmin) && (
+        {/* Paid subscriptions (Lemon Squeezy) paused — the /billing route
+            now 404s and the tRPC billing router is commented out. Keep the
+            block below as a one-uncomment restore point once the Pro flow
+            comes back. */}
+        {/* {!(me.data ? me.data.role === "admin" : isAdmin) && (
           <Button asChild variant="soft" color="iris">
             <Link href="/billing">{t("user.profile.billing")}</Link>
           </Button>
-        )}
+        )} */}
         {(me.data ? me.data.role === "admin" : isAdmin) && (
           <Button asChild variant="soft" color="red">
             <Link href="/manage">{t("user.profile.manage")}</Link>

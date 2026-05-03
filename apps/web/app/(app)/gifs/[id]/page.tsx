@@ -17,7 +17,7 @@ import { absoluteUrl } from "@/lib/site";
 import { T } from "@/lib/i18n";
 import { parseAnonViewLimitError } from "@/lib/anon-view-limit";
 import { AnonViewLimitNotice } from "@/components/AnonViewLimitNotice";
-import { buildMediaDescription } from "@/lib/seo";
+import { buildMediaDescription, jsonLdScript } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -183,7 +183,11 @@ export default async function GifPage({
       {jsonLd && (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          // jsonLdScript escapes `<`, `>`, `&` and the line-separator
+          // characters so user-supplied titles/tags/descriptions can't
+          // break out of the <script> tag with `</script>` or HTML
+          // comment markers.
+          dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }}
         />
       )}
       <MorphLandingSignal />

@@ -23,7 +23,7 @@ import { parseAnonViewLimitError } from "@/lib/anon-view-limit";
 import { AnonViewLimitNotice } from "@/components/AnonViewLimitNotice";
 import { AnonPreviewLock } from "@/components/AnonPreviewLock";
 import { ANON_VIDEO_PREVIEW_SECONDS } from "@repo/shared";
-import { buildMediaDescription } from "@/lib/seo";
+import { buildMediaDescription, jsonLdScript } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -216,8 +216,11 @@ export default async function VideoPage({
       {jsonLd && (
         <script
           type="application/ld+json"
-          // Static server-rendered string; safe to inline.
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          // jsonLdScript escapes `<`, `>`, `&` and the line-separator
+          // characters so user-supplied titles/tags/descriptions can't
+          // break out of the <script> tag with `</script>` or HTML
+          // comment markers.
+          dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }}
         />
       )}
       <MorphLandingSignal />

@@ -24,6 +24,7 @@ import { DiscordPref } from "../discord/discord-pref.entity";
 import { Folder } from "../folders/folder.entity";
 import { FolderGif } from "../folders/folder-gif.entity";
 import { FolderShare } from "../folders/folder-share.entity";
+import { ProcessedWebhookEvent } from "../billing/processed-webhook-event.entity";
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { FolderShare } from "../folders/folder-share.entity";
           Folder,
           FolderGif,
           FolderShare,
+          ProcessedWebhookEvent,
         ],
         synchronize: true,
         logging: ["error", "warn"],

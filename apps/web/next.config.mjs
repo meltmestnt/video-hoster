@@ -29,6 +29,48 @@ const nextConfig = {
   async headers() {
     return [
       {
+        // Baseline security headers applied to every response. Kept
+        // narrow on purpose:
+        //   - HSTS pins HTTPS for two years and includes subdomains so
+        //     api.vidsandgifs.com inherits the policy. preload is
+        //     intentionally omitted — the apex isn't on the HSTS
+        //     preload list yet and adding it requires a separate
+        //     submission step.
+        //   - nosniff stops browsers from MIME-sniffing the signed
+        //     /media/* responses (which always carry a correct
+        //     Content-Type) into something executable.
+        //   - Referrer-Policy keeps the path off cross-origin
+        //     navigations so a private gif/video URL doesn't leak via
+        //     Referer when a user clicks an external link.
+        // Frame-ancestors is set per-route below so /embed/* can stay
+        // wide-open while the rest of the app refuses framing.
+        source: "/:path*",
+        headers: [
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains",
+          },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        ],
+      },
+      {
+        // Clickjacking defense for the main app. Anything outside
+        // /embed/* must not be framed by third parties — the JSON-LD
+        // helper already neutralises script-tag breakouts, but
+        // frame-ancestors closes the UI-redress angle that no amount
+        // of escaping can prevent.
+        // Source uses a negative-lookahead so /embed/* still matches
+        // the wide-open rule below instead of inheriting 'self'.
+        source: "/:path((?!embed/).*)",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: "frame-ancestors 'self'",
+          },
+        ],
+      },
+      {
         // The push service worker has to cover the whole site, not just
         // /. Service-Worker-Allowed: / lets it claim that scope even
         // though it's served from /sw.js. no-cache stops browsers from

@@ -19,6 +19,7 @@ import {
   getSubscription,
 } from "@lemonsqueezy/lemonsqueezy.js";
 import type { User } from "../users/user.entity";
+import type { ProcessedWebhookEvent } from "./processed-webhook-event.entity";
 
 const SECRET = "ls-webhook-secret";
 
@@ -39,11 +40,13 @@ function fakeConfig(): ConfigService {
 
 function makeSvc() {
   const users = createMockRepo<User>();
+  const processedEvents = createMockRepo<ProcessedWebhookEvent>();
   const svc = new BillingService(
     fakeConfig(),
     users as unknown as Repository<User>,
+    processedEvents as unknown as Repository<ProcessedWebhookEvent>,
   );
-  return { svc, users };
+  return { svc, users, processedEvents };
 }
 
 function signedDigest(body: Buffer): string {

@@ -19,6 +19,7 @@ import { VideoAudioTrack } from "./video-audio-track.entity";
 import { Video } from "../videos/video.entity";
 import { S3Service } from "../s3/s3.service";
 import { MediaService } from "../media/media.service";
+import { looksLikeAudio } from "../s3/file-signatures";
 
 interface CreateUploadArgs {
   ownerId: string;
@@ -94,7 +95,11 @@ export class AudioService {
     const s3Key = `audio/${args.ownerId}/${saved.id}-${token}-${slug}.${ext}`;
     await this.templates.update({ id: saved.id }, { s3Key });
     saved.s3Key = s3Key;
-    const uploadUrl = await this.s3.presignPut(s3Key, args.mimeType);
+    const uploadUrl = await this.s3.presignPut(
+      s3Key,
+      args.mimeType,
+      args.sizeBytes,
+    );
     this.logger.log(
       `audio.createUpload ownerId=${args.ownerId} size=${args.sizeBytes} mime=${args.mimeType} s3Key=${s3Key} audioTemplateId=${saved.id}`,
     );
@@ -116,6 +121,19 @@ export class AudioService {
     if (head.size > MAX_AUDIO_BYTES) {
       await this.s3.deleteObject(tpl.s3Key);
       throw new BadRequestException("Uploaded audio exceeds size limit");
+    }
+    // Magic-byte check is authoritative — the Content-Type the presigned
+    // PUT was signed for is just a label, the bytes are what get served
+    // to the transcoder and to clients. Without a sniff a user could
+    // store arbitrary content (an MP4 video, a polyglot, garbage) under
+    // an audio/* key and have it served back with whatever audio MIME
+    // we recorded.
+    const headBytes = await this.s3.readObjectHead(tpl.s3Key, 32);
+    if (!headBytes || !looksLikeAudio(headBytes, tpl.mimeType)) {
+      await this.s3.deleteObject(tpl.s3Key).catch(() => {});
+      throw new BadRequestException(
+        "Uploaded file does not look like a real audio track",
+      );
     }
     tpl.sizeBytes = head.size;
     tpl.status = "ready";

@@ -123,6 +123,23 @@ export function buildSearchDescription(args: SearchDescriptionArgs): string {
   return "Search videos and GIFs by title or tag on vids&gifs — short clips and animated GIFs uploaded by the community.";
 }
 
+/**
+ * Serialize a JSON-LD object for inlining inside `<script type="application/ld+json">`.
+ * `JSON.stringify` does not escape `<` or `</`, so a user-supplied title containing
+ * `</script>` would break out of the script tag. Replace the unsafe sequences with
+ * their unicode escapes, which the JSON parser accepts and which the HTML parser
+ * cannot misread as tag boundaries or comment delimiters.
+ */
+export function jsonLdScript(data: unknown): string {
+  return JSON.stringify(data)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026")
+    .replace(/[\u2028\u2029]/g, (c) =>
+      c === "\u2028" ? "\\u2028" : "\\u2029",
+    );
+}
+
 function truncate(s: string, max: number): string {
   if (s.length <= max) return s;
   // Trim back to the last full word so we don't end with half a token,

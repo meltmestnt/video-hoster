@@ -18,6 +18,9 @@ import {
   SubscriptionTier,
   User,
 } from "../users/user.entity";
+import { ProcessedWebhookEvent } from "./processed-webhook-event.entity";
+
+const WEBHOOK_PROVIDER = "lemonsqueezy";
 
 // Subset of LS webhook events we react to. Everything else is ignored.
 const TRACKED_EVENTS = new Set([
@@ -53,6 +56,11 @@ interface LSSubscriptionAttributes {
 interface LSWebhookPayload {
   meta: {
     event_name: string;
+    // LemonSqueezy stamps a unique webhook_id on every delivery. Same
+    // event re-delivered (their retry, our 5xx, or a captured replay)
+    // carries the same id, which we use as the idempotency key.
+    webhook_id?: string;
+    event_id?: string;
     custom_data?: Record<string, string>;
   };
   data: {
@@ -72,6 +80,8 @@ export class BillingService {
   constructor(
     private readonly config: ConfigService,
     @InjectRepository(User) private readonly users: Repository<User>,
+    @InjectRepository(ProcessedWebhookEvent)
+    private readonly processedEvents: Repository<ProcessedWebhookEvent>,
   ) {
     lemonSqueezySetup({
       apiKey: config.getOrThrow<string>("LEMONSQUEEZY_API_KEY"),
@@ -182,6 +192,40 @@ export class BillingService {
     );
     if (!TRACKED_EVENTS.has(eventName)) return;
     if (payload.data.type !== "subscriptions") return;
+
+    // Idempotency check. LemonSqueezy retries failed webhook deliveries
+    // and a captured "active" payload could otherwise be replayed after
+    // cancellation to restore Pro for free. Insert-then-catch on the
+    // unique (provider, eventId) index is race-safe across concurrent
+    // deliveries: only the first commit wins.
+    const eventId = payload.meta.webhook_id ?? payload.meta.event_id;
+    if (eventId) {
+      try {
+        await this.processedEvents.insert({
+          provider: WEBHOOK_PROVIDER,
+          eventId,
+          eventName,
+        });
+      } catch (err) {
+        // Postgres unique-violation is "23505". Anything else is genuinely
+        // a server problem and should bubble up so LS retries.
+        const code = (err as { code?: string }).code;
+        if (code === "23505") {
+          this.logger.log(
+            `billing.webhook duplicate event=${eventName} eventId=${eventId} — skipping`,
+          );
+          return;
+        }
+        throw err;
+      }
+    } else {
+      // Defense-in-depth: LS has always sent an id, but if it ever stops
+      // we'd silently lose idempotency without noticing. Log loudly so we
+      // catch the format change in time.
+      this.logger.warn(
+        `billing.webhook event=${eventName} arrived without webhook_id/event_id — idempotency skipped`,
+      );
+    }
 
     const attrs = payload.data.attributes;
     const customerId = String(attrs.customer_id);
