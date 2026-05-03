@@ -171,6 +171,17 @@ export class DiscordService
       // for the gateway to accept the connection. We never read messages
       // or member lists.
       intents: [GatewayIntentBits.Guilds],
+      rest: {
+        // discord.js's default REST timeout is 15 s. Attachment
+        // uploads from Railway → Discord can run longer than that
+        // on the multipart/form-data POST — the symptom is
+        // editReply with files: [...] resolving with "This
+        // operation was aborted" while the deferred interaction
+        // stays stuck on "is thinking…" until Discord's own
+        // 15 min timeout. 60 s gives slow upload paths a real
+        // shot, well under the interaction expiry.
+        timeout: 60_000,
+      },
     });
 
     this.client.once(Events.ClientReady, (c) => {
@@ -626,6 +637,11 @@ export class DiscordService
    * uploaded as a Discord attachment so it animates regardless of the
    * viewer's auto-play setting. Telegram inline-picker path stays on
    * `kind: "mpeg4"` (separate code path; not affected by this).
+   *
+   * Falls back to a plain URL editReply when the multipart attachment
+   * upload aborts (Railway → Discord network blips) so the user
+   * always sees *something* instead of a stuck "thinking…" spinner
+   * until Discord times out the interaction.
    */
   private async postGifDirectly(
     interaction: ChatInputCommandInteraction,
@@ -642,10 +658,35 @@ export class DiscordService
       });
       return;
     }
-    await interaction.editReply({ files: [attachment] });
-    this.logger.log(
-      `discord./gif direct from=${interaction.user.id} gifId=${gifId} q="${truncate(query, 60)}"`,
-    );
+    try {
+      await interaction.editReply({ files: [attachment] });
+      this.logger.log(
+        `discord./gif direct from=${interaction.user.id} gifId=${gifId} q="${truncate(query, 60)}" mode=attachment`,
+      );
+    } catch (err) {
+      // Multipart upload failed (timeout, abort, Discord-side
+      // hiccup). Fall back to posting the signed URL — it auto-
+      // embeds, just doesn't always auto-play.
+      this.logger.warn(
+        `discord./gif attachment upload failed gifId=${gifId}: ${(err as Error).message}; falling back to URL`,
+      );
+      const url = await this.media.signUrl({ kind: "gif", id: gifId });
+      if (url) {
+        await interaction
+          .editReply({ content: url, files: [] })
+          .catch(() => {});
+        this.logger.log(
+          `discord./gif direct from=${interaction.user.id} gifId=${gifId} mode=url-fallback`,
+        );
+      } else {
+        await interaction
+          .editReply({
+            content: "That GIF couldn't be sent right now. Try again.",
+            files: [],
+          })
+          .catch(() => {});
+      }
+    }
   }
 
   /**
