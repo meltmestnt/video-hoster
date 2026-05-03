@@ -17,7 +17,12 @@ import type { Locale } from "@/lib/i18n/locale";
 // GDPR/ePrivacy consent gate at all. Same numbers we cared about
 // (pageviews, bounce, time on page, country/device, outbound clicks,
 // custom events), 1 KB instead of 50, no banner.
-const PLAUSIBLE_DOMAIN = process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN ?? "";
+//
+// The full tracker URL (e.g. https://plausible.io/js/pa-XXX.js) is
+// what Plausible's dashboard hands you — the site identifier lives
+// inside the URL itself rather than as a separate `data-domain`
+// attribute (legacy v1 pattern, no longer issued).
+const PLAUSIBLE_SCRIPT_URL = process.env.NEXT_PUBLIC_PLAUSIBLE_SCRIPT_URL ?? "";
 
 const SITE_NAME = "vids&gifs";
 
@@ -273,7 +278,9 @@ export default async function RootLayout({
         />
         <Theme appearance="dark" accentColor="iris" radius="large" scaling="100%">
           <Providers initialLocale={locale}>{children}</Providers>
-          {PLAUSIBLE_DOMAIN && <PlausibleScript domain={PLAUSIBLE_DOMAIN} />}
+          {PLAUSIBLE_SCRIPT_URL && (
+            <PlausibleScript scriptUrl={PLAUSIBLE_SCRIPT_URL} />
+          )}
           <RegisterSW />
         </Theme>
       </body>
