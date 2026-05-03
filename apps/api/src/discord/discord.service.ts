@@ -31,6 +31,7 @@ import { MediaService } from "../media/media.service";
 import { UsersService } from "../users/users.service";
 import { FoldersService } from "../folders/folders.service";
 import { TranscoderService } from "../transcoder/transcoder.service";
+import { S3Service } from "../s3/s3.service";
 import { looksLikeGif, looksLikeVideo } from "../s3/file-signatures";
 import { DiscordLinkService } from "./discord-link.service";
 import { DiscordPrefService } from "./discord-pref.service";
@@ -70,6 +71,7 @@ export class DiscordService
     private readonly users: UsersService,
     private readonly folders: FoldersService,
     private readonly transcoder: TranscoderService,
+    private readonly s3: S3Service,
     private readonly links: DiscordLinkService,
     private readonly prefs: DiscordPrefService,
   ) {}
@@ -573,32 +575,37 @@ export class DiscordService
   }
 
   /**
-   * Fetch the GIF bytes and wrap them in an AttachmentBuilder so we
-   * can upload to Discord as a real file. Discord-hosted attachments
-   * auto-play unconditionally; URL embeds (.gif or otherwise) are
-   * gated on the recipient's "Automatically play GIFs" setting and
-   * frequently render frozen as a result. Pulling the bytes through
-   * the bot adds ~1–2 s of latency per send but makes the "GIF
-   * actually animates" guarantee not depend on every viewer's
-   * accessibility settings.
+   * Pull the GIF bytes from S3 directly via the SDK (no public-HTTP
+   * round-trip) and wrap them in an AttachmentBuilder so Discord
+   * hosts the file. Discord-hosted attachments auto-play
+   * unconditionally; URL embeds are gated on each viewer's
+   * "Automatically play GIFs" accessibility setting and frequently
+   * render frozen.
    *
-   * Returns null when the gif can't be resolved or fetched — caller
-   * surfaces an "unavailable" reply.
+   * The earlier version of this fetched our own /media/gif/{id} URL
+   * via Node fetch — that hit Cloudflare → Railway → API and was
+   * unreliable for server-to-server self-fetches (the bot ran on the
+   * same deployment, so the round-trip introduced auth/Referer/UA
+   * mismatches the public-facing media controller wasn't designed
+   * for). Going through `media.resolveKey` + `s3.getObjectStream`
+   * skips all of that.
+   *
+   * Returns null when the gif row can't be resolved (deleted, not
+   * ready, etc.) or the S3 read fails — caller surfaces an
+   * "unavailable" reply.
    */
   private async fetchGifAttachment(
     gifId: string,
   ): Promise<AttachmentBuilder | null> {
-    const url = await this.media.signUrl({ kind: "gif", id: gifId });
-    if (!url) return null;
+    const key = await this.media.resolveKey("gif", gifId);
+    if (!key) return null;
     try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        this.logger.warn(
-          `discord.fetchGifAttachment ${gifId} fetch returned ${response.status}`,
-        );
-        return null;
+      const obj = await this.s3.getObjectStream(key);
+      const chunks: Buffer[] = [];
+      for await (const chunk of obj.body) {
+        chunks.push(chunk as Buffer);
       }
-      const buffer = Buffer.from(await response.arrayBuffer());
+      const buffer = Buffer.concat(chunks);
       return new AttachmentBuilder(buffer, { name: `${gifId}.gif` });
     } catch (err) {
       this.logger.warn(

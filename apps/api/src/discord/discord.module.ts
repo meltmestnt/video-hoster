@@ -10,6 +10,7 @@ import { FoldersModule } from "../folders/folders.module";
 import { MediaModule } from "../media/media.module";
 import { UsersModule } from "../users/users.module";
 import { TranscoderModule } from "../transcoder/transcoder.module";
+import { S3Module } from "../s3/s3.module";
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { TranscoderModule } from "../transcoder/transcoder.module";
     MediaModule,
     UsersModule,
     TranscoderModule,
+    S3Module,
   ],
   providers: [DiscordLinkService, DiscordPrefService, DiscordService],
   exports: [DiscordLinkService, DiscordPrefService, DiscordService],
