@@ -24,43 +24,102 @@ const SITE_NAME = "vids&gifs";
 // in any locale, so we keep the English title even in Ukrainian SERPs and
 // only swap the prose description. That keeps the SERP snippet in the
 // language Google's user is searching in (its "result language" is mostly
-// driven by Accept-Language at crawl time).
+// driven by Accept-Language at crawl time, supplemented by the
+// `?lang=<locale>` URL middleware writes a cookie for).
 const COPY: Record<
   Locale,
   { title: string; description: string; ogTitle: string }
 > = {
   en: {
-    title: "vids & gifs — upload videos and GIFs, convert, share",
-    ogTitle: "vids & gifs — upload videos and GIFs, convert, share",
+    title:
+      "vids & gifs — convert GIF to MP4 (and MP4 to GIF), private GIFs, Telegram bot",
+    ogTitle:
+      "vids & gifs — convert GIF ↔ MP4, private GIFs, Telegram bot",
     description:
-      "vids & gifs (vidsandgifs.com) — upload, share, convert, and download short videos, GIFs, and screenshots in your browser. Trim and compress videos, convert MP4 to GIF, capture frames as screenshots, and post them to your feed. Free, no installs, works on desktop and mobile.",
+      "vids & gifs (vidsandgifs.com) — upload videos and GIFs, convert MP4 to GIF and GIF to MP4 in your browser, build private GIF folders, and search them inline from any Telegram chat with our bot. Trim and compress videos, extract audio, capture screenshots from any frame, share publicly or keep private. Free, no installs, works on desktop and mobile.",
   },
   uk: {
-    title: "vids & gifs — завантажуй відео і GIF, конвертуй та ділись",
-    ogTitle: "vids & gifs — завантажуй відео і GIF, конвертуй та ділись",
+    title:
+      "vids & gifs — конвертуй GIF у MP4 (і MP4 у GIF), приватні GIF, Telegram-бот",
+    ogTitle:
+      "vids & gifs — конвертуй GIF ↔ MP4, приватні GIF, Telegram-бот",
     description:
-      "vids & gifs (vidsandgifs.com) — завантажуй, ділись, конвертуй і качай короткі відео, GIF та скріншоти у браузері. Обрізай і стискай відео, перетворюй MP4 у GIF, зберігай кадри як скріншоти й публікуй у стрічці. Безкоштовно, без встановлення, працює на ПК і смартфоні.",
+      "vids & gifs (vidsandgifs.com) — завантажуй відео і GIF, конвертуй MP4 у GIF та GIF у MP4 прямо в браузері, складай приватні папки GIF і шукай їх інлайн у будь-якому чаті Telegram через нашого бота. Обрізай і стискай відео, витягуй аудіо, зберігай кадри як скріншоти, ділися публічно або тримай приватно. Безкоштовно, без встановлення, працює на ПК і смартфоні.",
   },
 };
 
+// Search engines (especially Yandex/Bing — Google ignores `<meta keywords>`
+// since 2009) read this list when ranking morphologically related queries.
+// We mix English brand spellings, English long-tails, and Cyrillic
+// transliterations of the same intents so a Russian or Ukrainian searcher
+// typing "конвертер gif в mp4" or "гифки и видео" matches us as readily
+// as an English one typing "convert gif to mp4".
 const SITE_KEYWORDS = [
+  // Brand spellings
   "vids and gifs",
   "vids & gifs",
   "vidsandgifs",
+  "vidsandgifs.com",
   "vidsandgifs.xyz",
   "vids gifs",
-  "upload vids and gifs",
+  "videos and gifs",
+  // Core actions — English
+  "upload videos and gifs",
   "upload video",
   "upload gif",
   "share videos",
   "share gifs",
-  "video to gif",
+  // GIF ↔ MP4 conversion — English
+  "convert gif to mp4",
+  "convert mp4 to gif",
+  "gif to mp4",
   "mp4 to gif",
   "gif to video",
+  "video to gif",
+  "online gif converter",
+  "in-browser gif converter",
+  "gif to mp4 converter",
+  "mp4 to gif converter",
+  // Private library + Telegram — English
+  "private gifs",
+  "private gif library",
+  "private gif folders",
+  "telegram gif bot",
+  "telegram gif search",
+  "send gifs in telegram",
+  "inline gif search telegram",
+  // Editor + screenshot — English
   "compress video online",
+  "trim video online",
   "screenshot from video",
+  "extract frame from video",
   "online video editor",
   "in-browser video editor",
+  // Ukrainian
+  "відео і gif",
+  "гіфки і відео",
+  "конвертер gif у mp4",
+  "конвертер mp4 у gif",
+  "конвертувати gif у mp4",
+  "конвертувати mp4 у gif",
+  "конвертнути гіф",
+  "конвертнути gif у відео",
+  "приватні gif",
+  "приватні гіфки",
+  "телеграм бот для gif",
+  "телеграм гіф бот",
+  "обрізати відео онлайн",
+  "стиснути відео онлайн",
+  // Russian (broad reach across the ru-language audience that searches
+  // for the same intents — Yandex picks these up directly)
+  "гифки и видео",
+  "видео и гифки",
+  "конвертер gif в mp4",
+  "конвертер mp4 в gif",
+  "gif в mp4 онлайн",
+  "mp4 в gif онлайн",
+  "приватные гифки",
+  "телеграм бот для гифок",
 ];
 
 // Search engine site-verification tokens. These are public values that get
@@ -73,6 +132,18 @@ const GOOGLE_SITE_VERIFICATION =
   "exYyOg4bejyDiY-EN71yMcqrQROhJ0rd4IgBTplDsiE";
 const BING_SITE_VERIFICATION = process.env.BING_SITE_VERIFICATION;
 const YANDEX_SITE_VERIFICATION = process.env.YANDEX_SITE_VERIFICATION;
+
+// Per-locale URLs let Google index each language separately. English
+// stays at the bare root so existing inbound links and the brand
+// canonical don't change; Ukrainian gets `?lang=uk`, which middleware.ts
+// honors via the `x-locale-override` header. The canonical we emit on
+// each rendered request points at the URL whose content this page
+// actually serves — otherwise Google merges the two and one locale
+// drops out of the index.
+const LOCALE_PATH: Record<Locale, string> = {
+  en: "/",
+  uk: "/?lang=uk",
+};
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getServerLocale();
@@ -91,11 +162,11 @@ export async function generateMetadata(): Promise<Metadata> {
     keywords: SITE_KEYWORDS,
     applicationName: SITE_NAME,
     alternates: {
-      canonical: "/",
+      canonical: LOCALE_PATH[locale],
       languages: {
-        en: "/",
-        uk: "/",
-        "x-default": "/",
+        en: LOCALE_PATH.en,
+        uk: LOCALE_PATH.uk,
+        "x-default": LOCALE_PATH.en,
       },
     },
     openGraph: {
@@ -103,8 +174,9 @@ export async function generateMetadata(): Promise<Metadata> {
       siteName: SITE_NAME,
       title: copy.ogTitle,
       description: copy.description,
-      url: siteUrl(),
+      url: new URL(LOCALE_PATH[locale], siteUrl()).toString(),
       locale: locale === "uk" ? "uk_UA" : "en_US",
+      alternateLocale: locale === "uk" ? ["en_US"] : ["uk_UA"],
     },
     twitter: {
       card: "summary_large_image",
@@ -156,10 +228,18 @@ function websiteJsonLd(description: string) {
       "vids & gifs",
       "vids and gifs",
       "vidsandgifs",
+      "vidsandgifs.com",
       "vidsandgifs.xyz",
       "vids gifs",
+      "videos and gifs",
+      // Cyrillic alternates so Yandex/Google associate Russian and
+      // Ukrainian queries with the same canonical brand.
+      "відео і GIF",
+      "гіфки і відео",
+      "видео и гифки",
     ],
     url: siteUrl(),
+    inLanguage: ["en", "uk"],
     description,
     potentialAction: {
       "@type": "SearchAction",

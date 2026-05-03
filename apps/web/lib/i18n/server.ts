@@ -8,19 +8,28 @@ import {
 } from "./locale";
 
 // Resolves the locale to render with on the server. Order:
-//   1. `vh.locale` cookie — the user explicitly picked one via LocaleSwitcher
-//      and we wrote it to a cookie so SSR matches the client.
-//   2. `Accept-Language` negotiation — first supported primary subtag wins by
-//      q-weight. Lets visitors and Googlebot get content in their language
-//      on the very first request, before any cookie exists.
-//   3. English fallback — keeps SERP snippets and `<html lang>` consistent
+//   1. `x-locale-override` header — set by `middleware.ts` when the URL
+//      carries `?lang=<locale>`. Lets Googlebot index a stable
+//      English URL ("/") and a stable Ukrainian URL ("/?lang=uk")
+//      separately, so the SERP snippet matches the user's locale.
+//   2. `vh.locale` cookie — the user explicitly picked one via
+//      LocaleSwitcher and we wrote it to a cookie so SSR matches
+//      the client.
+//   3. `Accept-Language` negotiation — first supported primary subtag wins
+//      by q-weight. Lets visitors get content in their language on the
+//      very first request, before any cookie exists.
+//   4. English fallback — keeps SERP snippets and `<html lang>` consistent
 //      for crawlers that don't send Accept-Language.
 export async function getServerLocale(): Promise<Locale> {
+  const headerStore = await headers();
+
+  const fromHeader = headerStore.get("x-locale-override");
+  if (isLocale(fromHeader)) return fromHeader;
+
   const cookieStore = await cookies();
   const fromCookie = cookieStore.get(LOCALE_COOKIE)?.value;
   if (isLocale(fromCookie)) return fromCookie;
 
-  const headerStore = await headers();
   const acceptLanguage = headerStore.get("accept-language");
   if (acceptLanguage) {
     const negotiated = pickFromAcceptLanguage(acceptLanguage);

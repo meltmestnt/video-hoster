@@ -23,32 +23,37 @@ export const dynamic = "force-dynamic";
 // every common spelling. Description repeats them in plain prose so the
 // SERP snippet (which Google often pulls verbatim from this string)
 // reads like a description of what the site does — localized to match
-// the visitor's Accept-Language so an English query gets an English
-// snippet and a Ukrainian one gets Ukrainian.
+// the visitor's Accept-Language (or the `?lang=` override) so an English
+// query gets an English snippet and a Ukrainian one gets Ukrainian.
 const HOME_COPY: Record<
   Locale,
   { title: string; description: string; ogTitle: string; ogDescription: string }
 > = {
   en: {
     title:
-      "vids & gifs — upload videos and GIFs, convert MP4 to GIF, share in your browser",
+      "vids & gifs — convert GIF to MP4 (and MP4 to GIF), private GIFs, Telegram bot",
     description:
-      "vids & gifs (vidsandgifs.com) lets you upload videos and GIFs, convert MP4 to GIF, extract audio, capture screenshots from any frame, and share them publicly or privately. Free, no installs, runs in your browser. Browse the latest community uploads or sign up to post your own.",
+      "vids & gifs (vidsandgifs.com) lets you upload videos and GIFs, convert GIF to MP4 and MP4 to GIF in your browser, organize private GIF folders, and search them inline from any Telegram chat with our bot. Trim and compress videos, extract audio, capture screenshots from any frame, share publicly or keep private. Free, no installs, runs in your browser.",
     ogTitle:
-      "vids & gifs — upload videos and GIFs, convert, share in your browser",
+      "vids & gifs — GIF ↔ MP4 converter, private GIFs, Telegram bot",
     ogDescription:
-      "Upload videos and GIFs, convert MP4 to GIF, extract audio, capture screenshots, and share. Free in-browser tools at vidsandgifs.com.",
+      "Convert GIF to MP4 and MP4 to GIF in your browser, build private GIF folders, and search them in any Telegram chat. Free at vidsandgifs.com.",
   },
   uk: {
     title:
-      "vids & gifs — завантажуй відео і GIF, конвертуй MP4 у GIF, ділись у браузері",
+      "vids & gifs — конвертуй GIF у MP4 (і MP4 у GIF), приватні GIF, Telegram-бот",
     description:
-      "vids & gifs (vidsandgifs.com) дозволяє завантажувати відео й GIF, конвертувати MP4 у GIF, витягувати аудіо, зберігати кадри як скріншоти і ділитися ними публічно чи приватно. Безкоштовно, без встановлення, працює прямо в браузері. Переглядай останні завантаження спільноти або зареєструйся, щоб публікувати своє.",
+      "vids & gifs (vidsandgifs.com) дозволяє завантажувати відео та GIF, конвертувати GIF у MP4 і MP4 у GIF прямо в браузері, складати приватні папки GIF та шукати їх інлайн у будь-якому чаті Telegram через нашого бота. Обрізай і стискай відео, витягуй аудіо, зберігай кадри як скріншоти, ділися публічно або тримай приватно. Безкоштовно, без встановлення, працює прямо в браузері.",
     ogTitle:
-      "vids & gifs — завантажуй відео і GIF, конвертуй, ділись у браузері",
+      "vids & gifs — конвертер GIF ↔ MP4, приватні GIF, Telegram-бот",
     ogDescription:
-      "Завантажуй відео і GIF, конвертуй MP4 у GIF, витягуй аудіо, зберігай скріншоти й ділись. Безкоштовні інструменти у браузері на vidsandgifs.com.",
+      "Конвертуй GIF у MP4 і MP4 у GIF у браузері, складай приватні папки GIF і шукай їх у будь-якому чаті Telegram. Безкоштовно на vidsandgifs.com.",
   },
+};
+
+const HOME_LOCALE_URL: Record<Locale, string> = {
+  en: absoluteUrl("/"),
+  uk: absoluteUrl("/?lang=uk"),
 };
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -57,13 +62,21 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: { absolute: copy.title },
     description: copy.description,
-    alternates: { canonical: absoluteUrl("/") },
+    alternates: {
+      canonical: HOME_LOCALE_URL[locale],
+      languages: {
+        en: HOME_LOCALE_URL.en,
+        uk: HOME_LOCALE_URL.uk,
+        "x-default": HOME_LOCALE_URL.en,
+      },
+    },
     openGraph: {
       title: copy.ogTitle,
       description: copy.ogDescription,
-      url: absoluteUrl("/"),
+      url: HOME_LOCALE_URL[locale],
       type: "website",
       locale: locale === "uk" ? "uk_UA" : "en_US",
+      alternateLocale: locale === "uk" ? ["en_US"] : ["uk_UA"],
     },
   };
 }

@@ -22,12 +22,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   const now = new Date();
+
+  // Each bilingual page is listed once at the English URL, with the
+  // Ukrainian variant declared in `alternates.languages`. Google reads
+  // those alongside the rendered hreflang tags and indexes the
+  // `?lang=uk` version as the Ukrainian counterpart of the same
+  // canonical entry.
   const staticEntries: MetadataRoute.Sitemap = [
     {
       url: absoluteUrl("/"),
       lastModified: now,
       changeFrequency: "hourly",
       priority: 1,
+      alternates: {
+        languages: {
+          en: absoluteUrl("/"),
+          uk: absoluteUrl("/?lang=uk"),
+          "x-default": absoluteUrl("/"),
+        },
+      },
     },
     {
       url: absoluteUrl("/search"),
@@ -44,11 +57,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     {
       // Static FAQ page — content rarely changes but worth a high-ish
       // priority because it's the page targeting "what is a gif" /
-      // "how to convert gif to mp4" search queries.
+      // "how to convert gif to mp4" search queries. Same hreflang
+      // pairing as the home so the Ukrainian Q&A block surfaces in
+      // uk-language SERPs.
       url: absoluteUrl("/faq"),
       lastModified: now,
       changeFrequency: "monthly",
       priority: 0.6,
+      alternates: {
+        languages: {
+          en: absoluteUrl("/faq"),
+          uk: absoluteUrl("/faq?lang=uk"),
+          "x-default": absoluteUrl("/faq"),
+        },
+      },
     },
   ];
 

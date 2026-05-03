@@ -23,9 +23,16 @@ const fakeCookies = (vh?: string): CookieStore => ({
   get: (name: string) =>
     name === "vh.locale" && vh ? { value: vh } : undefined,
 });
-const fakeHeaders = (acceptLanguage?: string): HeaderStore => ({
-  get: (name: string) =>
-    name.toLowerCase() === "accept-language" ? acceptLanguage ?? null : null,
+const fakeHeaders = (
+  acceptLanguage?: string,
+  override?: string,
+): HeaderStore => ({
+  get: (name: string) => {
+    const lower = name.toLowerCase();
+    if (lower === "accept-language") return acceptLanguage ?? null;
+    if (lower === "x-locale-override") return override ?? null;
+    return null;
+  },
 });
 
 // Import lazily so the mocked next/headers is in place first.
@@ -109,6 +116,18 @@ describe("getServerLocale", () => {
 
   it("treats an empty Accept-Language value as missing", async () => {
     headerStore = fakeHeaders("");
+    expect(await getServerLocale()).toBe("en");
+  });
+
+  it("x-locale-override header wins over cookie and Accept-Language", async () => {
+    cookieStore = fakeCookies("en");
+    headerStore = fakeHeaders("en-US,en;q=0.9", "uk");
+    expect(await getServerLocale()).toBe("uk");
+  });
+
+  it("ignores an unsupported x-locale-override value", async () => {
+    cookieStore = fakeCookies("en");
+    headerStore = fakeHeaders(undefined, "ja");
     expect(await getServerLocale()).toBe("en");
   });
 });
