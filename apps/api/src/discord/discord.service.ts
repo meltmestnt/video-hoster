@@ -6,8 +6,12 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import {
+  ActionRowBuilder,
   ApplicationIntegrationType,
+  ButtonBuilder,
+  ButtonStyle,
   Client,
+  EmbedBuilder,
   Events,
   GatewayIntentBits,
   InteractionContextType,
@@ -16,6 +20,7 @@ import {
   Routes,
   SlashCommandBuilder,
   type AutocompleteInteraction,
+  type ButtonInteraction,
   type ChatInputCommandInteraction,
   type Interaction,
   type RESTPostAPIApplicationCommandsJSONBody,
@@ -32,6 +37,13 @@ import { DiscordPrefService } from "./discord-pref.service";
 const AUTOCOMPLETE_MAX = 25;
 const MAX_TITLE_LEN = 200;
 const MAX_TAGS = 10;
+// Gallery shown when /gif is submitted with free-text instead of an
+// autocomplete-picked UUID. Discord allows up to 10 embeds + 5 buttons
+// per row; 5 keeps both within budget and the message scannable. The
+// embed shows the actual animated GIF as its image — Discord auto-
+// plays animated images in embeds, which is the visual preview that
+// slash-command autocomplete can't render itself.
+const GALLERY_RESULTS = 5;
 // Discord lets free users attach up to 25 MiB and Nitro tiers higher
 // still. We accept up to 50 MiB for non-GIF inputs so a moderately
 // long video has room to transcode down — the post-transcode buffer
@@ -375,6 +387,12 @@ export class DiscordService
       await this.onAutocomplete(interaction);
       return;
     }
+    if (interaction.isButton()) {
+      if (interaction.customId.startsWith("gif:send:")) {
+        await this.onGifSendButton(interaction);
+      }
+      return;
+    }
     if (!interaction.isChatInputCommand()) return;
     switch (interaction.commandName) {
       case "gif":
@@ -508,49 +526,65 @@ export class DiscordService
   private async onGif(
     interaction: ChatInputCommandInteraction,
   ): Promise<void> {
-    // Autocomplete handed us the gif id as the option value; if the
-    // user typed something free-form and submitted before picking a
-    // suggestion, the value will be that string and we have to fall
-    // back to a search-and-pick-the-first-match path so the command
-    // still produces a sensible result instead of erroring out.
     const queryOrId = interaction.options.getString("query", true);
-    const discordUserId = interaction.user.id;
-    let gifId: string | null = null;
     if (isUuid(queryOrId)) {
-      gifId = queryOrId;
-    } else {
-      const link = await this.links
-        .findByDiscordUserId(discordUserId)
-        .catch(() => null);
-      let restrictToFolderId: string | null = null;
-      if (link) {
-        const folderId = await this.prefs
-          .getActiveFolderId(discordUserId)
-          .catch(() => null);
-        if (folderId) {
-          try {
-            const f = await this.folders.findOwned(folderId, link.userId);
-            restrictToFolderId = f.id;
-          } catch {
-            // Stale active-folder pref — fall back to public search.
-          }
-        }
-      }
-      const items = await this.gifs.searchInlineForBot({
-        q: queryOrId,
-        limit: 1,
-        restrictToFolderId,
-      });
-      gifId = items[0]?.id ?? null;
-    }
-    if (!gifId) {
-      await interaction.reply({
-        content: `No GIFs matched **${truncate(queryOrId, 80)}**. Try a different search.`,
-        flags: MessageFlags.Ephemeral,
-      });
+      // Autocomplete fast path — user picked a specific gif from the
+      // suggestion list, so we know exactly what to send. No preview
+      // step needed.
+      await this.postGifDirectly(interaction, queryOrId, queryOrId);
       return;
     }
-    const url = await this.media.signUrl({ kind: "mpeg4", id: gifId });
+    // Free-text submit (user typed and hit enter without picking a
+    // suggestion): show a visual preview gallery so they can see what
+    // they're about to send. Discord's slash-command autocomplete is
+    // text-only — this gallery flow is the closest equivalent to the
+    // Telegram inline picker's GIF-thumbnail grid.
+    await this.replyWithGifGallery(interaction, queryOrId);
+  }
+
+  /**
+   * Resolve the active-folder restriction for a Discord user. Shared
+   * between the autocomplete handler and both /gif paths so the same
+   * "linked + active folder = scope to that folder" rules apply
+   * uniformly. Stale prefs (folder deleted out from under the user)
+   * are silently cleared and treated as no-restriction.
+   */
+  private async resolveGifScope(
+    discordUserId: string,
+  ): Promise<{ restrictToFolderId: string | null }> {
+    const link = await this.links
+      .findByDiscordUserId(discordUserId)
+      .catch(() => null);
+    if (!link) return { restrictToFolderId: null };
+    const folderId = await this.prefs
+      .getActiveFolderId(discordUserId)
+      .catch(() => null);
+    if (!folderId) return { restrictToFolderId: null };
+    try {
+      const f = await this.folders.findOwned(folderId, link.userId);
+      return { restrictToFolderId: f.id };
+    } catch {
+      await this.prefs
+        .setActiveFolderId(discordUserId, null)
+        .catch(() => {});
+      return { restrictToFolderId: null };
+    }
+  }
+
+  /**
+   * Single-shot: turn a known gif id into a public reply containing
+   * the animated GIF URL. Discord renders animated `.gif` URLs as
+   * auto-playing inline images (no click-to-play overlay). The
+   * Telegram inline path stays on `kind: "mpeg4"` because Telegram
+   * silently drops inline gif results > 1 MB; Discord doesn't have
+   * that limit so we hand it the actual GIF.
+   */
+  private async postGifDirectly(
+    interaction: ChatInputCommandInteraction,
+    gifId: string,
+    query: string,
+  ): Promise<void> {
+    const url = await this.media.signUrl({ kind: "gif", id: gifId });
     if (!url) {
       await interaction.reply({
         content: "That GIF isn't available right now.",
@@ -558,13 +592,153 @@ export class DiscordService
       });
       return;
     }
-    // Discord auto-embeds video URLs as inline players, so the cleanest
-    // post is just the URL — no embed object, no attachment fetch on
-    // our side. Discordbot's UA is on our hotlink allow-list so the
-    // initial fetch + Discord-CDN cache works without auth headers.
     await interaction.reply({ content: url });
     this.logger.log(
-      `discord./gif from=${discordUserId} gifId=${gifId} q="${truncate(queryOrId, 60)}"`,
+      `discord./gif direct from=${interaction.user.id} gifId=${gifId} q="${truncate(query, 60)}"`,
+    );
+  }
+
+  /**
+   * Visual preview gallery — replies ephemerally with up to 5
+   * embeds (each rendered as the auto-playing animated GIF) plus a
+   * row of numbered buttons. Click a button → onGifSendButton posts
+   * the chosen gif into the channel publicly.
+   *
+   * Ephemeral keeps the gallery visible only to the invoking user;
+   * Discord scrubs it on dismiss. Custom IDs (`gif:send:<id>`)
+   * encode the chosen gif so the click handler doesn't need any
+   * server-side state — buttons survive bot restarts as long as
+   * Discord still routes the interaction (15-min default).
+   */
+  private async replyWithGifGallery(
+    interaction: ChatInputCommandInteraction,
+    query: string,
+  ): Promise<void> {
+    const discordUserId = interaction.user.id;
+    const { restrictToFolderId } = await this.resolveGifScope(discordUserId);
+    const items = await this.gifs.searchInlineForBot({
+      q: query,
+      limit: GALLERY_RESULTS,
+      restrictToFolderId,
+    });
+    if (items.length === 0) {
+      await interaction.reply({
+        content: `No GIFs matched **${truncate(query, 80)}**. Try a different search.`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+    const enriched = await Promise.all(
+      items.map(async (g) => ({
+        id: g.id,
+        title: g.title,
+        url: await this.media.signUrl({ kind: "gif", id: g.id }),
+      })),
+    );
+    const valid = enriched.filter(
+      (e): e is { id: string; title: string; url: string } => !!e.url,
+    );
+    if (valid.length === 0) {
+      await interaction.reply({
+        content: "No matches available right now.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+    const embeds = valid.map((g, i) =>
+      new EmbedBuilder()
+        .setTitle(`${i + 1}. ${truncate(g.title || "(untitled)", 200)}`)
+        .setImage(g.url)
+        // iris-9 from the Radix palette — matches the brand color used
+        // in the website's Discord-related UI rows.
+        .setColor(0x5b5bd6),
+    );
+    const buttons = valid.map((g, i) =>
+      new ButtonBuilder()
+        .setCustomId(`gif:send:${g.id}`)
+        .setLabel(String(i + 1))
+        .setStyle(ButtonStyle.Primary),
+    );
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(buttons);
+    await interaction.reply({
+      content:
+        "Pick one to send into the chat (only you can see this preview):",
+      embeds,
+      components: [row],
+      flags: MessageFlags.Ephemeral,
+    });
+    this.logger.log(
+      `discord./gif gallery from=${discordUserId} q="${truncate(query, 60)}" returned=${valid.length} folderId=${restrictToFolderId ?? "none"}`,
+    );
+  }
+
+  /**
+   * Click handler for the gallery's "send #N" buttons. Pulls the gif
+   * id out of `customId`, mints a fresh signed URL, and posts it into
+   * the channel publicly via `channel.send` so everyone in the
+   * conversation sees it (the original gallery was ephemeral and
+   * doesn't suit a "broadcast" semantic).
+   *
+   * Falls back gracefully when the bot can't post publicly — that's
+   * the user-installed-in-non-member-guild case where Discord
+   * forbids public bot messages. We surface the URL in the ephemeral
+   * so the user can copy + paste it themselves.
+   */
+  private async onGifSendButton(
+    interaction: ButtonInteraction,
+  ): Promise<void> {
+    const prefix = "gif:send:";
+    const gifId = interaction.customId.slice(prefix.length);
+    if (!isUuid(gifId)) {
+      await interaction
+        .update({
+          content: "That button is malformed.",
+          embeds: [],
+          components: [],
+        })
+        .catch(() => {});
+      return;
+    }
+    const url = await this.media.signUrl({ kind: "gif", id: gifId });
+    if (!url) {
+      await interaction
+        .update({
+          content: "That GIF isn't available anymore.",
+          embeds: [],
+          components: [],
+        })
+        .catch(() => {});
+      return;
+    }
+    await interaction.deferUpdate();
+    let postedPublicly = false;
+    try {
+      // `channel.send` posts a regular (non-ephemeral) message in the
+      // current channel. Works in DMs and servers where the bot is a
+      // member; throws on permission denied (user-installed app in a
+      // guild the bot isn't part of).
+      if (interaction.channel && "send" in interaction.channel) {
+        await interaction.channel.send({ content: url });
+        postedPublicly = true;
+      }
+    } catch {
+      // expected in user-install non-member contexts — handled below
+    }
+    if (postedPublicly) {
+      await interaction.editReply({
+        content: "✓ Sent",
+        embeds: [],
+        components: [],
+      });
+    } else {
+      await interaction.editReply({
+        content: `Couldn't post here directly — copy & paste:\n${url}`,
+        embeds: [],
+        components: [],
+      });
+    }
+    this.logger.log(
+      `discord./gif gallery picked from=${interaction.user.id} gifId=${gifId} postedPublicly=${postedPublicly}`,
     );
   }
 
