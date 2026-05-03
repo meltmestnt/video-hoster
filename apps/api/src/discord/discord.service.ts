@@ -5,7 +5,9 @@ import {
   OnApplicationShutdown,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { buffer as streamToBuffer } from "node:stream/consumers";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   ActionRowBuilder,
   ApplicationIntegrationType,
@@ -587,48 +589,70 @@ export class DiscordService
   }
 
   /**
-   * Pull the GIF bytes from S3 directly via the SDK (no public-HTTP
-   * round-trip) and wrap them in an AttachmentBuilder so Discord
-   * hosts the file. Discord-hosted attachments auto-play
-   * unconditionally; URL embeds are gated on each viewer's
-   * "Automatically play GIFs" accessibility setting and frequently
-   * render frozen.
+   * Pull the GIF bytes from S3 to a temp file and return an
+   * AttachmentBuilder pointing at that path. discord.js streams the
+   * file off disk into the multipart upload — turns out Buffer-based
+   * AttachmentBuilder uploads were stalling reliably in prod for
+   * reasons we can't fully pin down (likely an interaction between
+   * undici's body stream handling and discord.js's REST queue under
+   * Railway's outbound network), but file-path attachments use a
+   * fundamentally different upload path and don't exhibit the hang.
    *
-   * The earlier version of this fetched our own /media/gif/{id} URL
-   * via Node fetch — that hit Cloudflare → Railway → API and was
-   * unreliable for server-to-server self-fetches (the bot ran on the
-   * same deployment, so the round-trip introduced auth/Referer/UA
-   * mismatches the public-facing media controller wasn't designed
-   * for). Going through `media.resolveKey` + `s3.getObjectStream`
-   * skips all of that.
+   * Caller MUST call `cleanupAttachment(workDir)` when the upload
+   * resolves / rejects so the temp file doesn't leak.
    *
-   * Returns null when the gif row can't be resolved (deleted, not
-   * ready, etc.) or the S3 read fails — caller surfaces an
-   * "unavailable" reply.
+   * Returns null when the gif can't be resolved or the S3 read fails.
    */
   private async fetchGifAttachment(
     gifId: string,
-  ): Promise<AttachmentBuilder | null> {
+  ): Promise<{ attachment: AttachmentBuilder; workDir: string } | null> {
     const key = await this.media.resolveKey("gif", gifId);
     if (!key) return null;
+    const workDir = await mkdtemp(join(tmpdir(), "discord-gif-"));
+    const filePath = join(workDir, `${gifId}.gif`);
     try {
-      const obj = await this.s3.getObjectStream(key);
-      // node:stream/consumers' `buffer` helper drains the Readable
-      // properly. The naive for-await loop can hang silently on
-      // AWS SDK v3 Body streams whose end event isn't propagated
-      // through the framework's Readable cast — that's the
-      // "vids&gifs is thinking..." stall reported in prod, where
-      // deferReply succeeded but editReply never fired.
-      const buffer = await streamToBuffer(obj.body);
-      this.logger.log(
-        `discord.fetchGifAttachment ${gifId} bytes=${buffer.length}`,
-      );
-      return new AttachmentBuilder(buffer, { name: `${gifId}.gif` });
+      await this.s3.downloadToFile(key, filePath);
+      const attachment = new AttachmentBuilder(filePath, {
+        name: `${gifId}.gif`,
+      });
+      this.logger.log(`discord.fetchGifAttachment ${gifId} ready filePath`);
+      return { attachment, workDir };
     } catch (err) {
       this.logger.warn(
         `discord.fetchGifAttachment ${gifId} failed: ${(err as Error).message}`,
       );
+      await rm(workDir, { recursive: true, force: true }).catch(() => {});
       return null;
+    }
+  }
+
+  private async cleanupAttachment(workDir: string): Promise<void> {
+    await rm(workDir, { recursive: true, force: true }).catch(() => {});
+  }
+
+  /**
+   * Race a Discord REST call against an explicit timeout so we never
+   * depend on discord.js's internal abort firing on schedule. The
+   * caller catches the timeout and falls through to a URL fallback.
+   */
+  private async withUploadTimeout<T>(
+    promise: Promise<T>,
+    label: string,
+    timeoutMs = 45_000,
+  ): Promise<T> {
+    let timer: NodeJS.Timeout | undefined;
+    try {
+      return await Promise.race([
+        promise,
+        new Promise<T>((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error(`${label} timed out after ${timeoutMs}ms`)),
+            timeoutMs,
+          );
+        }),
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
     }
   }
 
@@ -651,15 +675,18 @@ export class DiscordService
     // Defer because the S3 fetch + attachment upload typically runs
     // 1–2 s for a few-MiB gif — well past Discord's 3 s reply window.
     await interaction.deferReply();
-    const attachment = await this.fetchGifAttachment(gifId);
-    if (!attachment) {
+    const fetched = await this.fetchGifAttachment(gifId);
+    if (!fetched) {
       await interaction.editReply({
         content: "That GIF isn't available right now.",
       });
       return;
     }
     try {
-      await interaction.editReply({ files: [attachment] });
+      await this.withUploadTimeout(
+        interaction.editReply({ files: [fetched.attachment] }),
+        `editReply ${gifId}`,
+      );
       this.logger.log(
         `discord./gif direct from=${interaction.user.id} gifId=${gifId} q="${truncate(query, 60)}" mode=attachment`,
       );
@@ -686,6 +713,8 @@ export class DiscordService
           })
           .catch(() => {});
       }
+    } finally {
+      await this.cleanupAttachment(fetched.workDir);
     }
   }
 
@@ -793,8 +822,8 @@ export class DiscordService
     // Defer the button update — fetching the GIF bytes for the
     // attachment upload runs longer than the 3 s response window.
     await interaction.deferUpdate();
-    const attachment = await this.fetchGifAttachment(gifId);
-    if (!attachment) {
+    const fetched = await this.fetchGifAttachment(gifId);
+    if (!fetched) {
       await interaction.editReply({
         content: "That GIF isn't available anymore.",
         embeds: [],
@@ -809,7 +838,16 @@ export class DiscordService
       // member; throws on permission denied (user-installed app in a
       // guild the bot isn't part of).
       if (interaction.channel && "send" in interaction.channel) {
-        await interaction.channel.send({ files: [attachment] });
+        // Cast to unknown — channel.send's return type narrows on
+        // DM vs guild union and Promise.race chokes on the union.
+        // We don't use the resolved Message, just await for side
+        // effects, so the cast is harmless.
+        await this.withUploadTimeout(
+          interaction.channel.send({
+            files: [fetched.attachment],
+          }) as Promise<unknown>,
+          `channel.send ${gifId}`,
+        );
         postedPublicly = true;
       }
     } catch {
@@ -824,8 +862,6 @@ export class DiscordService
     } else {
       // Fallback when the bot can't post publicly: surface the URL in
       // the ephemeral so the user can copy + paste it themselves.
-      // Re-mint a fresh signed URL (the AttachmentBuilder consumed
-      // the buffer, but the signed URL is still valid).
       const url = await this.media.signUrl({ kind: "gif", id: gifId });
       await interaction.editReply({
         content: url
@@ -835,6 +871,7 @@ export class DiscordService
         components: [],
       });
     }
+    await this.cleanupAttachment(fetched.workDir);
     this.logger.log(
       `discord./gif gallery picked from=${interaction.user.id} gifId=${gifId} postedPublicly=${postedPublicly}`,
     );
