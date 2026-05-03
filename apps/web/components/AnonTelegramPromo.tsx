@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { Badge, Box, Button, Flex, Heading, Text } from "@radix-ui/themes";
-import { PaperPlaneIcon } from "@radix-ui/react-icons";
+import { ChatBubbleIcon, PaperPlaneIcon } from "@radix-ui/react-icons";
 import { T } from "@/lib/i18n";
 
 /**
- * Anonymous-landing pitch for the Telegram bot integration. Mirrors the
- * layered visual of the InstantGifDemo hero (dark base + corner glows +
- * grid overlay) so the two cards read as a pair, but uses the blue
- * variant of the running-border treatment to differentiate the feature.
+ * Anonymous-landing pitch for the chat-bot integrations (Telegram +
+ * Discord). The "distribute" panel of the convert → organize → distribute
+ * funnel — same library, every chat. Mirrors the InstantGifDemo hero's
+ * dark base + corner glows + grid overlay so the two cards read as a
+ * pair, in the blue variant of the running-border treatment.
  */
 export function AnonTelegramPromo() {
   return (
@@ -54,6 +55,7 @@ export function AnonTelegramPromo() {
           style={{ paddingInline: 12 }}
         >
           <PaperPlaneIcon width="12" height="12" />
+          <ChatBubbleIcon width="12" height="12" />
           <Text size="1" weight="medium" ml="1">
             <T k="anonTelegram.badge" />
           </Text>

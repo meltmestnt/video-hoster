@@ -47,31 +47,31 @@ export const uk: EnDict = {
   "intro.cta.signIn": "Увійти",
   "intro.cta.browse": "Переглянути всі відео →",
 
-  // ─── Анонімний пітч про Telegram-інтеграцію (під InstantGifDemo) ───
-  "anonTelegram.badge": "Telegram-бот",
-  "anonTelegram.headline.before": "Шукай і ділись GIF",
-  "anonTelegram.headline.highlight": "не виходячи з Telegram.",
+  // ─── Анонімний пітч про чат-боти (Telegram + Discord, «розповсюдь») ───
+  "anonTelegram.badge": "Telegram + Discord",
+  "anonTelegram.headline.before": "Надсилай свої GIF",
+  "anonTelegram.headline.highlight": "з будь-якого чату.",
   "anonTelegram.subtitle":
-    "Підʼєднай бота vids&gifs один раз — і вся твоя бібліотека за одним @-згадуванням. Шукай інлайн у будь-якому чаті, надсилай GIF прямо з Telegram і завантажуй нові, пересилаючи їх боту.",
+    "Одна бібліотека, дві поверхні. Інлайн-пікер @vidsandgifsbot у Telegram, слеш-команда /gif з автодоповненням у Discord — підʼєднай раз, працюють обидва. Нові GIF додавай пересиланням боту в Telegram або через /upload-file у Discord — вони потраплять у твою бібліотеку і будуть шукатись звідусіль.",
   "anonTelegram.cta.signUp": "Зареєструватися та підʼєднати",
   "anonTelegram.cta.signInPrompt": "Уже маєш акаунт?",
   "anonTelegram.cta.signIn": "Увійти",
 
-  // ─── Анонімний пітч про папки + Telegram (під AnonTelegramPromo) ───
-  "anonFolders.badge": "Папки + Telegram",
-  "anonFolders.headline.before": "Твоя приватна GIF-бібліотека —",
-  "anonFolders.headline.highlight": "готова до будь-якого чату.",
+  // ─── Анонімний пітч про папки («організуй» — крок воронки) ───
+  "anonFolders.badge": "Приватні папки",
+  "anonFolders.headline.before": "GIF, якими ти справді користуєшся,",
+  "anonFolders.headline.highlight": "впорядковані.",
   "anonFolders.subtitle":
-    "Складай GIF у приватні папки, які бачиш лише ти. Обери одну активною в Telegram-боті — інлайн-пошук та завантаження зосереджуються на ній, і твій набір реакцій за одним @-згадуванням у будь-якому чаті.",
+    "Складай GIF у приватні папки, які бачиш лише ти, потім обирай одну активною. Інлайн-пікер у Telegram і автодоповнення /gif у Discord обидва шукатимуть лише в ній — твій набір реакцій за один тап у будь-якому чаті, без шуму чужої бібліотеки.",
   "anonFolders.feature.private.title": "Приватні папки",
   "anonFolders.feature.private.desc":
     "Збирай публічні GIF із сайту або завантажуй приватні — вміст бачиш лише ти.",
-  "anonFolders.feature.scopedSearch.title": "Цільовий інлайн-пошук",
+  "anonFolders.feature.scopedSearch.title": "Цільовий пошук у чатах",
   "anonFolders.feature.scopedSearch.desc":
-    "@vidsandgifsbot <запит> шукає лише в активній папці. Більше ніяких чужих бібліотек.",
-  "anonFolders.feature.autoTag.title": "Авто-сортування",
+    "Інлайн у Telegram + /gif у Discord обидва шукають лише в активній папці. Без чужих бібліотек.",
+  "anonFolders.feature.autoTag.title": "Авто-сортування завантажень",
   "anonFolders.feature.autoTag.desc":
-    "GIF, завантажені через бот, автоматично потрапляють в активну папку. Бібліотека росте без зусиль.",
+    "Те, що завантажуєш через будь-якого з ботів, автоматично потрапляє в активну папку. Бібліотека росте без зусиль.",
   "anonFolders.feature.share.title": "Поділись лише для читання",
   "anonFolders.feature.share.desc":
     "Поділись приватною папкою з другом одним тапом. Вони бачать твою колекцію live — без копій і ручної синхронізації.",

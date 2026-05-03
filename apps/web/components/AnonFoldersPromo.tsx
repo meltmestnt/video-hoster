@@ -40,13 +40,13 @@ const FEATURES: PromoFeature[] = [
 ];
 
 /**
- * Anonymous-landing pitch for the folders + Telegram integration.
- * Sits directly under the AnonTelegramPromo so the two cards read as a
- * pair — first card sells the bot, second card sells what unlocks once
- * the user actually links it. Uses iris (site accent) instead of the
- * Telegram card's blue so the visual rhythm tells the user this is a
- * different feature, while the gradient mirror + grid backdrop keep
- * them family.
+ * Anonymous-landing pitch for private folders — the "organize" panel
+ * of the convert → organize → distribute funnel. Sits between the
+ * InstantGifDemo hero (the import step) and the AnonTelegramPromo
+ * chat-bots card (the distribution step). Uses iris (site accent)
+ * instead of the chat-bots card's blue so the visual rhythm tells the
+ * user this is a different step, while the gradient mirror + grid
+ * backdrop keep them family.
  */
 export function AnonFoldersPromo() {
   return (

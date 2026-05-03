@@ -45,31 +45,31 @@ export const en = {
   "intro.cta.signIn": "Sign in",
   "intro.cta.browse": "Browse all videos →",
 
-  // ─── Anonymous Telegram pitch (sits under the InstantGifDemo) ───
-  "anonTelegram.badge": "Telegram bot",
-  "anonTelegram.headline.before": "Search and share your GIFs",
-  "anonTelegram.headline.highlight": "without leaving Telegram.",
+  // ─── Anonymous chat-bots pitch (Telegram + Discord, "distribute" panel) ───
+  "anonTelegram.badge": "Telegram + Discord",
+  "anonTelegram.headline.before": "Send your GIFs from",
+  "anonTelegram.headline.highlight": "any chat.",
   "anonTelegram.subtitle":
-    "Connect the vids&gifs bot once and your whole library is one @mention away — search inline from any chat, send GIFs straight from Telegram, and upload new ones by forwarding them to the bot.",
+    "Same library, every surface. @vidsandgifsbot inline-picker in Telegram, /gif slash command with autocomplete in Discord — one connect, both work. Upload new ones by forwarding to the Telegram bot or with /upload-file in Discord; they land back in your library and stay searchable on the website too.",
   "anonTelegram.cta.signUp": "Sign up to connect",
   "anonTelegram.cta.signInPrompt": "Already have an account?",
   "anonTelegram.cta.signIn": "Sign in",
 
-  // ─── Anonymous folders pitch (sits under the AnonTelegramPromo) ───
-  "anonFolders.badge": "Folders + Telegram",
-  "anonFolders.headline.before": "Your private GIF library,",
-  "anonFolders.headline.highlight": "ready in any chat.",
+  // ─── Anonymous folders pitch ("organize" panel of the funnel) ───
+  "anonFolders.badge": "Private folders",
+  "anonFolders.headline.before": "The GIFs you actually use,",
+  "anonFolders.headline.highlight": "organized.",
   "anonFolders.subtitle":
-    "Group GIFs into private folders only you can see. Pick one as active in the Telegram bot — inline search and uploads scope to that folder, so your reaction set is one @mention away in any chat.",
+    "Group GIFs into private folders only you can see, then pick one as active. Telegram's inline picker and Discord's /gif autocomplete both scope to that folder — your reaction set is one tap away in every chat, with no public-library noise.",
   "anonFolders.feature.private.title": "Private folders",
   "anonFolders.feature.private.desc":
     "Curate public GIFs from the site, or upload private ones — only you see what's inside.",
-  "anonFolders.feature.scopedSearch.title": "Scoped inline search",
+  "anonFolders.feature.scopedSearch.title": "Scoped chat search",
   "anonFolders.feature.scopedSearch.desc":
-    "@vidsandgifsbot <query> searches just the active folder. No more wading through the public library.",
-  "anonFolders.feature.autoTag.title": "Bot auto-tagging",
+    "Telegram inline + Discord /gif both search just the active folder. No wading through anyone else's library.",
+  "anonFolders.feature.autoTag.title": "Auto-filed uploads",
   "anonFolders.feature.autoTag.desc":
-    "GIFs uploaded through the bot automatically land in the active folder. Build your library hands-free.",
+    "Anything you upload through either bot lands in the active folder. Build your library hands-free.",
   "anonFolders.feature.share.title": "Share read-only",
   "anonFolders.feature.share.desc":
     "Send a private folder to a friend with one tap. They see your reaction set live as you add to it — no copy, no manual sync.",
