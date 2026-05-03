@@ -289,13 +289,18 @@ export class TranscoderService {
    * Extract the first frame of a GIF as a small JPEG, uploaded next to
    * the source. This is what the Telegram inline-query handler hands
    * Telegram as `thumbnail_url` — the mpeg4_gif result is rendered with
-   * a static JPEG preview, the way every working GIF bot does it. The
-   * MP4 itself is fine as a thumbnail per Telegram's spec but Telegram's
-   * inline previewer drops results when it can't render the thumbnail,
-   * so we don't take chances.
+   * a static JPEG preview, the way every working GIF bot does it.
    *
-   * Width is clamped to 240 px which is a comfortable size for the
-   * inline picker; quality 5 keeps the file in the tens-of-KB range.
+   * Sized aggressively for the picker grid: 240 px wide, baseline JPEG
+   * (yuvj420p, no progressive scan), q:v 4. iOS Telegram's inline
+   * picker autoplays nothing — every cell is a static thumbnail — and
+   * silently shows a black cell when the JPEG is too heavy to decode
+   * in time. The previous build piped through the shared video-page
+   * `extractFrame` helper which scaled to 640 px and produced JPEGs
+   * in the 100–200 KB range; that's fine for the website but breaks
+   * the iOS picker. Desktop Telegram autoplays the mpeg4_url instead
+   * so the same payload renders correctly there, which is why this
+   * regression hid behind a "works on desktop" report.
    */
   async gifFirstFrameJpeg(
     sourceKey: string,
@@ -310,7 +315,7 @@ export class TranscoderService {
     const outputPath = join(workDir, "thumb.jpg");
     try {
       await this.s3.downloadToFile(sourceKey, inputPath);
-      await this.extractFrame(inputPath, outputPath, 0);
+      await this.extractInlineThumbnail(inputPath, outputPath);
       const outKey = outputKey ?? this.deriveThumbKey(sourceKey);
       const stats = await stat(outputPath);
       this.logger.log(
@@ -321,6 +326,37 @@ export class TranscoderService {
     } finally {
       await rm(workDir, { recursive: true, force: true }).catch(() => {});
     }
+  }
+
+  private extractInlineThumbnail(
+    inputPath: string,
+    outputPath: string,
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      ffmpeg(inputPath)
+        .seekInput(0)
+        .frames(1)
+        .outputOptions([
+          // Force baseline 4:2:0 JPEG. ffmpeg's mjpeg encoder otherwise
+          // picks yuvj444p for some inputs, which mobile Telegram's
+          // picker decoder is iffy about — and a baseline (non-progressive)
+          // scan is what every iOS image pipeline reliably renders.
+          "-pix_fmt",
+          "yuvj420p",
+          "-q:v",
+          "4",
+          "-vf",
+          "scale='min(240,iw)':-2",
+        ])
+        .output(outputPath)
+        .on("end", () => resolve())
+        .on("error", (err) =>
+          reject(
+            new Error(`ffmpeg inline thumbnail failed: ${err.message}`),
+          ),
+        )
+        .run();
+    });
   }
 
   private deriveThumbKey(sourceKey: string): string {

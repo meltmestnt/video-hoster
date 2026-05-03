@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  type OnApplicationBootstrap,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { In, Repository, SelectQueryBuilder } from "typeorm";
@@ -123,7 +124,7 @@ const slugify = (s: string): string =>
     .slice(0, 60) || "gif";
 
 @Injectable()
-export class GifsService {
+export class GifsService implements OnApplicationBootstrap {
   private readonly logger = new Logger(GifsService.name);
 
   constructor(
@@ -142,6 +143,40 @@ export class GifsService {
   // case two replicas race and the second upload wins; both end with a
   // valid mp4 in S3.
   private readonly mp4InFlight = new Set<string>();
+
+  /**
+   * One-shot startup migration: null `thumbS3Key` so the lazy backfill
+   * in `ensureMp4` regenerates the inline-picker JPEG with the new
+   * 240 px / baseline-yuvj420p pipeline. Earlier rows held 480-640 px
+   * thumbnails the iOS Telegram inline picker couldn't decode in time,
+   * so cells rendered black on mobile while desktop kept working off
+   * the autoplaying mpeg4_url. Idempotent: subsequent boots find no
+   * rows to clear. Remove this hook in a follow-up commit once
+   * production has back-filled.
+   */
+  async onApplicationBootstrap(): Promise<void> {
+    // Raw SQL with explicitly quoted camelCase identifier — Postgres
+    // lowercases unquoted names, so `thumbS3Key` would silently become
+    // `thumbs3key` and the migration would error out without a visible
+    // log.
+    try {
+      const rows = await this.gifs.query(
+        `UPDATE gifs SET "thumbS3Key" = NULL
+         WHERE "thumbS3Key" IS NOT NULL
+         RETURNING id`,
+      );
+      const affected = Array.isArray(rows) ? rows.length : 0;
+      if (affected > 0) {
+        this.logger.log(
+          `gifs.onApplicationBootstrap cleared thumbS3Key on ${affected} rows for inline-thumb regen`,
+        );
+      }
+    } catch (err) {
+      this.logger.warn(
+        `gifs.onApplicationBootstrap migration failed: ${(err as Error).message}`,
+      );
+    }
+  }
 
   async createUpload(args: CreateUploadArgs) {
     if (args.sizeBytes > MAX_GIF_BYTES) {
