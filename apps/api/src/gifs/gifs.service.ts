@@ -1000,11 +1000,21 @@ export class GifsService implements OnApplicationBootstrap {
       throw new NotFoundException("Gif not found");
     }
     const [enriched] = await this.attachExtras([g], viewerId);
-    const gifUrl =
+    // mp4Url is the H.264 transcode used by social-card embeds — og:video
+    // with type=video/mp4 is what Discord/Twitter/Facebook want for an
+    // auto-playing video embed. May be null on rows whose lazy mp4
+    // backfill hasn't run yet (the inline-query path triggers it on
+    // demand); SSR falls back to og:image=.gif in that case.
+    const [gifUrl, mp4Url] =
       g.status === "ready"
-        ? await this.media.signUrl({ kind: "gif", id: g.id })
-        : null;
-    return { ...enriched, gifUrl };
+        ? await Promise.all([
+            this.media.signUrl({ kind: "gif", id: g.id }),
+            g.mp4S3Key
+              ? this.media.signUrl({ kind: "mpeg4", id: g.id })
+              : Promise.resolve(null),
+          ])
+        : [null, null];
+    return { ...enriched, gifUrl, mp4Url };
   }
 
   async suggested(

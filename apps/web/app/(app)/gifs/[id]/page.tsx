@@ -49,12 +49,16 @@ export async function generateMetadata({
     createdAt: gif.createdAt,
   });
   const canonical = absoluteUrl(`/gifs/${gif.id}`);
-  // og:image alone shows the GIF inline on most platforms (the file is
-  // an animated GIF, so Discord/Slack play it). Adding og:video on top
-  // unlocks autoplay-with-sound on platforms that prefer video tags
-  // (Twitter, Facebook). Private gifs already throw NotFound for
-  // anonymous requests, so this branch never runs for them.
-  const ogMedia = !isPrivate && gif.gifUrl ? gif.gifUrl : undefined;
+  // og:image is the static-friendly preview every platform falls back
+  // to (animated .gif, so Discord/Slack still play it for users with
+  // GIF auto-play on). og:video uses the H.264 mp4 transcode with
+  // type=video/mp4 — that's what unlocks Discord's video-card embed
+  // (auto-plays without depending on the GIF accessibility toggle)
+  // and the Twitter/Facebook video card. Private gifs already throw
+  // NotFound for anonymous requests, so this branch never runs for
+  // them.
+  const ogImage = !isPrivate && gif.gifUrl ? gif.gifUrl : undefined;
+  const ogVideoMp4 = !isPrivate && gif.mp4Url ? gif.mp4Url : undefined;
   return {
     title: gif.title,
     description,
@@ -79,14 +83,16 @@ export async function generateMetadata({
       description,
       url: canonical,
       siteName: "vids&gifs",
-      images: ogMedia ? [{ url: ogMedia }] : undefined,
-      ...(ogMedia
+      images: ogImage ? [{ url: ogImage }] : undefined,
+      ...(ogVideoMp4
         ? {
             videos: [
               {
-                url: ogMedia,
-                secureUrl: ogMedia,
-                type: "image/gif",
+                url: ogVideoMp4,
+                secureUrl: ogVideoMp4,
+                type: "video/mp4",
+                width: 480,
+                height: 480,
               },
             ],
           }
@@ -95,16 +101,16 @@ export async function generateMetadata({
     twitter: {
       // Player card pointing at the embed iframe so the gif autoplays
       // inline on Twitter, just like the main /gifs/[id] surface.
-      card: ogMedia ? "player" : "summary_large_image",
+      card: ogVideoMp4 ? "player" : "summary_large_image",
       title: gif.title,
       description,
-      images: ogMedia ? [ogMedia] : undefined,
-      ...(ogMedia
+      images: ogImage ? [ogImage] : undefined,
+      ...(ogVideoMp4
         ? {
             players: [
               {
                 playerUrl: absoluteUrl(`/embed/g/${gif.id}`),
-                streamUrl: ogMedia,
+                streamUrl: ogVideoMp4,
                 width: 480,
                 height: 480,
               },
