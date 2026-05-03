@@ -5,6 +5,7 @@ import {
   OnApplicationShutdown,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { buffer as streamToBuffer } from "node:stream/consumers";
 import {
   ActionRowBuilder,
   ApplicationIntegrationType,
@@ -601,11 +602,16 @@ export class DiscordService
     if (!key) return null;
     try {
       const obj = await this.s3.getObjectStream(key);
-      const chunks: Buffer[] = [];
-      for await (const chunk of obj.body) {
-        chunks.push(chunk as Buffer);
-      }
-      const buffer = Buffer.concat(chunks);
+      // node:stream/consumers' `buffer` helper drains the Readable
+      // properly. The naive for-await loop can hang silently on
+      // AWS SDK v3 Body streams whose end event isn't propagated
+      // through the framework's Readable cast — that's the
+      // "vids&gifs is thinking..." stall reported in prod, where
+      // deferReply succeeded but editReply never fired.
+      const buffer = await streamToBuffer(obj.body);
+      this.logger.log(
+        `discord.fetchGifAttachment ${gifId} bytes=${buffer.length}`,
+      );
       return new AttachmentBuilder(buffer, { name: `${gifId}.gif` });
     } catch (err) {
       this.logger.warn(
