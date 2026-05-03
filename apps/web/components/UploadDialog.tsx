@@ -565,11 +565,18 @@ export function UploadDialog({ open, onOpenChange, initialFile }: Props) {
                       src={videoUrl}
                       muted
                       playsInline
-                      // "auto" forces the browser to start fetching enough
-                      // bytes to fire loadedmetadata; "metadata" alone is a
-                      // hint and Safari sometimes ignores it, leaving
-                      // videoDuration at 0 and the slider locked.
+                      // autoPlay is the only reliable way to coax iOS
+                      // Safari into firing loadedmetadata + painting a
+                      // first frame without a user gesture (preload=auto
+                      // alone gets downgraded). We pause it the instant
+                      // playback starts so the user doesn't see motion;
+                      // by then the metadata + frame are populated and
+                      // the scrubber + thumbnail capture both work.
+                      autoPlay
                       preload="auto"
+                      onPlay={(e) => {
+                        e.currentTarget.pause();
+                      }}
                       onLoadedMetadata={(e) => {
                         const v = e.currentTarget;
                         setVideoDuration(v.duration || 0);
