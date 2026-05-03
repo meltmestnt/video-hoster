@@ -7,13 +7,14 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { signMediaUrl, verifyMediaUrl } from "@vidsandgifs/crypto";
 import { User } from "../users/user.entity";
 import { Video } from "../videos/video.entity";
 import { Gif } from "../gifs/gif.entity";
 import { Screenshot } from "../screenshots/screenshot.entity";
 import { Thumbnail } from "../thumbnails/thumbnail.entity";
 import { AudioTemplate } from "../audio/audio-template.entity";
+import { LicenseService } from "../license/license.service";
 
 export type MediaKind =
   | "video"
@@ -104,6 +105,7 @@ export class MediaService {
 
   constructor(
     private readonly config: ConfigService,
+    private readonly license: LicenseService,
     @InjectRepository(User) private readonly users: Repository<User>,
     @InjectRepository(Video) private readonly videos: Repository<Video>,
     @InjectRepository(Gif) private readonly gifs: Repository<Gif>,
@@ -149,7 +151,13 @@ export class MediaService {
         Math.floor(Date.now() / CACHEABLE_BUCKET_MS) * CACHEABLE_BUCKET_MS +
         CACHEABLE_TTL_MS
       : Date.now() + URL_TTL_MS;
-    const sig = this.sign(args.kind, args.id, exp);
+    const sig = signMediaUrl({
+      secret: this.secret,
+      fingerprint: this.license.getFingerprint(),
+      kind: args.kind,
+      id: args.id,
+      exp,
+    });
     const params = new URLSearchParams({ exp: String(exp), sig });
     // Telegram's inline-query API does lightweight URL sniffing and
     // silently drops mpeg4_gif results whose URL doesn't end in a
@@ -170,17 +178,15 @@ export class MediaService {
     if (!Number.isFinite(args.exp) || args.exp < Date.now()) {
       throw new UnauthorizedException("Media URL expired");
     }
-    const expected = Buffer.from(
-      this.sign(args.kind, args.id, args.exp),
-      "utf8",
-    );
-    const got = Buffer.from(args.sig, "utf8");
-    if (expected.length !== got.length) {
-      throw new UnauthorizedException("Invalid media signature");
-    }
-    if (!timingSafeEqual(expected, got)) {
-      throw new UnauthorizedException("Invalid media signature");
-    }
+    const ok = verifyMediaUrl({
+      secret: this.secret,
+      fingerprint: this.license.getFingerprint(),
+      kind: args.kind,
+      id: args.id,
+      exp: args.exp,
+      sig: args.sig,
+    });
+    if (!ok) throw new UnauthorizedException("Invalid media signature");
   }
 
   /** Resolve `(kind, id) → S3 key` or null when nothing's stored yet. */
@@ -256,9 +262,4 @@ export class MediaService {
     return key;
   }
 
-  private sign(kind: MediaKind, id: string, exp: number): string {
-    return createHmac("sha256", this.secret)
-      .update(`${kind}|${id}|${exp}`)
-      .digest("hex");
-  }
 }

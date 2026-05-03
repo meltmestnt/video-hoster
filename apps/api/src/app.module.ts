@@ -23,6 +23,7 @@ import { RemindersModule } from "./reminders/reminders.module";
 import { PushModule } from "./push/push.module";
 import { TelegramModule } from "./telegram/telegram.module";
 import { DiscordModule } from "./discord/discord.module";
+import { LicenseModule } from "./license/license.module";
 import { TrpcModule } from "./trpc/trpc.module";
 
 @Module({
@@ -31,6 +32,7 @@ import { TrpcModule } from "./trpc/trpc.module";
     // Registers the @Cron decorator scanner. Has to be at app root so the
     // RemindersService's daily job is picked up at startup.
     ScheduleModule.forRoot(),
+    LicenseModule,
     DatabaseModule,
     AuthModule,
     S3Module,
