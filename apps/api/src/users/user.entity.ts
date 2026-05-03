@@ -131,6 +131,15 @@ export class User {
   @Column({ type: "timestamptz", nullable: true })
   lastSeenAt: Date | null;
 
+  // When set, the account is banned: every authenticated request resolves
+  // to an anonymous context (so existing JWTs become useless before they
+  // expire) and credentials sign-in returns null. Banning preserves the row
+  // so the same email cannot re-register — adminDeleteUser is the
+  // destructive alternative when content also needs to be wiped.
+  @Index()
+  @Column({ type: "timestamptz", nullable: true })
+  bannedAt: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 }

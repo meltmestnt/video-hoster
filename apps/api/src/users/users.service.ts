@@ -276,6 +276,23 @@ export class UsersService implements OnModuleInit {
     }
   }
 
+  /**
+   * Returns true when the email belongs to a banned account. Used by the
+   * login form to upgrade a generic "invalid credentials" error into a
+   * specific "this email is banned" message after the signIn call fails.
+   * The endpoint is intentionally narrow — it only reveals the banned
+   * flag, not whether the email is registered, so a probe can't use it to
+   * enumerate unbanned accounts.
+   */
+  async isEmailBanned(email: string): Promise<boolean> {
+    const lower = email.toLowerCase();
+    const user = await this.users.findOne({
+      where: { email: lower },
+      select: { id: true, bannedAt: true },
+    });
+    return !!user?.bannedAt;
+  }
+
   async findById(id: string): Promise<User | null> {
     const user = await this.users.findOne({ where: { id } });
     if (user) {
@@ -492,6 +509,7 @@ export class UsersService implements OnModuleInit {
         | "avatarUrl"
         | "createdAt"
         | "lastSeenAt"
+        | "bannedAt"
       > & { online: boolean }
     >;
     nextCursor: string | null;
@@ -535,7 +553,13 @@ export class UsersService implements OnModuleInit {
         avatarUrl: u.avatarUrl,
         createdAt: u.createdAt,
         lastSeenAt: u.lastSeenAt,
-        online: !!u.lastSeenAt && u.lastSeenAt.getTime() >= onlineCutoff,
+        bannedAt: u.bannedAt,
+        // Banned users never read as online — their last-seen timestamp may
+        // still be recent (the ban can land mid-session), but they're gone.
+        online:
+          !u.bannedAt &&
+          !!u.lastSeenAt &&
+          u.lastSeenAt.getTime() >= onlineCutoff,
       })),
       nextCursor,
     };
@@ -648,6 +672,48 @@ export class UsersService implements OnModuleInit {
     const counts = await this.purgeUser(user);
     this.logger.log(
       `users.deleteSelf ok userId=${userId} s3Keys=${counts.s3Keys}`,
+    );
+    return { ok: true };
+  }
+
+  async adminBanUser(args: {
+    actingUserId: string;
+    targetUserId: string;
+  }): Promise<{ ok: true }> {
+    if (args.actingUserId === args.targetUserId) {
+      throw new BadRequestException("You cannot ban your own account");
+    }
+    const target = await this.users.findOne({
+      where: { id: args.targetUserId },
+    });
+    if (!target) throw new NotFoundException("User not found");
+    if (target.role === "admin") {
+      throw new ForbiddenException("Cannot ban another admin");
+    }
+    if (target.bannedAt) {
+      // Already banned — return ok so the UI's optimistic update stays
+      // consistent without surfacing a noisy "already banned" error.
+      return { ok: true };
+    }
+    await this.users.update({ id: target.id }, { bannedAt: new Date() });
+    this.logger.log(
+      `[ADMIN] users.adminBanUser actor=admin actorId=${args.actingUserId} targetUserId=${target.id} email=${target.email}`,
+    );
+    return { ok: true };
+  }
+
+  async adminUnbanUser(args: {
+    actingUserId: string;
+    targetUserId: string;
+  }): Promise<{ ok: true }> {
+    const target = await this.users.findOne({
+      where: { id: args.targetUserId },
+    });
+    if (!target) throw new NotFoundException("User not found");
+    if (!target.bannedAt) return { ok: true };
+    await this.users.update({ id: target.id }, { bannedAt: null });
+    this.logger.log(
+      `[ADMIN] users.adminUnbanUser actor=admin actorId=${args.actingUserId} targetUserId=${target.id} email=${target.email}`,
     );
     return { ok: true };
   }
@@ -958,6 +1024,16 @@ export class UsersService implements OnModuleInit {
     if (!ok) {
       this.logger.warn(
         `users.verifyPassword outcome=fail email=${email} userId=${user.id} reason=bad-password`,
+      );
+      return null;
+    }
+    if (user.bannedAt) {
+      // Treat banned credentials as invalid rather than leaking a separate
+      // "your account is banned" error — the sign-in form is a public
+      // surface and we don't want to give a brute-forcer a positive signal
+      // that the email exists.
+      this.logger.warn(
+        `users.verifyPassword outcome=fail email=${email} userId=${user.id} reason=banned`,
       );
       return null;
     }

@@ -358,6 +358,91 @@ describe("UsersService — admin actions", () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it("adminBanUser refuses self and admin targets, sets bannedAt otherwise", async () => {
+    const { svc, users } = makeSvc();
+    await expect(
+      svc.adminBanUser({ actingUserId: "u-1", targetUserId: "u-1" }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    users.findOne.mockResolvedValueOnce({
+      id: "u-2",
+      role: "admin",
+    } as User);
+    await expect(
+      svc.adminBanUser({ actingUserId: "u-1", targetUserId: "u-2" }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    users.findOne.mockResolvedValueOnce({
+      id: "u-3",
+      role: "user",
+      email: "x@y.co",
+      bannedAt: null,
+    } as User);
+    await svc.adminBanUser({ actingUserId: "u-1", targetUserId: "u-3" });
+    expect(users.update).toHaveBeenCalledWith(
+      { id: "u-3" },
+      expect.objectContaining({ bannedAt: expect.any(Date) }),
+    );
+  });
+
+  it("adminBanUser is idempotent on an already-banned account", async () => {
+    const { svc, users } = makeSvc();
+    users.findOne.mockResolvedValueOnce({
+      id: "u-3",
+      role: "user",
+      email: "x@y.co",
+      bannedAt: new Date(),
+    } as User);
+    await svc.adminBanUser({ actingUserId: "u-1", targetUserId: "u-3" });
+    expect(users.update).not.toHaveBeenCalled();
+  });
+
+  it("adminUnbanUser clears bannedAt", async () => {
+    const { svc, users } = makeSvc();
+    users.findOne.mockResolvedValueOnce({
+      id: "u-3",
+      role: "user",
+      email: "x@y.co",
+      bannedAt: new Date(),
+    } as User);
+    await svc.adminUnbanUser({ actingUserId: "u-1", targetUserId: "u-3" });
+    expect(users.update).toHaveBeenCalledWith(
+      { id: "u-3" },
+      { bannedAt: null },
+    );
+  });
+
+  it("verifyPassword returns null for a banned user even with the right password", async () => {
+    const { svc, users } = makeSvc();
+    const passwordHash = await bcrypt.hash("hunter2", 4);
+    const qb = createMockQueryBuilder();
+    qb.getOne.mockResolvedValueOnce({
+      id: "u-3",
+      email: "x@y.co",
+      passwordHash,
+      bannedAt: new Date(),
+    } as User);
+    users.createQueryBuilder.mockReturnValueOnce(qb);
+    const out = await svc.verifyPassword({
+      email: "x@y.co",
+      password: "hunter2",
+    });
+    expect(out).toBeNull();
+  });
+
+  it("isEmailBanned reports true only when the row exists and bannedAt is set", async () => {
+    const { svc, users } = makeSvc();
+    users.findOne.mockResolvedValueOnce(null);
+    expect(await svc.isEmailBanned("nobody@x.co")).toBe(false);
+    users.findOne.mockResolvedValueOnce({ id: "u", bannedAt: null } as User);
+    expect(await svc.isEmailBanned("alice@x.co")).toBe(false);
+    users.findOne.mockResolvedValueOnce({
+      id: "u",
+      bannedAt: new Date(),
+    } as User);
+    expect(await svc.isEmailBanned("bob@x.co")).toBe(true);
+  });
+
   it("adminDeleteUser refuses self and admin targets", async () => {
     const { svc, users } = makeSvc();
     await expect(

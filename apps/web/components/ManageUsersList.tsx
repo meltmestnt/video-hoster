@@ -20,6 +20,8 @@ import {
   CrossCircledIcon,
   EnvelopeClosedIcon,
   EnvelopeOpenIcon,
+  LockClosedIcon,
+  LockOpen1Icon,
   TrashIcon,
 } from "@radix-ui/react-icons";
 import { trpc } from "@/lib/trpc";
@@ -69,6 +71,8 @@ export function ManageUsersList({ initial, myId }: Props) {
   const unapprove = trpc.admin.unapproveUser.useMutation({
     onSuccess: refresh,
   });
+  const ban = trpc.admin.banUser.useMutation({ onSuccess: refresh });
+  const unban = trpc.admin.unbanUser.useMutation({ onSuccess: refresh });
   const remove = trpc.admin.deleteUser.useMutation({ onSuccess: refresh });
 
   return (
@@ -132,12 +136,16 @@ export function ManageUsersList({ initial, myId }: Props) {
                 onUnapprove={() =>
                   unapprove.mutateAsync({ userId: u.id })
                 }
+                onBan={() => ban.mutateAsync({ userId: u.id })}
+                onUnban={() => unban.mutateAsync({ userId: u.id })}
                 onDelete={() => remove.mutateAsync({ userId: u.id })}
                 actionPending={
                   verify.isPending ||
                   unverify.isPending ||
                   approve.isPending ||
                   unapprove.isPending ||
+                  ban.isPending ||
+                  unban.isPending ||
                   remove.isPending
                 }
               />
@@ -171,6 +179,8 @@ function UserRowView({
   onUnverify,
   onApprove,
   onUnapprove,
+  onBan,
+  onUnban,
   onDelete,
   actionPending,
 }: {
@@ -180,11 +190,14 @@ function UserRowView({
   onUnverify: () => Promise<unknown>;
   onApprove: () => Promise<unknown>;
   onUnapprove: () => Promise<unknown>;
+  onBan: () => Promise<unknown>;
+  onUnban: () => Promise<unknown>;
   onDelete: () => Promise<unknown>;
   actionPending: boolean;
 }) {
   const t = useT();
   const [unverifyOpen, setUnverifyOpen] = useState(false);
+  const [banOpen, setBanOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -194,6 +207,7 @@ function UserRowView({
   const actionsLocked = isSelf || isAdmin;
   const isVerified = row.status === "verified";
   const isApproved = row.approved;
+  const isBanned = !!row.bannedAt;
 
   const runVerify = async () => {
     setError(null);
@@ -227,6 +241,25 @@ function UserRowView({
     setError(null);
     try {
       await onUnapprove();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
+  const runBan = async () => {
+    setError(null);
+    try {
+      await onBan();
+      setBanOpen(false);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
+  const runUnban = async () => {
+    setError(null);
+    try {
+      await onUnban();
     } catch (err) {
       setError((err as Error).message);
     }
@@ -319,6 +352,11 @@ function UserRowView({
               ? t("manage.status.approved")
               : t("manage.status.unapproved")}
           </Badge>
+          {isBanned && (
+            <Badge color="red" variant="solid" radius="full">
+              {t("manage.status.banned")}
+            </Badge>
+          )}
         </Flex>
       </Table.Cell>
       <Table.Cell>
@@ -441,6 +479,79 @@ function UserRowView({
                   <CheckCircledIcon />
                 </IconButton>
               </Tooltip>
+            )}
+
+            {/* Ban / Unban — gated behind a confirmation when banning
+                because it nukes the user's session and blocks new sign-ins.
+                Unban is one-click since it only restores access. */}
+            {isBanned ? (
+              <Tooltip content={t("manage.action.unban")}>
+                <IconButton
+                  size="2"
+                  variant="soft"
+                  color="green"
+                  onClick={runUnban}
+                  disabled={actionPending}
+                  aria-label={t("manage.action.unban")}
+                >
+                  <LockOpen1Icon />
+                </IconButton>
+              </Tooltip>
+            ) : (
+              <AlertDialog.Root
+                open={banOpen}
+                onOpenChange={(o) => {
+                  setBanOpen(o);
+                  if (!o) setError(null);
+                }}
+              >
+                <Tooltip content={t("manage.action.ban")}>
+                  <AlertDialog.Trigger>
+                    <IconButton
+                      size="2"
+                      variant="soft"
+                      color="red"
+                      disabled={actionPending}
+                      aria-label={t("manage.action.ban")}
+                    >
+                      <LockClosedIcon />
+                    </IconButton>
+                  </AlertDialog.Trigger>
+                </Tooltip>
+                <AlertDialog.Content maxWidth="440px">
+                  <AlertDialog.Title>
+                    {t("manage.ban.title", { name: row.name })}
+                  </AlertDialog.Title>
+                  <AlertDialog.Description size="2">
+                    {t("manage.ban.body", { email: row.email })}
+                  </AlertDialog.Description>
+                  {error && (
+                    <Callout.Root color="red" mt="3">
+                      <Callout.Text>{error}</Callout.Text>
+                    </Callout.Root>
+                  )}
+                  <Flex gap="3" mt="4" justify="end">
+                    <AlertDialog.Cancel>
+                      <Button
+                        variant="soft"
+                        color="gray"
+                        disabled={actionPending}
+                      >
+                        {t("common.cancel")}
+                      </Button>
+                    </AlertDialog.Cancel>
+                    <Button
+                      color="red"
+                      onClick={runBan}
+                      disabled={actionPending}
+                    >
+                      {actionPending
+                        ? t("manage.banning")
+                        : t("manage.action.ban")}
+                    </Button>
+                  </Flex>
+                </AlertDialog.Content>
+              </AlertDialog.Root>
             )}
 
             <AlertDialog.Root

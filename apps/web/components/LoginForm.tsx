@@ -14,9 +14,11 @@ import {
   TextField,
 } from "@radix-ui/themes";
 import { useT } from "@/lib/i18n";
+import { trpc } from "@/lib/trpc";
 
 export function LoginForm() {
   const t = useT();
+  const utils = trpc.useUtils();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState(searchParams.get("email") ?? "");
   const [password, setPassword] = useState("");
@@ -35,7 +37,21 @@ export function LoginForm() {
     });
     setPending(false);
     if (!res || res.error) {
-      setError(t("auth.login.invalid"));
+      // signIn() can't tell us *why* it failed (NextAuth flattens every
+      // authorize() rejection into a generic CredentialsSignin). Probe the
+      // ban-status endpoint so a banned user sees a specific message
+      // instead of the misleading "invalid credentials". Best-effort —
+      // network failure here just falls back to the generic error.
+      try {
+        const { banned } = await utils.client.auth.checkBanned.query({
+          email,
+        });
+        setError(
+          banned ? t("auth.login.banned") : t("auth.login.invalid"),
+        );
+      } catch {
+        setError(t("auth.login.invalid"));
+      }
       return;
     }
     window.location.href = res.url ?? "/";
