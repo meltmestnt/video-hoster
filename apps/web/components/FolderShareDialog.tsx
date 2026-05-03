@@ -15,6 +15,7 @@ import {
 import { Cross2Icon } from "@radix-ui/react-icons";
 import { trpc } from "@/lib/trpc";
 import { useT } from "@/lib/i18n";
+import { trackEvent } from "@/lib/analytics";
 
 interface Props {
   open: boolean;
@@ -71,6 +72,12 @@ export function FolderShareDialog({
         folderId,
         recipientHandle: trimmed,
       });
+      // Only fire on a genuinely new share — re-submitting an existing
+      // recipient (alreadyShared) isn't a new cross-user link, just a
+      // no-op from the server's perspective.
+      if (!result.alreadyShared) {
+        trackEvent("Folder Shared");
+      }
       await utils.folders.listShares.invalidate({ folderId });
       if (result.alreadyShared) {
         setInfo(

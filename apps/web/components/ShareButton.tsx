@@ -4,6 +4,19 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@radix-ui/themes";
 import { Share1Icon, CheckIcon } from "@radix-ui/react-icons";
 import { useT } from "@/lib/i18n";
+import { trackEvent } from "@/lib/analytics";
+
+// First path segment maps cleanly to the three places ShareButton is
+// used (videos, gifs, screenshots). Anything else falls through to
+// "other" so a future caller doesn't silently lose data.
+function contentTypeFromPath(path: string): string {
+  const seg = path.replace(/^\/+/, "").split("/")[0];
+  if (seg === "videos") return "video";
+  if (seg === "gifs") return "gif";
+  if (seg === "screenshots") return "screenshot";
+  if (seg === "folders") return "folder";
+  return "other";
+}
 
 interface Props {
   /** Path on this site, e.g. `/videos/abc123`. The component prefixes it with location.origin. */
@@ -45,20 +58,24 @@ export function ShareButton({
   const onClick = async () => {
     if (typeof window === "undefined") return;
     const url = new URL(path, window.location.origin).toString();
+    const contentType = contentTypeFromPath(path);
 
     if (typeof navigator !== "undefined" && "share" in navigator) {
       try {
         await navigator.share({ title, url });
+        trackEvent("Share Clicked", { contentType, method: "web-share" });
         return;
       } catch (err) {
-        // User cancelled or share failed; fall through to clipboard copy.
+        // User cancelled — don't track, the intent was withdrawn.
         if ((err as Error).name === "AbortError") return;
+        // Other failure: fall through to clipboard copy.
       }
     }
 
     try {
       await navigator.clipboard.writeText(url);
       flash();
+      trackEvent("Share Clicked", { contentType, method: "clipboard" });
     } catch {
       // Fallback for very old browsers / insecure contexts.
       const ta = document.createElement("textarea");
@@ -70,6 +87,7 @@ export function ShareButton({
       try {
         document.execCommand("copy");
         flash();
+        trackEvent("Share Clicked", { contentType, method: "clipboard" });
       } finally {
         document.body.removeChild(ta);
       }

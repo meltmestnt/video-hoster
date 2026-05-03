@@ -14,6 +14,7 @@ import {
 } from "@radix-ui/themes";
 import { trpc } from "@/lib/trpc";
 import { useT } from "@/lib/i18n";
+import { trackEvent } from "@/lib/analytics";
 
 export function SignUpForm() {
   const t = useT();
@@ -38,6 +39,11 @@ export function SignUpForm() {
     setPending(true);
     try {
       const result = await signUp.mutateAsync({ email, name, password });
+      // Account-creation succeeded — fire before the verification-pending
+      // branch so both confirm-by-email and instant-signin paths count.
+      // Google signups don't pass through here (signIn redirects away),
+      // so this metric is email-only by design.
+      trackEvent("Sign Up Completed", { method: "email" });
       if (result.status === "pending") {
         setPendingEmail(result.email);
         setMailSent(result.mailSent);

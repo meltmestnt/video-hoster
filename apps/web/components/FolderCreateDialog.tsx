@@ -11,6 +11,7 @@ import {
 } from "@radix-ui/themes";
 import { trpc } from "@/lib/trpc";
 import { useT } from "@/lib/i18n";
+import { trackEvent } from "@/lib/analytics";
 import { useVerifyRequired } from "./VerifyRequiredDialog";
 
 const NAME_MAX = 80;
@@ -68,6 +69,7 @@ export function FolderCreateDialog({ open, onOpenChange, onCreated }: Props) {
     setError(null);
     try {
       const folder = await create.mutateAsync({ name: trimmed });
+      trackEvent("Folder Created");
       await utils.folders.list.invalidate();
       onCreated?.({ id: folder.id, name: folder.name });
       onOpenChange(false);

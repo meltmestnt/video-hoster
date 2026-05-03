@@ -25,6 +25,7 @@ import { ExclamationTriangleIcon } from "@radix-ui/react-icons";
 import { extractFrame } from "@/lib/extract-frame";
 import { sniffIsVideoFile } from "@/lib/file-signatures";
 import { useT } from "@/lib/i18n";
+import { trackEvent } from "@/lib/analytics";
 import { useRouter } from "next/navigation";
 import {
   VideoEditorDialog,
@@ -281,6 +282,11 @@ export function UploadDialog({ open, onOpenChange, initialFile }: Props) {
       return;
     }
     setUrlSubmitting(true);
+    trackEvent("Upload Submitted", {
+      kind: "video",
+      source: "url",
+      visibility,
+    });
     try {
       await uploadFromUrl.mutateAsync({
         url: url.trim(),
@@ -314,6 +320,14 @@ export function UploadDialog({ open, onOpenChange, initialFile }: Props) {
   const startUploadFromEditor = async (output: EditorOutput) => {
     if (!file) return;
     setEditorOpen(false);
+    // Fire at the moment the upload actually starts (post-editor) so
+    // dialog-open + abandon doesn't inflate the count. The editor can
+    // emit either a video or a gif blob, so reflect that in `kind`.
+    trackEvent("Upload Submitted", {
+      kind: output.kind,
+      source: "file",
+      visibility,
+    });
     try {
       if (output.kind === "video") {
         await upload.start(

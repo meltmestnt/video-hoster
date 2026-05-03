@@ -18,6 +18,7 @@ import { compressTo480p } from "@/lib/compress-video";
 import { sniffIsGifFile } from "@/lib/file-signatures";
 import { trpc } from "@/lib/trpc";
 import { useT } from "@/lib/i18n";
+import { trackEvent } from "@/lib/analytics";
 import { useRouter } from "next/navigation";
 import { Morph } from "./Morph";
 import { FolderPickerSelect } from "./FolderPickerSelect";
@@ -279,6 +280,11 @@ export function GifUploadDialog({ open, onOpenChange, initialFile }: Props) {
       // don't have the bytes locally yet. The server still
       // re-compresses the fetched GIF the same way as a normal upload.
       setUrlSubmitting(true);
+      trackEvent("Upload Submitted", {
+        kind: "gif",
+        source: "url",
+        visibility,
+      });
       try {
         await uploadFromUrl.mutateAsync({
           url: url.trim(),
@@ -309,6 +315,14 @@ export function GifUploadDialog({ open, onOpenChange, initialFile }: Props) {
       return;
     }
     if (!file) return;
+    // outputKind === "mp4" is the gif→mp4 conversion path — distinct
+    // from a plain gif upload because it tells us how many users want
+    // the converter half of the pitch, not just GIF storage.
+    trackEvent("Upload Submitted", {
+      kind: outputKind === "mp4" ? "gif-to-mp4" : "gif",
+      source: "file",
+      visibility,
+    });
     try {
       if (outputKind === "gif") {
         const d = duration ?? (await gifDurationSeconds(file));
