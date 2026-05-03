@@ -7,7 +7,7 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
-import { signMediaUrl, verifyMediaUrl } from "@vidsandgifs/crypto";
+import { signMediaUrl, verifyMediaUrl } from "@meltmestnt/vidsandgifs-crypto";
 import { User } from "../users/user.entity";
 import { Video } from "../videos/video.entity";
 import { Gif } from "../gifs/gif.entity";

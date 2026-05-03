@@ -5,7 +5,7 @@ import { Repository } from "typeorm";
 import {
   issueLinkToken as issueToken,
   redeemLinkToken as redeemToken,
-} from "@vidsandgifs/crypto";
+} from "@meltmestnt/vidsandgifs-crypto";
 import { DiscordLink } from "./discord-link.entity";
 import { LicenseService } from "../license/license.service";
 
