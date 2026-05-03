@@ -573,38 +573,39 @@ export class DiscordService
 
   /**
    * Single-shot: turn a known gif id into a public reply containing
-   * the signed GIF URL. Discord auto-embeds .gif URLs as inline
-   * images.
+   * the website's /gifs/{id} page URL. Discord fetches the page,
+   * parses OGP, and renders a rich embed using og:image (.gif) and
+   * og:video. Posting the page URL (not the bare .gif URL) is what
+   * makes Discord treat the result as a video-type embed, which on
+   * most clients renders with auto-play — direct .gif URL embeds
+   * fall under the "Automatically play GIFs" accessibility toggle
+   * which a non-trivial fraction of users have disabled.
    *
-   * Why URL post and not attachment upload: we tried uploading the
-   * GIF bytes as a Discord attachment so Discord-hosted files could
-   * (in theory) bypass viewer auto-play settings. In practice
-   * Buffer + file-path attachments both stalled in prod (discord.js
-   * silently retried internal aborts up to 3× × 60 s, so a single
-   * /gif could take 2 minutes to resolve), and Discord's GIF render
-   * still respected the viewer's "Automatically play GIFs"
-   * accessibility setting either way — paying minutes of latency
-   * for a behaviour we couldn't actually guarantee. URL post lands
-   * in <1 s and the auto-play behaviour is identical.
-   *
-   * If a viewer sees a frozen first frame, the fix is on their end:
-   * Discord → Settings → Accessibility → Automatically play GIFs.
-   * Default is on; users with reduced-motion preferences turn it off.
+   * If the gif isn't ready, fall back to the signed gif URL so the
+   * user still gets a functional result (with the auto-play caveat).
    */
   private async postGifDirectly(
     interaction: ChatInputCommandInteraction,
     gifId: string,
     query: string,
   ): Promise<void> {
-    const url = await this.media.signUrl({ kind: "gif", id: gifId });
-    if (!url) {
+    // Probe the gif resolution first so we can short-circuit on
+    // "not available" without a wasted reply round-trip. The page
+    // URL itself doesn't need a signed token — the gif page is
+    // public and the GIF media URL inside its OGP is signed by the
+    // page's own SSR.
+    const key = await this.media.resolveKey("gif", gifId);
+    if (!key) {
       await interaction.reply({
         content: "That GIF isn't available right now.",
         flags: MessageFlags.Ephemeral,
       });
       return;
     }
-    await interaction.reply({ content: url });
+    const webOrigin =
+      this.config.get<string>("WEB_ORIGIN") ?? "https://vidsandgifs.xyz";
+    const pageUrl = `${webOrigin}/gifs/${gifId}`;
+    await interaction.reply({ content: pageUrl });
     this.logger.log(
       `discord./gif direct from=${interaction.user.id} gifId=${gifId} q="${truncate(query, 60)}"`,
     );
@@ -711,8 +712,8 @@ export class DiscordService
         .catch(() => {});
       return;
     }
-    const url = await this.media.signUrl({ kind: "gif", id: gifId });
-    if (!url) {
+    const key = await this.media.resolveKey("gif", gifId);
+    if (!key) {
       await interaction
         .update({
           content: "That GIF isn't available anymore.",
@@ -722,6 +723,9 @@ export class DiscordService
         .catch(() => {});
       return;
     }
+    const webOrigin =
+      this.config.get<string>("WEB_ORIGIN") ?? "https://vidsandgifs.xyz";
+    const pageUrl = `${webOrigin}/gifs/${gifId}`;
     let postedPublicly = false;
     try {
       // `channel.send` posts a regular (non-ephemeral) message in the
@@ -729,7 +733,7 @@ export class DiscordService
       // member; throws on permission denied (user-installed app in a
       // guild the bot isn't part of).
       if (interaction.channel && "send" in interaction.channel) {
-        await interaction.channel.send({ content: url });
+        await interaction.channel.send({ content: pageUrl });
         postedPublicly = true;
       }
     } catch {
@@ -745,7 +749,7 @@ export class DiscordService
       // Fallback when the bot can't post publicly: surface the URL in
       // the ephemeral so the user can copy + paste it themselves.
       await interaction.update({
-        content: `Couldn't post here directly — copy & paste:\n${url}`,
+        content: `Couldn't post here directly — copy & paste:\n${pageUrl}`,
         embeds: [],
         components: [],
       });
