@@ -226,6 +226,8 @@ export const en = {
   "user.profile.discord.codeCopy": "Copy",
   "user.profile.discord.codeCopied": "Copied",
   "user.profile.discord.installBot": "Install the bot",
+  "user.profile.discord.installUser": "Add to my account (use in DMs)",
+  "user.profile.discord.installGuild": "Add to a server",
   "user.profile.discord.runCommand":
     "Then in Discord, run /link code:<paste> to finish linking.",
   "user.profile.discord.dismiss": "Cancel",

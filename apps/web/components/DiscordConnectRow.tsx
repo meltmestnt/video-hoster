@@ -57,7 +57,8 @@ export function DiscordConnectRow() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<{
     code: string;
-    inviteUrl: string | null;
+    userInstallUrl: string | null;
+    guildInstallUrl: string | null;
   } | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -76,12 +77,17 @@ export function DiscordConnectRow() {
     }
     try {
       const result = await startLink.mutateAsync();
-      setPending({ code: result.code, inviteUrl: result.inviteUrl });
-      // Open the install URL automatically — first-time users need it,
-      // and returning users can ignore the new tab. Same one-click
-      // motion as the Telegram connect.
-      if (result.inviteUrl) {
-        window.open(result.inviteUrl, "_blank", "noopener,noreferrer");
+      setPending({
+        code: result.code,
+        userInstallUrl: result.userInstallUrl,
+        guildInstallUrl: result.guildInstallUrl,
+      });
+      // Auto-open the user-install URL — that's the path that works
+      // for DMs and is what most people pitching themselves a personal
+      // GIF bot want. The guild-install button stays available below
+      // for users who explicitly want to add the bot to a server.
+      if (result.userInstallUrl) {
+        window.open(result.userInstallUrl, "_blank", "noopener,noreferrer");
       }
       void utils.discord.status.invalidate();
     } catch (err) {
@@ -231,14 +237,25 @@ export function DiscordConnectRow() {
             </Button>
           </Flex>
           <Flex gap="2" wrap="wrap" align="center">
-            {pending.inviteUrl && (
+            {pending.userInstallUrl && (
               <Button size="1" variant="soft" color="iris" asChild>
                 <a
-                  href={pending.inviteUrl}
+                  href={pending.userInstallUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  {t("user.profile.discord.installBot")}
+                  {t("user.profile.discord.installUser")}
+                </a>
+              </Button>
+            )}
+            {pending.guildInstallUrl && (
+              <Button size="1" variant="soft" color="gray" asChild>
+                <a
+                  href={pending.guildInstallUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {t("user.profile.discord.installGuild")}
                 </a>
               </Button>
             )}

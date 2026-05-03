@@ -82,33 +82,56 @@ export class DiscordService
 
   /**
    * Public-side helper used by the tRPC `discord.startLink` procedure.
-   * Returns the link code + the install URL the website hands the
-   * user. Returns null when the bot isn't configured so the UI can
-   * hide the connect button.
+   * Returns the link code + both install URLs (user-install for DM
+   * use, guild-install for adding to a server) so the UI can offer
+   * both flows. Returns null when the bot isn't configured.
    */
   buildStartLink(
     userId: string,
-  ): { code: string; inviteUrl: string | null; clientId: string } | null {
+  ): {
+    code: string;
+    userInstallUrl: string | null;
+    guildInstallUrl: string | null;
+    clientId: string;
+  } | null {
     if (!this.client || !this.clientId) return null;
     const code = this.links.issueLinkToken(userId);
-    const inviteUrl = this.buildInviteUrl();
-    return { code, inviteUrl, clientId: this.clientId };
+    return {
+      code,
+      userInstallUrl: this.buildUserInstallUrl(),
+      guildInstallUrl: this.buildGuildInstallUrl(),
+      clientId: this.clientId,
+    };
   }
 
   /**
-   * Build the OAuth2 install URL with the right scopes + permissions
-   * for both guild + user-install flows. The `applications.commands`
-   * scope is the only one we need — we run on Gateway events with
-   * application commands; no message-content or member intents.
+   * User-install URL — adds the bot to the user's account so /gif
+   * works in DMs and any server they're in (without admin rights). No
+   * `bot` scope (that forces guild-install mode) and no `permissions`
+   * param (irrelevant for user installs). `integration_type=1` biases
+   * the picker toward the user-install context.
+   *
+   * Requires "User Install" to be enabled in the Discord Developer
+   * Portal under Installation → Installation Contexts. Without it,
+   * the OAuth dialog renders with only "Add to server" no matter
+   * what URL we send.
    */
-  private buildInviteUrl(): string | null {
+  private buildUserInstallUrl(): string | null {
+    if (!this.clientId) return null;
+    return `https://discord.com/oauth2/authorize?client_id=${this.clientId}&scope=applications.commands&integration_type=1`;
+  }
+
+  /**
+   * Guild-install URL — the classic "add to server" flow. Server
+   * admins use this to install the bot for everyone in their guild.
+   * 0 permissions — we only post via interaction replies, which
+   * don't require channel-level perms beyond what slash-command
+   * framing already grants.
+   */
+  private buildGuildInstallUrl(): string | null {
     if (!this.clientId) return null;
     const scopes = ["applications.commands", "bot"].join("%20");
-    // 0 permissions — we only post via interaction replies, which don't
-    // require channel-level perms beyond what the slash-command framing
-    // grants. Keeps the install dialog uncluttered with checkboxes the
-    // user shouldn't have to evaluate.
-    return `https://discord.com/oauth2/authorize?client_id=${this.clientId}&permissions=0&scope=${scopes}`;
+    return `https://discord.com/oauth2/authorize?client_id=${this.clientId}&permissions=0&scope=${scopes}&integration_type=0`;
   }
 
   /**

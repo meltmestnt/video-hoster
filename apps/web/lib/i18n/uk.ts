@@ -229,6 +229,8 @@ export const uk: EnDict = {
   "user.profile.discord.codeCopy": "Копіювати",
   "user.profile.discord.codeCopied": "Скопійовано",
   "user.profile.discord.installBot": "Встановити бота",
+  "user.profile.discord.installUser": "Додати в мій акаунт (для DM)",
+  "user.profile.discord.installGuild": "Додати на сервер",
   "user.profile.discord.runCommand":
     "Потім у Discord виконайте /link code:<вставити>, щоб завершити підʼєднання.",
   "user.profile.discord.dismiss": "Скасувати",
