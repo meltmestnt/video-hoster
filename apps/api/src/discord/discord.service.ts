@@ -573,39 +573,31 @@ export class DiscordService
 
   /**
    * Single-shot: turn a known gif id into a public reply containing
-   * the website's /gifs/{id} page URL. Discord fetches the page,
-   * parses OGP, and renders a rich embed using og:image (.gif) and
-   * og:video. Posting the page URL (not the bare .gif URL) is what
-   * makes Discord treat the result as a video-type embed, which on
-   * most clients renders with auto-play — direct .gif URL embeds
-   * fall under the "Automatically play GIFs" accessibility toggle
-   * which a non-trivial fraction of users have disabled.
-   *
-   * If the gif isn't ready, fall back to the signed gif URL so the
-   * user still gets a functional result (with the auto-play caveat).
+   * the signed .gif URL. Discord renders animated .gif URLs as
+   * inline images that auto-play for viewers who have the
+   * "Automatically play GIFs" accessibility setting on (default).
+   * Viewers who've turned it off see a static first frame and have
+   * to hover to animate — that's a Discord client behaviour, not
+   * something we can override via OGP / attachments / embed
+   * mechanics. The page-URL + og:video=mp4 path renders a video
+   * player with a click-to-play button (worse UX than the .gif URL
+   * for users with auto-play on), so we stick with .gif URL and
+   * accept the auto-play-toggle dependency.
    */
   private async postGifDirectly(
     interaction: ChatInputCommandInteraction,
     gifId: string,
     query: string,
   ): Promise<void> {
-    // Probe the gif resolution first so we can short-circuit on
-    // "not available" without a wasted reply round-trip. The page
-    // URL itself doesn't need a signed token — the gif page is
-    // public and the GIF media URL inside its OGP is signed by the
-    // page's own SSR.
-    const key = await this.media.resolveKey("gif", gifId);
-    if (!key) {
+    const url = await this.media.signUrl({ kind: "gif", id: gifId });
+    if (!url) {
       await interaction.reply({
         content: "That GIF isn't available right now.",
         flags: MessageFlags.Ephemeral,
       });
       return;
     }
-    const webOrigin =
-      this.config.get<string>("WEB_ORIGIN") ?? "https://vidsandgifs.xyz";
-    const pageUrl = `${webOrigin}/gifs/${gifId}`;
-    await interaction.reply({ content: pageUrl });
+    await interaction.reply({ content: url });
     this.logger.log(
       `discord./gif direct from=${interaction.user.id} gifId=${gifId} q="${truncate(query, 60)}"`,
     );
@@ -712,8 +704,8 @@ export class DiscordService
         .catch(() => {});
       return;
     }
-    const key = await this.media.resolveKey("gif", gifId);
-    if (!key) {
+    const url = await this.media.signUrl({ kind: "gif", id: gifId });
+    if (!url) {
       await interaction
         .update({
           content: "That GIF isn't available anymore.",
@@ -723,9 +715,6 @@ export class DiscordService
         .catch(() => {});
       return;
     }
-    const webOrigin =
-      this.config.get<string>("WEB_ORIGIN") ?? "https://vidsandgifs.xyz";
-    const pageUrl = `${webOrigin}/gifs/${gifId}`;
     let postedPublicly = false;
     try {
       // `channel.send` posts a regular (non-ephemeral) message in the
@@ -733,7 +722,7 @@ export class DiscordService
       // member; throws on permission denied (user-installed app in a
       // guild the bot isn't part of).
       if (interaction.channel && "send" in interaction.channel) {
-        await interaction.channel.send({ content: pageUrl });
+        await interaction.channel.send({ content: url });
         postedPublicly = true;
       }
     } catch {
@@ -749,7 +738,7 @@ export class DiscordService
       // Fallback when the bot can't post publicly: surface the URL in
       // the ephemeral so the user can copy + paste it themselves.
       await interaction.update({
-        content: `Couldn't post here directly — copy & paste:\n${pageUrl}`,
+        content: `Couldn't post here directly — copy & paste:\n${url}`,
         embeds: [],
         components: [],
       });
