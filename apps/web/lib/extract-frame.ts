@@ -13,16 +13,19 @@
  *      skips decoding for elements positioned far outside the viewport
  *      (e.g. `left: -99999px`). We pin a 1×1 transparent element at the
  *      top-left of the viewport so iOS keeps it in the render tree.
- *   2. **iOS won't paint a frame until the video has been played once.**
+ *   2. **iOS won't paint a frame to canvas without a play() call.**
  *      drawImage on a video that has only been seeked produces a black
- *      canvas. We `play()` then immediately `pause()` to wake the
- *      decoder before seeking.
- *   3. **`seeked` is unreliable on iOS.** We wait for whichever fires
- *      first of `requestVideoFrameCallback` (frame-painted, when
- *      supported), `seeked`, or `timeupdate` so the slow path resolves.
- *   4. **Hangs need a deadline.** Each phase has an explicit timeout —
- *      a corrupt or unsupported file rejects with a clear error
- *      instead of leaving the dialog spinning indefinitely.
+ *      canvas. We seek + play in one step (set currentTime, then call
+ *      play) and pause as soon as the first real frame is composited.
+ *      A separate "prime then seek" two-step doesn't work because iOS
+ *      drops seeked/timeupdate when the video is paused, so the seek
+ *      phase would deadlock.
+ *   3. **Frame-painted signal is unreliable.** We race
+ *      `requestVideoFrameCallback` against `seeked` and `timeupdate`
+ *      so a single missed event from any one of them doesn't stall.
+ *   4. **Hangs need a deadline.** The seek+play has an explicit
+ *      timeout — a corrupt or unsupported file rejects with a clear
+ *      error instead of leaving the dialog spinning indefinitely.
  */
 interface ExtractFrameOptions {
   // Target seconds. Clamped to the video's actual duration.
@@ -41,33 +44,43 @@ type RVFCVideo = HTMLVideoElement & {
   requestVideoFrameCallback?: (cb: () => void) => number;
 };
 
-// Wait until the next painted frame after `kick` runs. Prefers the
-// browser's `requestVideoFrameCallback` (fires *after* a frame has been
-// composited) and falls back to seeked/timeupdate + a rAF tick when the
-// API isn't available — iOS Safari < 15.4, Firefox.
+// Wait until the next painted frame after `kick` runs. Races every
+// available signal — `requestVideoFrameCallback` (fires *after* a frame
+// has been composited, when supported) plus `seeked` and `timeupdate`
+// — so a single missed event from any one of them doesn't stall the
+// caller. iOS Safari is particularly inconsistent: rVFC is supported
+// from 15.4 but doesn't always fire after a seek when the video is
+// paused; `seeked` sometimes drops the first event after a play→pause
+// prime; `timeupdate` is the most reliable fallback once playback (or
+// seek) lands a new frame. Whichever fires first wins.
 function awaitNextFrame(video: HTMLVideoElement, kick: () => void): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     let settled = false;
+    const cleanup = () => {
+      video.removeEventListener("seeked", finish);
+      video.removeEventListener("timeupdate", finish);
+      video.removeEventListener("error", onError);
+    };
     const finish = () => {
       if (settled) return;
       settled = true;
-      // One extra rAF after rVFC: belt+braces for iOS, where the GPU
-      // composite occasionally lags one frame behind the JS callback.
+      cleanup();
+      // One extra rAF after the signal: belt+braces for iOS, where the
+      // GPU composite occasionally lags one frame behind the JS event.
       requestAnimationFrame(() => resolve());
     };
     const onError = () => {
       if (settled) return;
       settled = true;
+      cleanup();
       reject(new Error("Video element errored while waiting for frame"));
     };
     video.addEventListener("error", onError, { once: true });
-
+    video.addEventListener("seeked", finish, { once: true });
+    video.addEventListener("timeupdate", finish, { once: true });
     const rvfc = (video as RVFCVideo).requestVideoFrameCallback;
     if (typeof rvfc === "function") {
       rvfc.call(video, finish);
-    } else {
-      video.addEventListener("seeked", finish, { once: true });
-      video.addEventListener("timeupdate", finish, { once: true });
     }
     kick();
   });
@@ -152,43 +165,38 @@ export async function extractFrame(
       "Timed out loading video metadata. Try a smaller file or a different browser.",
     );
 
-    // Prime the decoder. iOS Safari refuses to paint the very first
-    // frame to a canvas if the element has only been seeked — drawImage
-    // returns a black rect until play() has been called at least once.
-    // muted + playsInline lifts the autoplay-gesture restriction, so
-    // this works without a user-visible play. We swallow play() errors
-    // (some Android WebViews reject without gesture even when muted)
-    // because the seek path below is still worth attempting.
-    try {
-      await timeoutReject(
-        awaitNextFrame(video, () => {
-          const p = video.play();
-          if (p && typeof p.then === "function") {
-            p.catch(() => {});
-          }
-        }),
-        PLAY_PRIME_TIMEOUT_MS,
-        "Timed out priming the video decoder. Pick a custom thumbnail manually.",
-      );
-    } catch {
-      // Non-fatal — try the seek anyway. The fallback path (seeked +
-      // timeupdate) handles browsers that didn't need priming.
-    } finally {
-      video.pause();
-    }
-
     const target = Math.min(
       Math.max(0, atSeconds),
       Math.max(0, (video.duration || 0) - 0.05),
     );
 
+    // Single-phase seek + play. iOS Safari has two compounding issues
+    // we need to defeat at the same time:
+    //   - drawImage returns a black canvas until play() has been called
+    //     at least once on this video element.
+    //   - When the video is paused, setting currentTime often does NOT
+    //     fire seeked/timeupdate/rVFC, so a separate "prime then seek"
+    //     two-step would deadlock at the seek phase.
+    // Combining them — set currentTime first, then play — makes iOS
+    // resume from the seek point and paint a real frame, which fires
+    // every signal awaitNextFrame is racing on. We pause immediately
+    // after the first frame paint, so total visible playback is one
+    // composited frame.
+    video.currentTime = target;
     await timeoutReject(
       awaitNextFrame(video, () => {
-        video.currentTime = target;
+        const p = video.play();
+        if (p && typeof p.then === "function") {
+          // muted + playsInline normally lifts the gesture requirement,
+          // but a few Android WebViews still reject. Swallow so the
+          // event-listener fallback in awaitNextFrame can still resolve.
+          p.catch(() => {});
+        }
       }),
-      SEEK_TIMEOUT_MS,
+      SEEK_TIMEOUT_MS + PLAY_PRIME_TIMEOUT_MS,
       "Timed out seeking the video. Pick a custom thumbnail manually.",
     );
+    video.pause();
 
     const sw = video.videoWidth;
     const sh = video.videoHeight;
