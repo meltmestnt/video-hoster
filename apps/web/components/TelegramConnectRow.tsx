@@ -5,6 +5,7 @@ import { Box, Button, Flex, IconButton, Text, Tooltip } from "@radix-ui/themes";
 import { ReloadIcon } from "@radix-ui/react-icons";
 import { trpc } from "@/lib/trpc";
 import { useT } from "@/lib/i18n";
+import { trackEvent } from "@/lib/analytics";
 import { useVerifyRequired } from "./VerifyRequiredDialog";
 
 /**
@@ -53,6 +54,7 @@ export function TelegramConnectRow() {
 
   const onConnect = async () => {
     setError(null);
+    trackEvent("Telegram Connect", { source: "settings-row" });
     // telegram.startLink is verifiedProcedure server-side. Surface the
     // standard verify-required dialog up front instead of letting the
     // mutation fail with a generic FORBIDDEN message inline.

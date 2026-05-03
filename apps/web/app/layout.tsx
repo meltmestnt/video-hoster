@@ -3,19 +3,21 @@ import "./globals.css";
 
 import type { Metadata, Viewport } from "next";
 import { Theme } from "@radix-ui/themes";
-import { CookieConsent } from "@/components/CookieConsent";
+import { PlausibleScript } from "@/components/PlausibleScript";
 import { RegisterSW } from "@/components/RegisterSW";
 import { Providers } from "./providers";
 import { siteUrl } from "@/lib/site";
 import { getServerLocale } from "@/lib/i18n/server";
 import type { Locale } from "@/lib/i18n/locale";
 
-// GA4 Measurement ID. Pinned to the vidsandgifs.xyz property so a fresh
-// deploy starts tracking without any Railway config — same approach as the
-// Google site-verification token below. Override via NEXT_PUBLIC_GA_ID if
-// you ever rotate properties or need a different one per environment;
-// explicitly setting it to an empty string disables analytics.
-const GA_ID = process.env.NEXT_PUBLIC_GA_ID ?? "G-ST8WSD8TJE";
+// Plausible Analytics — cookieless aggregate analytics. Empty / unset
+// disables tracking, which is what dev environments want. We dropped
+// the GA + cookie-consent setup that used to live here: Plausible
+// doesn't store cookies, doesn't track personal data, doesn't need a
+// GDPR/ePrivacy consent gate at all. Same numbers we cared about
+// (pageviews, bounce, time on page, country/device, outbound clicks,
+// custom events), 1 KB instead of 50, no banner.
+const PLAUSIBLE_DOMAIN = process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN ?? "";
 
 const SITE_NAME = "vids&gifs";
 
@@ -271,10 +273,7 @@ export default async function RootLayout({
         />
         <Theme appearance="dark" accentColor="iris" radius="large" scaling="100%">
           <Providers initialLocale={locale}>{children}</Providers>
-          {/* Mounted inside <Theme> so the banner's Radix Buttons + CSS
-              tokens (--gray-*, --accent-*) resolve against the dark
-              palette instead of the unstyled default. */}
-          {GA_ID && <CookieConsent gaId={GA_ID} />}
+          {PLAUSIBLE_DOMAIN && <PlausibleScript domain={PLAUSIBLE_DOMAIN} />}
           <RegisterSW />
         </Theme>
       </body>

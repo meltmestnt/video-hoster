@@ -27,6 +27,7 @@ import { setPendingUpload } from "@/lib/pending-upload";
 import { useUploadDialog } from "@/lib/upload-dialog-context";
 import { useRequireAuth } from "@/lib/auth-required";
 import { useT } from "@/lib/i18n";
+import { trackEvent } from "@/lib/analytics";
 
 type Phase = "idle" | "loading" | "encoding" | "done" | "error";
 
@@ -108,6 +109,11 @@ export function InstantGifDemo({ signedIn }: Props) {
     setResultName(null);
     setPhase("loading");
     setProgress(0);
+    // Demo Started fires once a real video is dropped in (post sniff).
+    // Pair with Demo Done / Demo Failed below to read the funnel: the
+    // ratio of Done / Started is the "did the demo actually work for
+    // visitors" signal.
+    trackEvent("Demo Started", { sourceMime: next.type || "unknown" });
     try {
       const blob = await convertToGif(next, {
         onPhase: (p) => {
@@ -125,9 +131,13 @@ export function InstantGifDemo({ signedIn }: Props) {
       setResultName(`${baseStem(next.name)}.gif`);
       setPhase("done");
       setProgress(1);
+      trackEvent("Demo Done");
     } catch (err) {
       setError((err as Error).message);
       setPhase("error");
+      trackEvent("Demo Failed", {
+        message: ((err as Error).message ?? "unknown").slice(0, 80),
+      });
     }
   };
 
@@ -151,6 +161,10 @@ export function InstantGifDemo({ signedIn }: Props) {
   const hostNow = async () => {
     if (!resultBlob || !resultName) return;
     const gifFile = new File([resultBlob], resultName, { type: "image/gif" });
+    // Track which path the visitor takes after the demo: "Host" =
+    // "I want this on the site" intent. Anonymous users hitting Host
+    // is the highest-intent funnel step we have on the landing page.
+    trackEvent("Demo Host", { signedIn: signedIn ? "yes" : "no" });
     if (!signedIn) {
       await setPendingUpload("gif", gifFile);
       requireAuth();
@@ -476,7 +490,10 @@ export function InstantGifDemo({ signedIn }: Props) {
               <Button
                 size="3"
                 variant="solid"
-                onClick={() => triggerDownload(resultBlob, resultName)}
+                onClick={() => {
+                  trackEvent("Demo Download");
+                  triggerDownload(resultBlob, resultName);
+                }}
               >
                 <DownloadIcon /> {t("instant.action.download")}
               </Button>

@@ -81,17 +81,39 @@ export function AnonymousIntro() {
         wrap="wrap"
         align="center"
       >
-        <Button asChild size="3" variant="solid">
+        {/* `plausible-event-name=...` activates Plausible's tagged-
+            events handler — clicking the link fires the named custom
+            event with no JS handler needed. Names are deliberately
+            generic ("Landing Signup", "Landing Signin", "Landing
+            Browse") so they group cleanly in the Plausible dashboard. */}
+        <Button
+          asChild
+          size="3"
+          variant="solid"
+          className="plausible-event-name=Landing+Signup"
+        >
           <Link href="/signup">
             <T k="intro.cta.signUp" />
           </Link>
         </Button>
-        <Button asChild size="3" variant="soft" color="gray">
+        <Button
+          asChild
+          size="3"
+          variant="soft"
+          color="gray"
+          className="plausible-event-name=Landing+Signin"
+        >
           <Link href="/login">
             <T k="intro.cta.signIn" />
           </Link>
         </Button>
-        <Button asChild size="3" variant="ghost" color="iris">
+        <Button
+          asChild
+          size="3"
+          variant="ghost"
+          color="iris"
+          className="plausible-event-name=Landing+Browse"
+        >
           <Link href="/all">
             <T k="intro.cta.browse" />
           </Link>

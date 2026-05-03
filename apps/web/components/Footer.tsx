@@ -7,21 +7,8 @@ import { useT } from "@/lib/i18n";
 import { LocaleSwitcher } from "./LocaleSwitcher";
 import { telegramBotUrl } from "@/lib/telegram-bot";
 
-// Custom event name used to coordinate the "Cookie settings" button in the
-// footer with the consent banner mounted in the root layout. When fired,
-// the banner clears its persisted choice and re-renders.
-export const CONSENT_RESET_EVENT = "vng:cookie-consent-reset";
-
-const STORAGE_KEY = "cookie-consent";
-
 export function Footer() {
   const t = useT();
-
-  const reopenConsent = () => {
-    if (typeof window === "undefined") return;
-    localStorage.removeItem(STORAGE_KEY);
-    window.dispatchEvent(new CustomEvent(CONSENT_RESET_EVENT));
-  };
 
   return (
     <Flex
@@ -52,19 +39,6 @@ export function Footer() {
         >
           {t("footer.faq")}
         </Link>
-        <Separator orientation="vertical" />
-        <button
-          onClick={reopenConsent}
-          type="button"
-          style={{
-            all: "unset",
-            cursor: "pointer",
-            fontSize: "var(--font-size-1)",
-            color: "inherit",
-          }}
-        >
-          {t("footer.cookieSettings")}
-        </button>
         <Separator orientation="vertical" />
         {/* Discoverability anchor for the bot — Telegram's name search
             is popularity-gated, so a stable footer link gives every

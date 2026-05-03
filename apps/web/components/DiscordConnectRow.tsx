@@ -13,6 +13,7 @@ import {
 import { CheckIcon, CopyIcon, ReloadIcon } from "@radix-ui/react-icons";
 import { trpc } from "@/lib/trpc";
 import { useT } from "@/lib/i18n";
+import { trackEvent } from "@/lib/analytics";
 import { useVerifyRequired } from "./VerifyRequiredDialog";
 
 /**
@@ -71,6 +72,7 @@ export function DiscordConnectRow() {
 
   const onConnect = async () => {
     setError(null);
+    trackEvent("Discord Connect", { source: "settings-row" });
     if (me.data && me.data.status !== "verified") {
       verifyRequired.show("action", "unverified");
       return;

@@ -87,7 +87,13 @@ export function AnonTelegramPromo() {
           <T k="anonTelegram.subtitle" />
         </Text>
         <Flex gap="4" mt="2" align="center" wrap="wrap">
-          <Button asChild size="3" variant="solid" color="blue">
+          <Button
+            asChild
+            size="3"
+            variant="solid"
+            color="blue"
+            className="plausible-event-name=Anon+Bots+Signup"
+          >
             <Link href="/signup">
               <T k="anonTelegram.cta.signUp" />
             </Link>
