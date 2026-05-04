@@ -16,35 +16,35 @@ import { T } from "@/lib/i18n";
 import { getServerLocale } from "@/lib/i18n/server";
 import type { Locale } from "@/lib/i18n/locale";
 
-export const dynamic = "force-dynamic";
+// Anonymous visitors return early with a static-friendly intro panel —
+// no DB calls, no session-dependent UI — so we don't force-mark this
+// route dynamic. Next.js detects the cookie/searchParams reads downstream
+// and switches to dynamic rendering automatically when a session exists,
+// while letting the anon path stay cheap.
 
 // The root path is the natural landing for any "vids and gifs" /
 // "vidsandgifs" search, so we use `title.absolute` here to break out of
-// the layout's "%s — vids&gifs" template and lead with the brand and
-// every common spelling. Description repeats them in plain prose so the
-// SERP snippet (which Google often pulls verbatim from this string)
-// reads like a description of what the site does — localized to match
-// the visitor's Accept-Language (or the `?lang=` override) so an English
-// query gets an English snippet and a Ukrainian one gets Ukrainian.
+// the layout's "%s — vids&gifs" template and lead with the brand. Both
+// strings stay inside Google's SERP-rendered limits — title under ~65
+// chars, description under ~155 — so the snippet doesn't get truncated
+// mid-phrase. The page itself carries the long-form pitch.
 const HOME_COPY: Record<
   Locale,
   { title: string; description: string; ogTitle: string; ogDescription: string }
 > = {
   en: {
-    title:
-      "vids & gifs — your private GIFs and videos in every chat (Telegram + Discord), GIF ↔ MP4 converter",
+    title: "vids & gifs — private GIFs and videos in every chat",
     description:
-      "vids & gifs (vidsandgifs.com) is your private library of GIFs and videos that lives across Telegram and Discord. Curate folders only you can see, then send from any chat — @vidsandgifsbot inline picker on Telegram, /gif slash command with autocomplete on Discord, same library on both. Free in-browser GIF ↔ MP4 conversion is included for feeding your library. No installs, no ads.",
+      "vids & gifs: your private library of GIFs and videos, sendable inline from any Telegram or Discord chat. Free in-browser GIF ↔ MP4 converter.",
     ogTitle:
       "vids & gifs — private GIFs and videos, every chat (Telegram + Discord)",
     ogDescription:
       "One private library of GIFs and videos, sendable inline from Telegram and Discord — plus a free in-browser GIF ↔ MP4 converter. vidsandgifs.com.",
   },
   uk: {
-    title:
-      "vids & gifs — твої приватні GIF і відео у кожному чаті (Telegram + Discord), конвертер GIF ↔ MP4",
+    title: "vids & gifs — приватні GIF і відео у кожному чаті",
     description:
-      "vids & gifs (vidsandgifs.com) — твоя приватна бібліотека GIF і відео, що працює і в Telegram, і в Discord. Складай у папки, які бачиш лише ти, і надсилай з будь-якого чату — інлайн-пікер @vidsandgifsbot у Telegram, слеш-команда /gif з автодоповненням у Discord, одна бібліотека на обох. Безкоштовний конвертер GIF ↔ MP4 у браузері — додатковий спосіб поповнити бібліотеку. Без встановлення, без реклами.",
+      "vids & gifs: твоя приватна бібліотека GIF і відео, інлайн з будь-якого чату Telegram або Discord. Безкоштовний конвертер GIF ↔ MP4 у браузері.",
     ogTitle:
       "vids & gifs — приватні GIF і відео, кожен чат (Telegram + Discord)",
     ogDescription:
@@ -54,7 +54,7 @@ const HOME_COPY: Record<
 
 const HOME_LOCALE_URL: Record<Locale, string> = {
   en: absoluteUrl("/"),
-  uk: absoluteUrl("/?lang=uk"),
+  uk: absoluteUrl("/uk"),
 };
 
 export async function generateMetadata(): Promise<Metadata> {

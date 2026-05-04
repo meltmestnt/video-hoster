@@ -23,11 +23,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const now = new Date();
 
-  // Each bilingual page is listed once at the English URL, with the
+  // Each bilingual page is listed once at the English URL with the
   // Ukrainian variant declared in `alternates.languages`. Google reads
-  // those alongside the rendered hreflang tags and indexes the
-  // `?lang=uk` version as the Ukrainian counterpart of the same
-  // canonical entry.
+  // those alongside the rendered hreflang tags and indexes `/uk` (and
+  // `/uk/...`) as the Ukrainian counterpart of the same canonical entry.
+  // The `/uk` prefix is rewritten by middleware to the underlying route
+  // with the locale set, so both URLs render the same page in different
+  // languages.
   const staticEntries: MetadataRoute.Sitemap = [
     {
       url: absoluteUrl("/"),
@@ -37,7 +39,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       alternates: {
         languages: {
           en: absoluteUrl("/"),
-          uk: absoluteUrl("/?lang=uk"),
+          uk: absoluteUrl("/uk"),
           "x-default": absoluteUrl("/"),
         },
       },
@@ -57,20 +59,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     {
       // Static FAQ page — content rarely changes but worth a high-ish
       // priority because it's the page targeting "what is a gif" /
-      // "how to convert gif to mp4" search queries. Same hreflang
-      // pairing as the home so the Ukrainian Q&A block surfaces in
-      // uk-language SERPs.
+      // "how to convert gif to mp4" search queries. Both English and
+      // Ukrainian Q&A blocks render on the same URL, so we deliberately
+      // omit hreflang alternates (Google would collapse identical-bytes
+      // alternates into a single canonical anyway). The bilingual page
+      // ranks for queries in either language because both bodies of
+      // text are present in the rendered HTML.
       url: absoluteUrl("/faq"),
       lastModified: now,
       changeFrequency: "monthly",
       priority: 0.6,
-      alternates: {
-        languages: {
-          en: absoluteUrl("/faq"),
-          uk: absoluteUrl("/faq?lang=uk"),
-          "x-default": absoluteUrl("/faq"),
-        },
-      },
     },
   ];
 

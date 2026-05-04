@@ -133,6 +133,20 @@ const nextConfig = {
         ],
       },
       {
+        // Web App Manifest. Browsers cache it on their own heuristics
+        // (Chrome/Edge typically pin it for 24h once installed), but an
+        // explicit policy makes the CDN serve repeat fetches without
+        // hitting Next, and lets us cap the staleness window when an
+        // icon or short_name actually changes.
+        source: "/manifest.webmanifest",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=3600, stale-while-revalidate=86400",
+          },
+        ],
+      },
+      {
         // Favicon. Next emits it via app/icon.tsx; the redirect at
         // /favicon.ico already lands here. Safe to pin for a week.
         source: "/icon",

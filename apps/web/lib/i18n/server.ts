@@ -9,9 +9,11 @@ import {
 
 // Resolves the locale to render with on the server. Order:
 //   1. `x-locale-override` header — set by `middleware.ts` when the URL
-//      carries `?lang=<locale>`. Lets Googlebot index a stable
-//      English URL ("/") and a stable Ukrainian URL ("/?lang=uk")
-//      separately, so the SERP snippet matches the user's locale.
+//      starts with `/uk` (path-based locale prefix, the canonical SEO
+//      form) or carries the legacy `?lang=<locale>` query param. Lets
+//      Googlebot index a stable English URL ("/") and a stable
+//      Ukrainian URL ("/uk") separately, so the SERP snippet matches
+//      the user's locale.
 //   2. `vh.locale` cookie — the user explicitly picked one via
 //      LocaleSwitcher and we wrote it to a cookie so SSR matches
 //      the client.

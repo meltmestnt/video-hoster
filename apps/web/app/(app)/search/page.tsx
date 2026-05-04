@@ -56,10 +56,10 @@ export async function generateMetadata({
   if (trimmedTag) titleBits.push(`#${trimmedTag}`);
   const titleSuffix = titleBits.length ? ` ${titleBits.join(" ")}` : "";
 
-  // Don't index empty or arbitrary search queries — they explode the URL
-  // surface and add no value. Only the bare /search and tag pages get
-  // indexed; tag pages are useful entry points from external links.
-  const indexable = !trimmedQ && (!trimmedTag || trimmedTag.length > 0);
+  // Don't index arbitrary user queries — they explode the URL surface and
+  // add no value. Bare /search and tag-only pages stay indexable; tag
+  // pages are useful entry points from external links.
+  const indexable = !trimmedQ;
 
   // Pull counts so the snippet can surface real numbers ("12 funny GIFs
   // and videos…") instead of a generic blurb. Cached with the page render

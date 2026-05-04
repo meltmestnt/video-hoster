@@ -27,32 +27,28 @@ const PLAUSIBLE_SCRIPT_URL = process.env.NEXT_PUBLIC_PLAUSIBLE_SCRIPT_URL ?? "";
 
 const SITE_NAME = "vids&gifs";
 
-// Per-locale title + description. The English copy is the canonical
-// branding text — Latin-script keywords like "vidsandgifs" rank the same
-// in any locale, so we keep the English title even in Ukrainian SERPs and
-// only swap the prose description. That keeps the SERP snippet in the
-// language Google's user is searching in (its "result language" is mostly
-// driven by Accept-Language at crawl time, supplemented by the
-// `?lang=<locale>` URL middleware writes a cookie for).
+// Per-locale title + description. Both are sized for SERP rendering:
+// title around 60 chars (Google trims at ~580px), description around
+// 150 chars (Google trims at ~155–160). The home page (app/(app)/page.tsx)
+// overrides these with longer copy keyed at the brand, since the bare
+// root is the most-likely landing for "vidsandgifs" branded queries.
 const COPY: Record<
   Locale,
   { title: string; description: string; ogTitle: string }
 > = {
   en: {
-    title:
-      "vids & gifs — your private GIFs and videos in every chat (Telegram + Discord), GIF ↔ MP4 converter",
+    title: "vids & gifs — private GIFs and videos in every chat",
     ogTitle:
       "vids & gifs — private GIFs and videos in every chat (Telegram + Discord)",
     description:
-      "vids & gifs (vidsandgifs.com) — your private library of GIFs and videos, sendable inline from any chat. Curate folders only you can see and reach them through @vidsandgifsbot's inline picker on Telegram and the /gif slash command on Discord — same library, every surface. Also a free in-browser GIF ↔ MP4 converter, video trimming, audio overlay, and frame-by-frame screenshots. No installs, works on desktop and mobile.",
+      "Your private library of GIFs and videos, sendable inline from any Telegram or Discord chat. Free in-browser GIF ↔ MP4 converter included.",
   },
   uk: {
-    title:
-      "vids & gifs — твої приватні GIF і відео у кожному чаті (Telegram + Discord), конвертер GIF ↔ MP4",
+    title: "vids & gifs — приватні GIF і відео у кожному чаті",
     ogTitle:
       "vids & gifs — приватні GIF і відео у кожному чаті (Telegram + Discord)",
     description:
-      "vids & gifs (vidsandgifs.com) — твоя приватна бібліотека GIF і відео, яку можна слати інлайн з будь-якого чату. Складай у папки, які бачиш лише ти, і діставай через інлайн-пікер @vidsandgifsbot у Telegram та слеш-команду /gif у Discord — одна бібліотека, кожна поверхня. А ще безкоштовний конвертер GIF ↔ MP4 у браузері, обрізання відео, аудіо-накладки та скріншоти з будь-якого кадру. Без встановлення, працює на ПК і смартфоні.",
+      "Твоя приватна бібліотека GIF і відео — інлайн з будь-якого чату Telegram чи Discord. Безкоштовний конвертер GIF ↔ MP4 у браузері включено.",
   },
 };
 
@@ -174,14 +170,16 @@ const YANDEX_SITE_VERIFICATION = process.env.YANDEX_SITE_VERIFICATION;
 
 // Per-locale URLs let Google index each language separately. English
 // stays at the bare root so existing inbound links and the brand
-// canonical don't change; Ukrainian gets `?lang=uk`, which middleware.ts
-// honors via the `x-locale-override` header. The canonical we emit on
-// each rendered request points at the URL whose content this page
-// actually serves — otherwise Google merges the two and one locale
-// drops out of the index.
+// canonical don't change; Ukrainian lives under the `/uk` path prefix,
+// which middleware.ts rewrites to the underlying route while persisting
+// the locale via the `x-locale-override` header and `vh.locale` cookie.
+// Path-based locale URLs are Google's recommendation over query params —
+// they're treated as fully distinct documents instead of variants of one
+// canonical. The legacy `?lang=uk` query param still works for any
+// in-flight bookmarks.
 const LOCALE_PATH: Record<Locale, string> = {
   en: "/",
-  uk: "/?lang=uk",
+  uk: "/uk",
 };
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -253,38 +251,65 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-// Schema.org WebSite payload Google reads to learn the canonical brand
-// plus alternates. Listing every spelling we want to rank for as
-// `alternateName` tells search engines that "vids and gifs",
-// "vidsandgifs", and "vids & gifs" are the same site, so a query in any
-// of those forms can surface this domain.
+// Schema.org payload Google reads to learn the canonical brand plus
+// what kind of thing this domain is. Combining `WebSite` and
+// `WebApplication` in a single `@graph` lets the same script tag declare
+// both: WebSite gives Google the SearchAction sitelink and the brand
+// alternates so any common spelling resolves to this domain, while
+// WebApplication tags the home as a free, browser-based multimedia tool
+// — search engines (Google, Bing) sometimes surface app-style result
+// cards for that schema type.
 function websiteJsonLd(description: string) {
+  const url = siteUrl();
   return {
     "@context": "https://schema.org",
-    "@type": "WebSite",
-    name: SITE_NAME,
-    alternateName: [
-      "vids & gifs",
-      "vids and gifs",
-      "vidsandgifs",
-      "vidsandgifs.com",
-      "vidsandgifs.xyz",
-      "vids gifs",
-      "videos and gifs",
-      // Cyrillic alternates so Yandex/Google associate Russian and
-      // Ukrainian queries with the same canonical brand.
-      "відео і GIF",
-      "гіфки і відео",
-      "видео и гифки",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": `${url}#website`,
+        name: SITE_NAME,
+        alternateName: [
+          "vids & gifs",
+          "vids and gifs",
+          "vidsandgifs",
+          "vidsandgifs.com",
+          "vidsandgifs.xyz",
+          "vids gifs",
+          "videos and gifs",
+          // Cyrillic alternates so Yandex/Google associate Russian and
+          // Ukrainian queries with the same canonical brand.
+          "відео і GIF",
+          "гіфки і відео",
+          "видео и гифки",
+        ],
+        url,
+        inLanguage: ["en", "uk"],
+        description,
+        potentialAction: {
+          "@type": "SearchAction",
+          target: `${url}/search?q={search_term_string}`,
+          "query-input": "required name=search_term_string",
+        },
+      },
+      {
+        "@type": "WebApplication",
+        "@id": `${url}#app`,
+        name: SITE_NAME,
+        applicationCategory: "MultimediaApplication",
+        operatingSystem: "Any",
+        browserRequirements:
+          "Requires modern browser with JavaScript and WebAssembly enabled",
+        url,
+        description,
+        // Free in every meaningful sense — no advertising, no paid wall.
+        // Pro tier exists for higher quotas only.
+        offers: {
+          "@type": "Offer",
+          price: "0",
+          priceCurrency: "USD",
+        },
+      },
     ],
-    url: siteUrl(),
-    inLanguage: ["en", "uk"],
-    description,
-    potentialAction: {
-      "@type": "SearchAction",
-      target: `${siteUrl()}/search?q={search_term_string}`,
-      "query-input": "required name=search_term_string",
-    },
   };
 }
 
