@@ -140,6 +140,12 @@ export function VideoCard({
 
   const navigate = (e: React.MouseEvent) => {
     if (e.metaKey || e.ctrlKey || e.button === 1) return;
+    // Block clicks while a morph is already in flight so spamming cards
+    // doesn't queue up a stack of navigations / overlays.
+    if (document.body.dataset.morphing) {
+      e.preventDefault();
+      return;
+    }
     // Anon viewers are welcome on /videos/[id] — the detail page enforces
     // its own preview cap and sign-in CTA. Letting the click through here
     // means they actually reach the page they tried to open.

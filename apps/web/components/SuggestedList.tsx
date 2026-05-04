@@ -75,6 +75,12 @@ function SuggestedRow({ item }: { item: Item }) {
 
   const navigate = (e: React.MouseEvent) => {
     if (e.metaKey || e.ctrlKey || e.button === 1) return;
+    // Block clicks while a morph is already in flight so spamming cards
+    // doesn't queue up a stack of navigations / overlays.
+    if (document.body.dataset.morphing) {
+      e.preventDefault();
+      return;
+    }
     const thumb = thumbRef.current;
     if (!thumb) return;
     e.preventDefault();
