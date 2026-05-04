@@ -3,6 +3,7 @@
 import {
   Box,
   Button,
+  DropdownMenu,
   Flex,
   Heading,
   IconButton,
@@ -10,9 +11,12 @@ import {
   Tooltip,
 } from "@radix-ui/themes";
 import {
+  ChevronDownIcon,
   Cross1Icon,
   HamburgerMenuIcon,
+  ImageIcon,
   PlusIcon,
+  VideoIcon,
 } from "@radix-ui/react-icons";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -72,6 +76,11 @@ export function TopBar({
   const pathname = usePathname() ?? "/";
   const onGifs = pathname === "/gifs" || pathname.startsWith("/gifs/");
   const onVideos = pathname === "/videos" || pathname.startsWith("/videos/");
+  // Any page that isn't a single-type feed (e.g. /all, /, /search,
+  // profile pages) can't infer whether the user wants to upload a video
+  // or a GIF. Those pages get a dropdown chooser; /videos and /gifs
+  // keep their one-click direct action.
+  const onAny = !onGifs && !onVideos;
   const uploadLabel = onGifs
     ? t("topbar.uploadGif")
     : onVideos
@@ -104,16 +113,38 @@ export function TopBar({
     setDrawerOpen(false);
   };
 
-  const openUpload = () => {
-    if (uploadDisabled) return;
-    // Mirror the convert gate: the upload API rejects unverified
-    // accounts, so opening the dialog is just a dead end. Show the
-    // verify-required dialog instead and skip the upload UI.
+  // Mirror the convert gate: the upload API rejects unverified accounts,
+  // so opening the dialog is just a dead end. Centralized so the
+  // direct-click button, the dropdown items, and the mobile drawer all
+  // get the same gating without each having to remember it.
+  const checkUploadGate = (): boolean => {
+    if (uploadDisabled) return false;
     if (!verified) {
       setDrawerOpen(false);
       verifyRequired.show("action", "unverified");
-      return;
+      return false;
     }
+    return true;
+  };
+
+  const openVideoUpload = () => {
+    if (!checkUploadGate()) return;
+    uploadDialog.openVideoUpload();
+    setDrawerOpen(false);
+  };
+
+  const openGifUpload = () => {
+    if (!checkUploadGate()) return;
+    uploadDialog.openGifUpload();
+    setDrawerOpen(false);
+  };
+
+  // Direct-click handler used on /videos and /gifs where the upload
+  // type is unambiguous. On the "any" pages this is replaced by a
+  // dropdown chooser, but the function stays useful as a fallback (e.g.
+  // it's still wired to the mobile drawer's secondary buttons).
+  const openUpload = () => {
+    if (!checkUploadGate()) return;
     if (onGifs) {
       uploadDialog.openGifUpload();
     } else {
@@ -194,24 +225,42 @@ export function TopBar({
                       {t("topbar.convert")}
                     </Button>
                   </Tooltip>
-                  <Tooltip
-                    content={
-                      otherTabBusy
-                        ? t("topbar.uploadTooltip.otherTabBusy")
-                        : busy
-                          ? t("topbar.uploadTooltip.busy")
-                          : uploadTooltip
-                    }
-                  >
-                    <Button
-                      size="2"
-                      variant="solid"
-                      onClick={openUpload}
+                  {onAny ? (
+                    <UploadChooserDropdown
+                      label={uploadLabel}
                       disabled={uploadDisabled}
+                      disabledReason={
+                        otherTabBusy
+                          ? t("topbar.uploadTooltip.otherTabBusy")
+                          : busy
+                            ? t("topbar.uploadTooltip.busy")
+                            : null
+                      }
+                      onPickVideo={openVideoUpload}
+                      onPickGif={openGifUpload}
+                      videoLabel={t("topbar.uploadVideo")}
+                      gifLabel={t("topbar.uploadGif")}
+                    />
+                  ) : (
+                    <Tooltip
+                      content={
+                        otherTabBusy
+                          ? t("topbar.uploadTooltip.otherTabBusy")
+                          : busy
+                            ? t("topbar.uploadTooltip.busy")
+                            : uploadTooltip
+                      }
                     >
-                      {uploadLabel}
-                    </Button>
-                  </Tooltip>
+                      <Button
+                        size="2"
+                        variant="solid"
+                        onClick={openUpload}
+                        disabled={uploadDisabled}
+                      >
+                        {uploadLabel}
+                      </Button>
+                    </Tooltip>
+                  )}
                 </Flex>
               </Box>
               <NotificationsBell />
@@ -254,33 +303,57 @@ export function TopBar({
           )}
           <Box className="topbar-mobile-only">
             <Flex align="center" gap="2">
-              {signedIn && (
-                <Tooltip
-                  content={
-                    otherTabBusy
-                      ? t("topbar.uploadTooltip.otherTabBusy")
-                      : busy
-                        ? t("topbar.uploadTooltip.busy")
-                        : uploadTooltip
-                  }
-                >
-                  {/* Native button instead of Radix IconButton because the
-                      crimson running-border effect needs a ::before
-                      pseudo-element with a custom mask + conic-gradient,
-                      which conflicts with IconButton's own ::before for
-                      the soft surface. .topbar-add-mobile owns the
-                      visuals end-to-end. */}
-                  <button
-                    type="button"
-                    className="topbar-add-mobile"
-                    onClick={openUpload}
-                    disabled={uploadDisabled}
-                    aria-label={uploadLabel}
+              {signedIn &&
+                (onAny ? (
+                  <DropdownMenu.Root>
+                    <DropdownMenu.Trigger>
+                      {/* Native button instead of Radix IconButton because the
+                          crimson running-border effect needs a ::before
+                          pseudo-element with a custom mask + conic-gradient,
+                          which conflicts with IconButton's own ::before for
+                          the soft surface. .topbar-add-mobile owns the
+                          visuals end-to-end. */}
+                      <button
+                        type="button"
+                        className="topbar-add-mobile"
+                        disabled={uploadDisabled}
+                        aria-label={uploadLabel}
+                      >
+                        <PlusIcon />
+                      </button>
+                    </DropdownMenu.Trigger>
+                    <DropdownMenu.Content align="end">
+                      <DropdownMenu.Item onSelect={openVideoUpload}>
+                        <VideoIcon style={{ marginRight: 6 }} />
+                        {t("topbar.uploadVideo")}
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Item onSelect={openGifUpload}>
+                        <ImageIcon style={{ marginRight: 6 }} />
+                        {t("topbar.uploadGif")}
+                      </DropdownMenu.Item>
+                    </DropdownMenu.Content>
+                  </DropdownMenu.Root>
+                ) : (
+                  <Tooltip
+                    content={
+                      otherTabBusy
+                        ? t("topbar.uploadTooltip.otherTabBusy")
+                        : busy
+                          ? t("topbar.uploadTooltip.busy")
+                          : uploadTooltip
+                    }
                   >
-                    <PlusIcon />
-                  </button>
-                </Tooltip>
-              )}
+                    <button
+                      type="button"
+                      className="topbar-add-mobile"
+                      onClick={openUpload}
+                      disabled={uploadDisabled}
+                      aria-label={uploadLabel}
+                    >
+                      <PlusIcon />
+                    </button>
+                  </Tooltip>
+                ))}
               <IconButton
                 variant="soft"
                 color="gray"
@@ -335,14 +408,35 @@ export function TopBar({
                 >
                   {t("topbar.convert")}
                 </Button>
-                <Button
-                  size="3"
-                  variant="solid"
-                  onClick={openUpload}
-                  disabled={uploadDisabled}
-                >
-                  {uploadLabel}
-                </Button>
+                {onAny ? (
+                  <>
+                    <Button
+                      size="3"
+                      variant="solid"
+                      onClick={openVideoUpload}
+                      disabled={uploadDisabled}
+                    >
+                      {t("topbar.uploadVideo")}
+                    </Button>
+                    <Button
+                      size="3"
+                      variant="solid"
+                      onClick={openGifUpload}
+                      disabled={uploadDisabled}
+                    >
+                      {t("topbar.uploadGif")}
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    size="3"
+                    variant="solid"
+                    onClick={openUpload}
+                    disabled={uploadDisabled}
+                  >
+                    {uploadLabel}
+                  </Button>
+                )}
               </Flex>
             ) : (
               <Flex direction="column" gap="2">
@@ -416,6 +510,56 @@ const NAV_ITEMS: Array<{
       p === "/screenshots" || p.startsWith("/screenshots/"),
   },
 ];
+
+// Upload button for pages that aren't a single-type feed — clicking
+// reveals a dropdown with Video and GIF options instead of guessing.
+// Disabled state still shows a tooltip explaining why (busy / other tab
+// busy); when enabled the tooltip is suppressed so it doesn't fight the
+// dropdown popover for hover focus.
+function UploadChooserDropdown({
+  label,
+  disabled,
+  disabledReason,
+  onPickVideo,
+  onPickGif,
+  videoLabel,
+  gifLabel,
+}: {
+  label: string;
+  disabled: boolean;
+  disabledReason: string | null;
+  onPickVideo: () => void;
+  onPickGif: () => void;
+  videoLabel: string;
+  gifLabel: string;
+}) {
+  const trigger = (
+    <Button size="2" variant="solid" disabled={disabled}>
+      {label}
+      <ChevronDownIcon />
+    </Button>
+  );
+  if (disabled && disabledReason) {
+    // Disabled triggers don't open the menu, so we render a plain
+    // tooltip-wrapped button instead of a dropdown to surface the reason.
+    return <Tooltip content={disabledReason}>{trigger}</Tooltip>;
+  }
+  return (
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger>{trigger}</DropdownMenu.Trigger>
+      <DropdownMenu.Content align="end">
+        <DropdownMenu.Item onSelect={onPickVideo}>
+          <VideoIcon style={{ marginRight: 6 }} />
+          {videoLabel}
+        </DropdownMenu.Item>
+        <DropdownMenu.Item onSelect={onPickGif}>
+          <ImageIcon style={{ marginRight: 6 }} />
+          {gifLabel}
+        </DropdownMenu.Item>
+      </DropdownMenu.Content>
+    </DropdownMenu.Root>
+  );
+}
 
 function TopBarNav() {
   const pathname = usePathname() ?? "/";
