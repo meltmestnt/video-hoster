@@ -434,6 +434,24 @@ button:disabled,
   );
 }
 
+/* Mixed blue + iris border for the chat-library hero — the panel is
+ * about Telegram + Discord (blue) AND private folders (iris/violet),
+ * so the running highlight cycles through both colors instead of one. */
+.intro-card-blueiris::before {
+  background: conic-gradient(
+    from var(--intro-angle),
+    transparent 0deg,
+    var(--iris-9) 60deg,
+    var(--iris-11) 90deg,
+    var(--iris-9) 120deg,
+    transparent 200deg,
+    var(--blue-9) 280deg,
+    var(--blue-11) 310deg,
+    var(--blue-9) 340deg,
+    transparent 360deg
+  );
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .intro-card::before {
     animation: introBorderSpin 4.5s linear infinite;
@@ -788,6 +806,303 @@ body[data-morphing] .page-header {
 @keyframes mediaLoaderSpin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* ───── Anonymous landing — chat library hero ───── */
+
+.anon-chatlib-hero {
+  /* Hero card content sits above the animated gradient + grid layers. */
+  isolation: isolate;
+  padding: 40px 40px 32px;
+}
+@media (max-width: 900px) {
+  .anon-chatlib-hero {
+    padding: 28px 22px 24px;
+  }
+}
+
+.anon-chatlib-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      ellipse at 75% 18%,
+      rgba(70, 132, 255, 0.42) 0%,
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse at 8% 92%,
+      rgba(125, 102, 255, 0.34) 0%,
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse at 50% 50%,
+      rgba(255, 255, 255, 0.02) 0%,
+      transparent 60%
+    ),
+    linear-gradient(180deg, var(--gray-2) 0%, var(--gray-1) 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .anon-chatlib-bg {
+    animation: anonChatLibBgDrift 18s ease-in-out infinite alternate;
+  }
+}
+@keyframes anonChatLibBgDrift {
+  0% {
+    background-position:
+      0% 0%,
+      0% 0%,
+      0% 0%,
+      0% 0%;
+    filter: hue-rotate(0deg);
+  }
+  100% {
+    background-position:
+      6% 4%,
+      -4% -3%,
+      0% 0%,
+      0% 0%;
+    filter: hue-rotate(8deg);
+  }
+}
+
+.anon-chatlib-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 36px 36px;
+  mask-image: radial-gradient(
+    ellipse at 50% 0%,
+    black 0%,
+    transparent 75%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.anon-chatlib-layout {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 48px;
+  align-items: center;
+}
+@media (max-width: 900px) {
+  .anon-chatlib-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 32px;
+  }
+}
+
+.anon-chatlib-headline {
+  font-size: clamp(2rem, 4.4vw, 3.4rem);
+}
+
+.anon-chatlib-grad {
+  background-image: linear-gradient(
+    120deg,
+    var(--blue-10) 0%,
+    var(--iris-10) 60%,
+    #c5b6ff 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .anon-chatlib-grad {
+    animation: anonChatLibGradShift 7s ease-in-out infinite alternate;
+  }
+}
+@keyframes anonChatLibGradShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 100% 50%;
+  }
+}
+
+.anon-chatlib-features {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 24px;
+  width: 100%;
+  margin-top: 28px;
+}
+@media (max-width: 520px) {
+  .anon-chatlib-features {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+}
+
+.anon-chatlib-feature {
+  position: relative;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .anon-chatlib-feature {
+    animation: introFadeUp 540ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+    animation-delay: calc(420ms + var(--feat-index, 0) * 90ms);
+  }
+}
+
+.anon-chatlib-feat-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(
+    135deg,
+    var(--iris-4) 0%,
+    var(--blue-4) 100%
+  );
+  color: var(--iris-11);
+  box-shadow: inset 0 0 0 1px var(--iris-6);
+  margin-bottom: 4px;
+}
+
+/* ── Screenshot stack ── */
+
+.anon-chatlib-shots {
+  position: relative;
+  width: 100%;
+  min-height: 460px;
+  pointer-events: none;
+}
+@media (max-width: 900px) {
+  .anon-chatlib-shots {
+    min-height: 360px;
+    margin-top: 8px;
+  }
+}
+@media (max-width: 520px) {
+  .anon-chatlib-shots {
+    min-height: 300px;
+  }
+}
+
+.anon-chatlib-shot {
+  position: absolute;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #0d0d10;
+  box-shadow:
+    0 30px 60px -24px rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+}
+.anon-chatlib-shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* Slight darken + cool tone so the screenshots blend into the dark
+   * panel instead of looking pasted in. */
+  filter: brightness(0.86) contrast(1.05) saturate(0.95);
+}
+.anon-chatlib-shot::after {
+  /* Soft top highlight + bottom fade so the chrome of the original
+   * screenshot doesn't read as a hard edge against the panel. */
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.05) 0%,
+      transparent 18%,
+      transparent 75%,
+      rgba(0, 0, 0, 0.45) 100%
+    );
+  pointer-events: none;
+}
+
+.anon-chatlib-shot-label {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: white;
+  background: rgba(15, 15, 18, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.anon-chatlib-shot--telegram {
+  width: 56%;
+  max-width: 320px;
+  top: 0;
+  right: 4%;
+  transform: rotate(2.5deg);
+  z-index: 2;
+}
+.anon-chatlib-shot--discord {
+  width: 64%;
+  max-width: 380px;
+  bottom: 0;
+  left: 0;
+  transform: rotate(-3deg);
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .anon-chatlib-shot--telegram {
+    animation: anonChatLibFloatTelegram 9s ease-in-out infinite;
+  }
+  .anon-chatlib-shot--discord {
+    animation: anonChatLibFloatDiscord 11s ease-in-out infinite;
+  }
+}
+
+@keyframes anonChatLibFloatTelegram {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(2.5deg);
+  }
+  50% {
+    transform: translate3d(0, -10px, 0) rotate(3.4deg);
+  }
+}
+@keyframes anonChatLibFloatDiscord {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(-3deg);
+  }
+  50% {
+    transform: translate3d(0, -8px, 0) rotate(-3.8deg);
+  }
+}
+
+@media (max-width: 900px) {
+  .anon-chatlib-shot--telegram {
+    width: 50%;
+    max-width: 240px;
+    right: 6%;
+  }
+  .anon-chatlib-shot--discord {
+    width: 56%;
+    max-width: 280px;
+    left: 4%;
   }
 }
 

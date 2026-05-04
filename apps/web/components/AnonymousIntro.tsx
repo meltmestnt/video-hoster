@@ -3,39 +3,29 @@ import { Box, Button, Flex } from "@radix-ui/themes";
 import { T } from "@/lib/i18n";
 import { LocaleSwitcher } from "./LocaleSwitcher";
 import { InstantGifDemo } from "./InstantGifDemo";
-import { AnonTelegramPromo } from "./AnonTelegramPromo";
-import { AnonFoldersPromo } from "./AnonFoldersPromo";
+import { AnonChatLibraryHero } from "./AnonChatLibraryHero";
 
 /**
- * Anonymous landing structured as a three-step funnel that mirrors the
- * product's actual flow:
+ * Anonymous landing — leads with the actual differentiator.
  *
- *   1. **In** — InstantGifDemo: drop a video, get a GIF in the browser.
- *      Conversion is the entry point that puts something into the
- *      library. Doubles as the killer demo (no-signup-required value).
- *   2. **Organize** — AnonFoldersPromo: private folders, the "you own
- *      your library" half of the differentiator vs Tenor.
- *   3. **Distribute** — AnonTelegramPromo: send from any chat via the
- *      Telegram + Discord bots. Same library across surfaces — the
- *      thing Tenor structurally can't do.
+ *   1. **Cross-chat private library** (AnonChatLibraryHero): your private
+ *      folders of GIFs and videos, sendable inline from Telegram and
+ *      Discord with one shared library. The thing Tenor structurally
+ *      can't do — and what makes vidsandgifs hard to copy.
+ *   2. **In-browser conversion** (InstantGifDemo): demoted to a
+ *      secondary capability. Useful and a strong interactive hook for
+ *      cold visitors, but commodity vs the cross-chat pitch.
  *
- * Earlier versions of this page led with a 7-feature grid (videos,
- * GIFs, URL upload, in-browser convert, screenshots, audio, community)
- * that diluted the pitch — every capability fought for the same eyeline
- * and the cross-platform-library story got buried. The funnel framing
- * makes the differentiator the headline; secondary capabilities can
- * be re-added later as a slim "and more" row if SEO needs it.
+ * Earlier versions led with the converter and split the cross-chat story
+ * across two thin panels (folders + bots). The headline differentiator
+ * landed below the fold, and the bot panel had a half-empty right side.
+ * This version unifies the differentiator into one panel anchored by
+ * real screenshots of the inline picker (Telegram) and /gif autocomplete
+ * (Discord) so the pitch is visible at first glance.
  */
 export function AnonymousIntro() {
   return (
     <>
-      {/* The locale switcher is the only top-right control on the
-          anonymous landing — pinned in absolute coordinates so it sits
-          above the demo's gradient backdrop. The choice persists via
-          localStorage inside the i18n provider.
-          --panel-index drives the staggered slide-up (see
-          .intro-panel-fade-up in globals.css) — three funnel panels in
-          sequence, 160ms apart. */}
       <Box
         className="intro-panel-fade-up"
         style={{
@@ -44,48 +34,41 @@ export function AnonymousIntro() {
           ["--panel-index" as string]: 0,
         }}
       >
+        {/* The locale switcher is the only top-right control on the
+            anonymous landing — pinned in absolute coordinates so it sits
+            above the hero's gradient backdrop. */}
         <Box
           style={{
             position: "absolute",
-            top: 8,
-            right: 8,
+            top: 12,
+            right: 12,
             zIndex: 4,
           }}
         >
           <LocaleSwitcher size="1" />
         </Box>
-        {/* 1. In — drop a video, get a GIF, all in-browser. */}
-        <InstantGifDemo signedIn={false} />
+        <AnonChatLibraryHero />
       </Box>
 
-      {/* 2. Organize — private folders. */}
       <div
         className="intro-panel-fade-up"
         style={{ ["--panel-index" as string]: 1 }}
       >
-        <AnonFoldersPromo />
-      </div>
-
-      {/* 3. Distribute — Telegram + Discord, same library. */}
-      <div
-        className="intro-panel-fade-up"
-        style={{ ["--panel-index" as string]: 2 }}
-      >
-        <AnonTelegramPromo />
+        <InstantGifDemo signedIn={false} />
       </div>
 
       <Flex
-        className="intro-cta-row"
+        className="intro-cta-row intro-panel-fade-up"
         gap="3"
         mb="6"
         wrap="wrap"
         align="center"
+        style={{ ["--panel-index" as string]: 2 }}
       >
-        {/* `plausible-event-name=...` activates Plausible's tagged-
-            events handler — clicking the link fires the named custom
-            event with no JS handler needed. Names are deliberately
-            generic ("Landing Signup", "Landing Signin", "Landing
-            Browse") so they group cleanly in the Plausible dashboard. */}
+        {/* `plausible-event-name=...` activates Plausible's tagged-events
+            handler — clicking the link fires the named custom event with
+            no JS handler. Names are deliberately generic so they group
+            cleanly in the dashboard. */}
         <Button
           asChild
           size="3"
