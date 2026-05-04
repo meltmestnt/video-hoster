@@ -57,6 +57,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     },
     {
+      url: absoluteUrl("/gifs"),
+      lastModified: now,
+      changeFrequency: "hourly",
+      priority: 0.9,
+    },
+    {
       // Static FAQ page — content rarely changes but worth a high-ish
       // priority because it's the page targeting "what is a gif" /
       // "how to convert gif to mp4" search queries. Both English and
