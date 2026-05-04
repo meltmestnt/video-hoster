@@ -11,15 +11,16 @@ import {
 } from "@/lib/faq-data";
 
 export const metadata: Metadata = {
-  title: "FAQ — What is a GIF, video formats, GIF↔MP4 conversion",
+  title:
+    "FAQ — Send GIFs in Telegram + Discord, private folders, GIF ↔ MP4 conversion",
   description:
-    "Answers to common questions about vids&gifs: what a GIF is, what video formats we support, how to convert GIFs to MP4 (and vice versa), file size limits, and how to share what you upload.",
+    "Answers to common questions about vids&gifs: how to send GIFs from your private library in any Telegram or Discord chat, what private folders are and how to share them, plus how to convert GIFs to MP4 (and vice versa) in your browser.",
   alternates: { canonical: absoluteUrl("/faq") },
   openGraph: {
     type: "website",
     title: "vids&gifs FAQ",
     description:
-      "What is a GIF? What video types can I upload? How do I convert between GIF and MP4? Common questions answered.",
+      "Sending GIFs from your private library in Telegram and Discord, private folders, and GIF ↔ MP4 conversion — all the common questions answered.",
     url: absoluteUrl("/faq"),
   },
 };

@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "vids&gifs — upload, share, and discover short videos, GIFs, and screenshots";
+export const alt = "vids&gifs — your private GIFs and videos in every chat (Telegram + Discord)";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -36,14 +36,28 @@ export default function Image() {
         <div
           style={{
             marginTop: 32,
-            fontSize: 40,
+            fontSize: 44,
             color: "#cbd5e1",
             letterSpacing: "-0.01em",
-            maxWidth: 900,
-            lineHeight: 1.2,
+            maxWidth: 1000,
+            lineHeight: 1.15,
           }}
         >
-          Upload, share, and discover short videos, GIFs, and screenshots.
+          Your private GIFs and videos,
+          <br />
+          in every chat — Telegram + Discord.
+        </div>
+        <div
+          style={{
+            marginTop: 20,
+            fontSize: 26,
+            color: "#94a3b8",
+            letterSpacing: "-0.005em",
+            maxWidth: 1000,
+            lineHeight: 1.3,
+          }}
+        >
+          Plus a free GIF ↔ MP4 converter, in your browser.
         </div>
         <div
           style={{

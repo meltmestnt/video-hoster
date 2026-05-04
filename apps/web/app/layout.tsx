@@ -40,19 +40,19 @@ const COPY: Record<
 > = {
   en: {
     title:
-      "vids & gifs — convert GIF to MP4 (and MP4 to GIF), private GIFs, Telegram bot",
+      "vids & gifs — your private GIFs and videos in every chat (Telegram + Discord), GIF ↔ MP4 converter",
     ogTitle:
-      "vids & gifs — convert GIF ↔ MP4, private GIFs, Telegram bot",
+      "vids & gifs — private GIFs and videos in every chat (Telegram + Discord)",
     description:
-      "vids & gifs (vidsandgifs.com) — upload videos and GIFs, convert MP4 to GIF and GIF to MP4 in your browser, build private GIF folders, and search them inline from any Telegram chat with our bot. Trim and compress videos, extract audio, capture screenshots from any frame, share publicly or keep private. Free, no installs, works on desktop and mobile.",
+      "vids & gifs (vidsandgifs.com) — your private library of GIFs and videos, sendable inline from any chat. Curate folders only you can see and reach them through @vidsandgifsbot's inline picker on Telegram and the /gif slash command on Discord — same library, every surface. Also a free in-browser GIF ↔ MP4 converter, video trimming, audio overlay, and frame-by-frame screenshots. No installs, works on desktop and mobile.",
   },
   uk: {
     title:
-      "vids & gifs — конвертуй GIF у MP4 (і MP4 у GIF), приватні GIF, Telegram-бот",
+      "vids & gifs — твої приватні GIF і відео у кожному чаті (Telegram + Discord), конвертер GIF ↔ MP4",
     ogTitle:
-      "vids & gifs — конвертуй GIF ↔ MP4, приватні GIF, Telegram-бот",
+      "vids & gifs — приватні GIF і відео у кожному чаті (Telegram + Discord)",
     description:
-      "vids & gifs (vidsandgifs.com) — завантажуй відео і GIF, конвертуй MP4 у GIF та GIF у MP4 прямо в браузері, складай приватні папки GIF і шукай їх інлайн у будь-якому чаті Telegram через нашого бота. Обрізай і стискай відео, витягуй аудіо, зберігай кадри як скріншоти, ділися публічно або тримай приватно. Безкоштовно, без встановлення, працює на ПК і смартфоні.",
+      "vids & gifs (vidsandgifs.com) — твоя приватна бібліотека GIF і відео, яку можна слати інлайн з будь-якого чату. Складай у папки, які бачиш лише ти, і діставай через інлайн-пікер @vidsandgifsbot у Telegram та слеш-команду /gif у Discord — одна бібліотека, кожна поверхня. А ще безкоштовний конвертер GIF ↔ MP4 у браузері, обрізання відео, аудіо-накладки та скріншоти з будь-якого кадру. Без встановлення, працює на ПК і смартфоні.",
   },
 };
 
@@ -71,13 +71,43 @@ const SITE_KEYWORDS = [
   "vidsandgifs.xyz",
   "vids gifs",
   "videos and gifs",
+  // Cross-chat private library — the differentiator, lead the keyword
+  // list with these so morphological matches for the killer-feature
+  // queries rank above the commodity converter terms.
+  "private gif library",
+  "private gif folders",
+  "private video library",
+  "shared gif library",
+  "shared library across chats",
+  "send gifs from telegram and discord",
+  "one gif library every chat",
+  "gif library across telegram and discord",
+  // Telegram — English
+  "telegram gif bot",
+  "telegram gif inline picker",
+  "telegram gif search",
+  "send gifs in telegram",
+  "inline gif search telegram",
+  "vidsandgifsbot",
+  "@vidsandgifsbot",
+  // Discord — English
+  "discord gif bot",
+  "discord gif slash command",
+  "discord /gif command",
+  "discord gif autocomplete",
+  "send gifs in discord",
+  "private gif library discord",
+  // Folders + sharing
+  "private gifs",
+  "share gif folder",
+  "read-only gif folder",
   // Core actions — English
   "upload videos and gifs",
   "upload video",
   "upload gif",
   "share videos",
   "share gifs",
-  // GIF ↔ MP4 conversion — English
+  // GIF ↔ MP4 conversion — secondary feature, kept for long-tail SEO
   "convert gif to mp4",
   "convert mp4 to gif",
   "gif to mp4",
@@ -88,22 +118,23 @@ const SITE_KEYWORDS = [
   "in-browser gif converter",
   "gif to mp4 converter",
   "mp4 to gif converter",
-  // Private library + Telegram — English
-  "private gifs",
-  "private gif library",
-  "private gif folders",
-  "telegram gif bot",
-  "telegram gif search",
-  "send gifs in telegram",
-  "inline gif search telegram",
-  // Editor + screenshot — English
+  // Editor + screenshot
   "compress video online",
   "trim video online",
   "screenshot from video",
   "extract frame from video",
   "online video editor",
   "in-browser video editor",
-  // Ukrainian
+  // Ukrainian — lead with cross-chat library terms here too
+  "приватна бібліотека gif",
+  "приватні папки gif",
+  "gif бібліотека для telegram і discord",
+  "телеграм бот для gif",
+  "телеграм гіф бот",
+  "discord бот для gif",
+  "discord слеш команда gif",
+  "приватні gif",
+  "приватні гіфки",
   "відео і gif",
   "гіфки і відео",
   "конвертер gif у mp4",
@@ -112,22 +143,22 @@ const SITE_KEYWORDS = [
   "конвертувати mp4 у gif",
   "конвертнути гіф",
   "конвертнути gif у відео",
-  "приватні gif",
-  "приватні гіфки",
-  "телеграм бот для gif",
-  "телеграм гіф бот",
   "обрізати відео онлайн",
   "стиснути відео онлайн",
-  // Russian (broad reach across the ru-language audience that searches
-  // for the same intents — Yandex picks these up directly)
+  // Russian (broad reach — Yandex picks these up directly)
+  "приватная библиотека gif",
+  "приватные папки гифок",
+  "gif библиотека для telegram и discord",
+  "телеграм бот для гифок",
+  "discord бот для гифок",
+  "discord слеш команда gif",
+  "приватные гифки",
   "гифки и видео",
   "видео и гифки",
   "конвертер gif в mp4",
   "конвертер mp4 в gif",
   "gif в mp4 онлайн",
   "mp4 в gif онлайн",
-  "приватные гифки",
-  "телеграм бот для гифок",
 ];
 
 // Search engine site-verification tokens. These are public values that get

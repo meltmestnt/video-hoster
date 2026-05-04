@@ -32,23 +32,23 @@ const HOME_COPY: Record<
 > = {
   en: {
     title:
-      "vids & gifs — your GIF library in every chat (Telegram + Discord), GIF ↔ MP4 converter, private folders",
+      "vids & gifs — your private GIFs and videos in every chat (Telegram + Discord), GIF ↔ MP4 converter",
     description:
-      "vids & gifs (vidsandgifs.com) is your GIF library that lives across Telegram and Discord. Convert any video to a GIF (and back) in your browser, organize them into private folders, and send from any chat — @vidsandgifsbot inline picker on Telegram, /gif slash command on Discord, same library on both. Free, no installs, no ads.",
+      "vids & gifs (vidsandgifs.com) is your private library of GIFs and videos that lives across Telegram and Discord. Curate folders only you can see, then send from any chat — @vidsandgifsbot inline picker on Telegram, /gif slash command with autocomplete on Discord, same library on both. Free in-browser GIF ↔ MP4 conversion is included for feeding your library. No installs, no ads.",
     ogTitle:
-      "vids & gifs — one GIF library, every chat (Telegram + Discord)",
+      "vids & gifs — private GIFs and videos, every chat (Telegram + Discord)",
     ogDescription:
-      "Convert any video to a GIF, organize into private folders, send from Telegram and Discord with one shared library. Free at vidsandgifs.com.",
+      "One private library of GIFs and videos, sendable inline from Telegram and Discord — plus a free in-browser GIF ↔ MP4 converter. vidsandgifs.com.",
   },
   uk: {
     title:
-      "vids & gifs — твоя GIF-бібліотека в кожному чаті (Telegram + Discord), конвертер GIF ↔ MP4, приватні папки",
+      "vids & gifs — твої приватні GIF і відео у кожному чаті (Telegram + Discord), конвертер GIF ↔ MP4",
     description:
-      "vids & gifs (vidsandgifs.com) — твоя GIF-бібліотека, що працює і в Telegram, і в Discord. Конвертуй будь-яке відео у GIF (і навпаки) прямо в браузері, складай у приватні папки і надсилай з будь-якого чату — інлайн-пікер @vidsandgifsbot у Telegram, слеш-команда /gif у Discord, одна бібліотека на обох. Безкоштовно, без встановлення, без реклами.",
+      "vids & gifs (vidsandgifs.com) — твоя приватна бібліотека GIF і відео, що працює і в Telegram, і в Discord. Складай у папки, які бачиш лише ти, і надсилай з будь-якого чату — інлайн-пікер @vidsandgifsbot у Telegram, слеш-команда /gif з автодоповненням у Discord, одна бібліотека на обох. Безкоштовний конвертер GIF ↔ MP4 у браузері — додатковий спосіб поповнити бібліотеку. Без встановлення, без реклами.",
     ogTitle:
-      "vids & gifs — одна GIF-бібліотека, кожен чат (Telegram + Discord)",
+      "vids & gifs — приватні GIF і відео, кожен чат (Telegram + Discord)",
     ogDescription:
-      "Конвертуй відео в GIF, складай у приватні папки, надсилай з Telegram і Discord — одна спільна бібліотека. Безкоштовно на vidsandgifs.com.",
+      "Одна приватна бібліотека GIF і відео — інлайн з Telegram і Discord. Плюс безкоштовний конвертер GIF ↔ MP4 у браузері. vidsandgifs.com.",
   },
 };
 

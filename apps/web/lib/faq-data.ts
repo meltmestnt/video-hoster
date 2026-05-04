@@ -21,6 +21,18 @@ export interface FaqEntry {
 
 export const FAQ_ITEMS_EN: FaqEntry[] = [
   {
+    question: "How do I send GIFs from my private library in Telegram?",
+    answerHtml: `<p>Connect your Telegram account once in <em>Settings → Connections</em>, then in any chat type <strong>@vidsandgifsbot</strong> followed by a search term. Telegram's native inline picker pops up a grid of GIFs from your active folder — tap one and it sends instantly. The picker only ever searches inside the folder you've marked active, so you don't have to scroll past the public library to find your own reaction set. Forwarding any GIF to the bot adds it to that same folder, so your library grows from inside the chat.</p>`,
+  },
+  {
+    question: "How do I send GIFs from my private library in Discord?",
+    answerHtml: `<p>Add the vids&amp;gifs Discord bot to your server (or use it in a DM), connect your account in <em>Settings → Connections</em>, and type <strong>/gif</strong>. Discord's slash-command autocomplete shows GIFs from your active folder as you type — pick one and the bot posts it to the channel. Use <strong>/upload-file</strong> to add a new GIF straight from Discord; it lands in your active folder and stays searchable on the website too. The same library powers both Telegram and Discord, so a GIF added in one shows up in the other immediately.</p>`,
+  },
+  {
+    question: "What's a private folder and how do I share one?",
+    answerHtml: `<p>A folder is a private bucket for the GIFs and videos you actually use — only you see what's inside, and you can pick one as <em>active</em> at any time. Whichever folder is active becomes the search scope for the Telegram inline picker and the Discord <code>/gif</code> autocomplete, so you can keep separate sets for separate chats (work, friends, a specific group joke) and switch between them in one tap. To share, open a folder and hit <em>Share</em> — that produces a read-only link your friend can open. They see your set live as you add to it, with no copies and no manual sync.</p>`,
+  },
+  {
     question: "What is a GIF?",
     answerHtml: `<p>A GIF (Graphics Interchange Format) is a short, looping animated image stored in a single file. Unlike a video, a GIF plays automatically, has no sound, and uses a palette of up to 256 colors per frame. It's the easiest way to share a few seconds of motion — a reaction, a meme, or a clip from a longer video — because every modern browser, chat app, and email client renders GIFs natively. On vids&amp;gifs you can upload an existing .gif file or generate one from any video you've uploaded.</p>`,
   },
@@ -34,11 +46,11 @@ export const FAQ_ITEMS_EN: FaqEntry[] = [
   },
   {
     question: "How do I convert a video to a GIF?",
-    answerHtml: `<p>Click the <em>Convert</em> button in the top bar, drop in any video file, and the in-browser editor lets you trim it to the exact 1–20 second range you want, optionally crop and rotate, then export as a GIF. Conversion happens locally with ffmpeg.wasm — your video never leaves your machine for the conversion step itself. GIFs are capped at 20 MB and 20 seconds; if your trim is too long the editor flags it before exporting. Once exported, the GIF goes straight into your gallery.</p>`,
+    answerHtml: `<p>Click the <em>Convert</em> button in the top bar, drop in any video file, and the in-browser editor lets you trim it to the exact 1–20 second range you want, optionally crop and rotate, then export as a GIF. Conversion happens locally with ffmpeg.wasm — your video never leaves your machine for the conversion step itself. GIFs are capped at 20 MB and 20 seconds; if your trim is too long the editor flags it before exporting. Once exported, the GIF goes straight into your gallery and into your active folder, ready to send from any chat.</p>`,
   },
   {
     question: "Is vids&gifs free to use?",
-    answerHtml: `<p>Yes. You can sign up, upload videos and GIFs, capture screenshots, comment, react, and follow other creators completely free. A paid Pro tier exists for higher daily upload quotas, but every core feature works on the free plan. There's no advertising and no third-party tracking beyond the optional analytics cookie banner.</p>`,
+    answerHtml: `<p>Yes. You can sign up, build private folders, connect the Telegram and Discord bots, upload videos and GIFs, capture screenshots, comment, react, and follow other creators completely free. A paid Pro tier exists for higher daily upload quotas, but every core feature — including the cross-chat library — works on the free plan. There's no advertising and no third-party tracking beyond the optional analytics cookie banner.</p>`,
   },
   {
     question: "What's the maximum file size for uploads?",
@@ -51,6 +63,18 @@ export const FAQ_ITEMS_EN: FaqEntry[] = [
 ];
 
 export const FAQ_ITEMS_UK: FaqEntry[] = [
+  {
+    question: "Як надсилати GIF із приватної бібліотеки в Telegram?",
+    answerHtml: `<p>Підʼєднай Telegram у <em>Налаштуваннях → Підключення</em>, потім у будь-якому чаті набери <strong>@vidsandgifsbot</strong> та пошуковий запит. Telegram покаже інлайн-сітку GIF з твоєї активної папки — тапни на потрібний, і він одразу надішлеться. Пікер шукає лише в активній папці, тож тобі не доведеться гортати чужу публічну бібліотеку, щоб знайти свій набір реакцій. Перешли будь-який GIF боту — він додасться в ту саму папку прямо з чату.</p>`,
+  },
+  {
+    question: "Як надсилати GIF із приватної бібліотеки в Discord?",
+    answerHtml: `<p>Додай бота vids&amp;gifs на свій Discord-сервер (або користуйся в DM), підʼєднай акаунт у <em>Налаштуваннях → Підключення</em> й набери <strong>/gif</strong>. Слеш-команда Discord підкаже GIF з твоєї активної папки прямо під час набору — обери потрібний, і бот опублікує його в каналі. Команда <strong>/upload-file</strong> додає новий GIF просто з Discord; він потрапляє в активну папку та залишається пошуковим і на сайті. Та сама бібліотека живить і Telegram, і Discord — додав в одному, з’явилося в іншому.</p>`,
+  },
+  {
+    question: "Що таке приватна папка і як нею поділитися?",
+    answerHtml: `<p>Папка — це приватна корзина для GIF і відео, якими ти справді користуєшся: вміст бачиш лише ти, а одну з папок можна позначити як <em>активну</em>. Активна папка стає областю пошуку для інлайн-пікера Telegram і автодоповнення <code>/gif</code> у Discord — отже можна тримати окремі набори для різних чатів (робота, друзі, окремий жарт у групі) й перемикатися одним тапом. Щоб поділитися, відкрий папку й натисни <em>Поділитися</em>: це створить read-only посилання, яке другу можна відкрити. Він бачить твою колекцію live, як ти її поповнюєш — без копій і ручної синхронізації.</p>`,
+  },
   {
     question: "Що таке GIF?",
     answerHtml: `<p>GIF (Graphics Interchange Format) — це коротке зациклене анімоване зображення в одному файлі. На відміну від відео, GIF відтворюється автоматично, не має звуку та використовує палітру до 256 кольорів на кадр. Це найпростіший спосіб поділитися кількома секундами руху — реакцією, мемом чи фрагментом довшого відео, — адже кожен сучасний браузер, месенджер і поштовий клієнт відтворює GIF без додаткових плагінів. На vids&amp;gifs ви можете завантажити готовий .gif або згенерувати його з будь-якого свого відео.</p>`,
