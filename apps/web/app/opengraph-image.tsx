@@ -35,6 +35,8 @@ export default function Image() {
         </div>
         <div
           style={{
+            display: "flex",
+            flexDirection: "column",
             marginTop: 32,
             fontSize: 44,
             color: "#cbd5e1",
@@ -43,9 +45,8 @@ export default function Image() {
             lineHeight: 1.15,
           }}
         >
-          Your private GIFs and videos,
-          <br />
-          in every chat — Telegram + Discord.
+          <div>Your private GIFs and videos,</div>
+          <div>in every chat — Telegram + Discord.</div>
         </div>
         <div
           style={{
