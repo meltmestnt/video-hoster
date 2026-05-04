@@ -791,6 +791,32 @@ body[data-morphing] .page-header {
   }
 }
 
+/* Sort-change pending state — VideoSortSelect sets body[data-sort-pending]
+ * while it's waiting for the server to render the new sort. Dim the grid
+ * and overlay a centered spinner so the user gets instant feedback that
+ * their click was registered. The dropdown itself already shows the new
+ * label optimistically; this just covers the listing area underneath. */
+body[data-sort-pending="1"] .dashboard-grid {
+  opacity: 0.35;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+body[data-sort-pending="1"]::after {
+  content: "";
+  position: fixed;
+  top: 30vh;
+  left: 50%;
+  width: 32px;
+  height: 32px;
+  margin-left: -16px;
+  border: 3px solid var(--gray-6);
+  border-top-color: var(--gray-12);
+  border-radius: 50%;
+  animation: mediaLoaderSpin 700ms linear infinite;
+  z-index: 50;
+  pointer-events: none;
+}
+
 /* ───── floating mini player ───── */
 
 .mini-player {
