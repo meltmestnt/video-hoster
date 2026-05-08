@@ -171,37 +171,45 @@ export function AnonChatLibraryHero() {
           </div>
         </Flex>
 
-        {/* The screenshots float on the right at slight angles, with the
-            Telegram one anchored top-right and the Discord one offset
-            below-left so they overlap but each label is readable. CSS
-            handles the float/parallax animation, the rounded frame, the
-            soft glow, and the gradient mask that fades the bottom edge
-            into the panel background. */}
-        <div className="anon-chatlib-shots" aria-hidden>
+        {/* The screenshots float on the right at slight angles —
+            Telegram anchored top-right and Discord offset below-left so
+            they overlap but each label is readable. Hovering a shot
+            scales it up and adds a soft glow; the inner .shot-bob
+            wrapper carries an ambient float keyframe so the cards drift
+            up and down independently. Native click-and-drag is
+            suppressed on the images themselves so the hover gesture
+            stays clean. */}
+        <div className="anon-chatlib-shots">
           <div className="anon-chatlib-shot anon-chatlib-shot--telegram">
-            <span className="anon-chatlib-shot-label">
-              <PaperPlaneIcon width="11" height="11" /> Telegram
+            <span className="anon-chatlib-shot-bob">
+              <span className="anon-chatlib-shot-label">
+                <PaperPlaneIcon width="11" height="11" /> Telegram
+              </span>
+              <Image
+                src="/landing/telegram-inline-picker.png"
+                alt="@vidsandgifsbot inline picker in a Telegram chat"
+                width={685}
+                height={917}
+                priority
+                sizes="(max-width: 900px) 60vw, 320px"
+                draggable={false}
+              />
             </span>
-            <Image
-              src="/landing/telegram-inline-picker.png"
-              alt="@vidsandgifsbot inline picker in a Telegram chat"
-              width={685}
-              height={917}
-              priority
-              sizes="(max-width: 900px) 60vw, 320px"
-            />
           </div>
           <div className="anon-chatlib-shot anon-chatlib-shot--discord">
-            <span className="anon-chatlib-shot-label">
-              <ChatBubbleIcon width="11" height="11" /> Discord
+            <span className="anon-chatlib-shot-bob">
+              <span className="anon-chatlib-shot-label">
+                <ChatBubbleIcon width="11" height="11" /> Discord
+              </span>
+              <Image
+                src="/landing/discord-gif-autocomplete.png"
+                alt="/gif command with autocomplete in a Discord channel"
+                width={1172}
+                height={1112}
+                sizes="(max-width: 900px) 60vw, 360px"
+                draggable={false}
+              />
             </span>
-            <Image
-              src="/landing/discord-gif-autocomplete.png"
-              alt="/gif command with autocomplete in a Discord channel"
-              width={1172}
-              height={1112}
-              sizes="(max-width: 900px) 60vw, 360px"
-            />
           </div>
         </div>
       </div>

@@ -978,7 +978,9 @@ body[data-morphing] .page-header {
   position: relative;
   width: 100%;
   min-height: 460px;
-  pointer-events: none;
+  /* Interactive: shots are buttons that promote themselves to the front
+   * slot on click. Pointer-events flow through the container to the
+   * children so each shot has its own hit-target. */
 }
 @media (max-width: 900px) {
   .anon-chatlib-shots {
@@ -1001,6 +1003,21 @@ body[data-morphing] .page-header {
     0 30px 60px -24px rgba(0, 0, 0, 0.7),
     0 0 0 1px rgba(255, 255, 255, 0.06),
     inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+  transform: rotate(var(--shot-rot, 0deg));
+  transform-origin: center;
+  /* Block native text selection + the browser's "drag this image away"
+   * gesture. Without these, click-and-drag on the screenshots starts a
+   * drag-image operation which interrupts the hover state and looks
+   * broken. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+  /* Hover transitions on transform + box-shadow only — the shots are
+   * statically positioned (no click swap), so width / top / left etc
+   * never change at runtime. */
+  transition:
+    transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 240ms ease;
 }
 .anon-chatlib-shot img {
   display: block;
@@ -1009,6 +1026,15 @@ body[data-morphing] .page-header {
   /* Slight darken + cool tone so the screenshots blend into the dark
    * panel instead of looking pasted in. */
   filter: brightness(0.86) contrast(1.05) saturate(0.95);
+  transition: filter 260ms ease;
+  /* pointer-events: none + draggable={false} on the <Image> together
+   * fully suppress the native image-drag gesture. The .shot wrapper
+   * stays hoverable because pointer-events flow up to the parent. */
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+.anon-chatlib-shot:hover img {
+  filter: brightness(0.97) contrast(1.05) saturate(1);
 }
 .anon-chatlib-shot::after {
   /* Soft top highlight + bottom fade so the chrome of the original
@@ -1025,6 +1051,20 @@ body[data-morphing] .page-header {
       rgba(0, 0, 0, 0.45) 100%
     );
   pointer-events: none;
+  border-radius: inherit;
+}
+
+.anon-chatlib-shot-bob {
+  /* Inner wrapper that the float keyframe animates. Living on a child
+   * instead of the outer button keeps the bob's translate from fighting
+   * with the FLIP swap animation (which targets the button's transform
+   * directly). Position: relative so the absolutely-positioned label
+   * resolves against this wrapper and bobs along with the image.
+   * Height: 100% propagates the slot's height down to the img, which
+   * uses height: 100%; width: auto for aspect-driven sizing. */
+  display: block;
+  position: relative;
+  height: 100%;
 }
 
 .anon-chatlib-shot-label {
@@ -1048,48 +1088,70 @@ body[data-morphing] .page-header {
   text-transform: uppercase;
 }
 
+/* ── Slot positions ─────────────────────────────────────────────────
+ * Each shot has a fixed slot — Telegram in the top-right (smaller, in
+ * front of Discord), Discord in the bottom-left (wider, behind). The
+ * --shot-rot variable carries each slot's tilt so the :hover transform
+ * can re-apply it when scaling (transform replaces; without --shot-rot
+ * the rotation would be lost the moment hover kicks in). */
 .anon-chatlib-shot--telegram {
+  --shot-rot: 2.5deg;
   width: 56%;
   max-width: 320px;
   top: 0;
   right: 4%;
-  transform: rotate(2.5deg);
   z-index: 2;
 }
 .anon-chatlib-shot--discord {
+  --shot-rot: -3deg;
   width: 64%;
   max-width: 380px;
   bottom: 0;
   left: 0;
-  transform: rotate(-3deg);
   z-index: 1;
 }
 
+/* ── Hover lift ─────────────────────────────────────────────────────
+ * Grows the shot 5%, raises it above its sibling, intensifies the
+ * shadow and adds a subtle iris/blue rim glow. Transform repeats
+ * rotate(var(--shot-rot)) because transform replaces — without it
+ * the scale would un-rotate the shot. */
+.anon-chatlib-shot:hover {
+  transform: scale(1.05) rotate(var(--shot-rot, 0deg));
+  box-shadow:
+    0 50px 100px -28px rgba(0, 0, 0, 0.85),
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 0 60px -18px rgba(99, 102, 241, 0.42);
+  z-index: 12;
+}
+.anon-chatlib-shot:hover .anon-chatlib-shot-bob {
+  /* Pause the bob so the lifted state is steady — without this the
+   * shot drifts up and down beneath the cursor while the user is
+   * inspecting it. */
+  animation-play-state: paused;
+}
+
+/* ── Float (bob) ───────────────────────────────────────────────────
+ * Lives on the inner wrapper so it doesn't compete with the :hover
+ * transform on the outer .shot. Each shot uses the same keyframes
+ * but with different durations + Discord reversed, so the two never
+ * bob in sync. */
 @media (prefers-reduced-motion: no-preference) {
-  .anon-chatlib-shot--telegram {
-    animation: anonChatLibFloatTelegram 9s ease-in-out infinite;
+  .anon-chatlib-shot--telegram .anon-chatlib-shot-bob {
+    animation: anonChatLibBob 9s ease-in-out infinite;
   }
-  .anon-chatlib-shot--discord {
-    animation: anonChatLibFloatDiscord 11s ease-in-out infinite;
+  .anon-chatlib-shot--discord .anon-chatlib-shot-bob {
+    animation: anonChatLibBob 11s ease-in-out infinite reverse;
   }
 }
 
-@keyframes anonChatLibFloatTelegram {
+@keyframes anonChatLibBob {
   0%,
   100% {
-    transform: translate3d(0, 0, 0) rotate(2.5deg);
+    transform: translate3d(0, 0, 0);
   }
   50% {
-    transform: translate3d(0, -10px, 0) rotate(3.4deg);
-  }
-}
-@keyframes anonChatLibFloatDiscord {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0) rotate(-3deg);
-  }
-  50% {
-    transform: translate3d(0, -8px, 0) rotate(-3.8deg);
+    transform: translate3d(0, -10px, 0);
   }
 }
 
