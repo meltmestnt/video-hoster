@@ -13,8 +13,8 @@ export default function robots(): MetadataRoute.Robots {
           "/gifs/",
           "/signup",
           "/faq",
-          "/gifs/*",
-          "/videos/*",
+          "/gifs/",
+          "/videos/",
         ],
         // /gifs/ and /screenshots/ both redirect anonymous viewers to
         // /login now, so disallow crawling them — Google would otherwise
