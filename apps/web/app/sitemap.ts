@@ -63,13 +63,28 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     },
     {
-      // Converter landing — public, no auth, with HowTo + FAQPage JSON-LD.
-      // Targets "gif to mp4 converter" / "convert gif to mp4" queries
-      // that the rest of the app shell can't compete for.
+      // Converter landings — public, no auth, with HowTo + FAQPage JSON-LD.
+      // Target "gif to mp4 converter" / "mp4 to gif converter" queries that
+      // the rest of the app shell can't compete for.
       url: absoluteUrl("/tools/gif-to-mp4"),
       lastModified: now,
       changeFrequency: "monthly",
       priority: 0.7,
+    },
+    {
+      url: absoluteUrl("/tools/mp4-to-gif"),
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
+      // Private library landing — SEO target for "private gif library" /
+      // "telegram gif bot" / "discord gif bot" queries that the home page
+      // is too brand-led to rank for directly.
+      url: absoluteUrl("/private-gif-library"),
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.8,
     },
     {
       // Static FAQ page — content rarely changes but worth a high-ish

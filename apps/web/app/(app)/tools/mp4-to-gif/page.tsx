@@ -11,36 +11,37 @@ import {
 } from "@radix-ui/themes";
 import {
   ChatBubbleIcon,
+  CodeIcon,
+  EnvelopeClosedIcon,
   LightningBoltIcon,
   LockClosedIcon,
   PaperPlaneIcon,
-  ShadowIcon,
   StackIcon,
 } from "@radix-ui/react-icons";
 import { absoluteUrl } from "@/lib/site";
 import { jsonLdScript } from "@/lib/seo";
-import { GifToMp4Tool } from "@/components/GifToMp4Tool";
+import { Mp4ToGifTool } from "@/components/Mp4ToGifTool";
 
-const PAGE_PATH = "/tools/gif-to-mp4";
+const PAGE_PATH = "/tools/mp4-to-gif";
 const PAGE_URL = absoluteUrl(PAGE_PATH);
 
 export const metadata: Metadata = {
-  title: "GIF to MP4 converter — free, in-browser, no upload",
+  title: "MP4 to GIF converter — free, in-browser, no upload",
   description:
-    "Convert GIF to MP4 instantly in your browser. No upload, no watermark, no signup. Powered by ffmpeg.wasm — your file never leaves your device.",
+    "Convert MP4 (or MOV / WebM / MKV) to animated GIF instantly in your browser. No upload, no watermark, no signup. Powered by ffmpeg.wasm — your file never leaves your device.",
   alternates: { canonical: PAGE_URL },
   openGraph: {
     type: "website",
-    title: "GIF to MP4 converter — free, in-browser",
+    title: "MP4 to GIF converter — free, in-browser",
     description:
-      "Drop a GIF, get an MP4. Runs entirely in your browser via ffmpeg.wasm — no upload, no signup, no watermark. Typically 5–20× smaller than the source GIF.",
+      "Drop a video, get a GIF. Two-pass palette-optimized encode entirely in your browser via ffmpeg.wasm — no upload, no signup, no watermark.",
     url: PAGE_URL,
   },
   twitter: {
     card: "summary_large_image",
-    title: "GIF to MP4 converter — free, in-browser",
+    title: "MP4 to GIF converter — free, in-browser",
     description:
-      "Drop a GIF, get an MP4. Runs entirely in your browser — no upload, no signup.",
+      "Drop a video, get a GIF. Runs entirely in your browser — no upload, no signup.",
   },
 };
 
@@ -51,29 +52,39 @@ interface ToolFaqEntry {
 
 const TOOL_FAQ: ToolFaqEntry[] = [
   {
-    question: "Is the GIF to MP4 converter really free?",
+    question: "Is the MP4 to GIF converter really free?",
     answer:
       "Yes. There's no signup, no watermark, no daily limit, and no paid tier on this tool. The entire conversion runs in your browser, so the only cost to anyone is your CPU. We don't show ads on this page.",
   },
   {
-    question: "Does my GIF get uploaded anywhere?",
+    question: "Does my video get uploaded anywhere?",
     answer:
       "No. The conversion happens locally inside your browser tab using ffmpeg.wasm — a WebAssembly build of the same ffmpeg used by professional video tooling. Your file is never uploaded, never copied to our servers, and never logged. You can verify by opening DevTools → Network and watching the conversion: there are no requests for your file.",
   },
   {
-    question: "Why convert a GIF to MP4 in the first place?",
+    question: "What video formats can I convert?",
     answer:
-      "MP4 is dramatically smaller (typically 5–20× smaller for the same clip), supports a full color palette instead of GIF's 256 colors, plays smoother on phones, and is what every modern messaging platform actually wants — Twitter/X, Telegram, Discord, WhatsApp and others all silently re-encode uploaded GIFs to MP4 anyway. Doing the conversion yourself means you keep control of the quality and the framerate.",
+      "MP4, MOV (QuickTime), WebM, and MKV (Matroska) — the four most common video container formats. The tool magic-byte sniffs each file before starting, so renaming a non-video file to .mp4 is caught early instead of crashing the encoder.",
+  },
+  {
+    question: "Why convert an MP4 to a GIF when GIFs are bigger?",
+    answer:
+      "GIFs auto-play with no controls, render natively in places that don't load video (GitHub READMEs, RSS readers, some email clients, older forums, embed-restricted comment threads), and feel like part of the message rather than a player widget. They're the right tool for short reaction clips, demo loops in documentation, and chats where the visual punch of an inline-playing animation matters more than file size.",
   },
   {
     question: "What's the maximum file size?",
     answer:
-      "There's no hard cap, but in practice browsers struggle past ~100 MB because the entire file has to fit in WebAssembly memory. Most GIFs are small — the converter handles typical reaction GIFs (1–10 MB) instantly. Very long animations (10+ seconds at high resolution) may take a minute on slower laptops.",
+      "There's no hard cap, but in practice browsers struggle past ~100 MB because the entire file has to fit in WebAssembly memory. For best results, keep clips under 20 seconds — GIFs grow quickly with duration, and short clips look more like animations than slow-motion sequences.",
   },
   {
-    question: "Does the MP4 keep the audio from the GIF?",
+    question: "What resolution and framerate does the GIF use?",
     answer:
-      "GIFs don't have audio — the format doesn't support an audio track at all. The MP4 we generate is silent, which is exactly what every chat app expects when you embed a converted GIF.",
+      "The output is 480px wide (preserving aspect ratio) at 12 fps. That's the sweet spot for size and smoothness — wider GIFs balloon in size without much perceived quality gain because the format caps at a 256-color palette regardless of resolution.",
+  },
+  {
+    question: "Does the converter use a single-pass or two-pass palette?",
+    answer:
+      "Two-pass. ffmpeg.wasm runs palettegen first to compute the optimal 256-color palette for your specific clip, then paletteuse with Bayer dithering to apply it. The result is dramatically cleaner than single-pass converters that use a fixed web-safe palette — colors look like the source instead of a 1995 desktop screenshot.",
   },
   {
     question: "Why does the first conversion take longer than the rest?",
@@ -81,49 +92,39 @@ const TOOL_FAQ: ToolFaqEntry[] = [
       "The first time you convert anything in this tab, the browser downloads about 25 MB of WebAssembly (the ffmpeg core). After that it's cached, and every subsequent conversion in the same session starts instantly. If you reload the page or open a private window, the download repeats.",
   },
   {
-    question: "What resolution and codec does the output use?",
+    question: "I want to do the reverse — GIF to MP4. Where?",
     answer:
-      "The output is H.264 video at 480p with the +faststart flag, in an MP4 container. H.264 is the most universally compatible codec — every browser, phone, smart TV, and chat app supports it without plugins. 480p is high enough that GIF source detail is preserved (most GIFs are below 480p anyway) while keeping file size minimal.",
-  },
-  {
-    question: "How does this compare to a server-side converter like ezgif?",
-    answer:
-      "Server-side converters require uploading your file, waiting in a queue, and downloading the result — three round trips that take longer than the actual conversion on a modern laptop. They also store your uploads (sometimes for days) and serve ads against them. Running the conversion in your browser skips all of that. The only thing you give up is the ability to convert files larger than your device can hold in memory.",
-  },
-  {
-    question: "I want to do the reverse — MP4 to GIF. Where?",
-    answer:
-      "We have a dedicated tool for that at vidsandgifs.com/tools/mp4-to-gif. Drop your video there and get a 480px-wide animated GIF with a custom 256-color palette.",
+      "We have a dedicated tool for that at vidsandgifs.com/tools/gif-to-mp4. Drop your GIF there and get a 480p MP4 typically 5–20× smaller than the source.",
   },
 ];
 
 const HOW_TO_JSON_LD = {
   "@context": "https://schema.org",
   "@type": "HowTo",
-  name: "How to convert a GIF to MP4 in your browser",
+  name: "How to convert an MP4 to a GIF in your browser",
   description:
-    "Convert any GIF to an MP4 video file entirely in your web browser using ffmpeg.wasm. No upload, no signup, no software install.",
-  totalTime: "PT30S",
+    "Convert any video (MP4, MOV, WebM, MKV) to an animated GIF entirely in your web browser using ffmpeg.wasm. No upload, no signup, no software install.",
+  totalTime: "PT45S",
   step: [
     {
       "@type": "HowToStep",
       position: 1,
-      name: "Drop or pick your GIF",
-      text: "Open vidsandgifs.com/tools/gif-to-mp4 and drag a .gif file onto the dropzone, or click to pick one from your computer. The tool reads the file locally — nothing is uploaded.",
+      name: "Drop or pick your video",
+      text: "Open vidsandgifs.com/tools/mp4-to-gif and drag a video file onto the dropzone, or click to pick one from your computer. The tool reads the file locally — nothing is uploaded.",
       url: `${PAGE_URL}#step-1`,
     },
     {
       "@type": "HowToStep",
       position: 2,
       name: "Wait for the encode",
-      text: "ffmpeg.wasm runs an H.264 transcode in your browser tab. The first conversion downloads about 25 MB of WebAssembly; later conversions in the same session are instant.",
+      text: "ffmpeg.wasm runs a two-pass palette-optimized GIF encode in your browser tab. The first conversion downloads about 25 MB of WebAssembly; later conversions in the same session are instant.",
       url: `${PAGE_URL}#step-2`,
     },
     {
       "@type": "HowToStep",
       position: 3,
-      name: "Download the MP4",
-      text: "Click 'Download MP4' to save the converted file. The output is silent 480p H.264 in an MP4 container — playable on every modern browser, phone, and chat app.",
+      name: "Download the GIF",
+      text: "Click 'Download GIF' to save the converted file. The output is 480px wide at 12 fps with a custom 256-color palette — playable on every browser, chat app, and README.",
       url: `${PAGE_URL}#step-3`,
     },
   ],
@@ -132,7 +133,7 @@ const HOW_TO_JSON_LD = {
 const APP_JSON_LD = {
   "@context": "https://schema.org",
   "@type": "WebApplication",
-  name: "vids&gifs GIF to MP4 converter",
+  name: "vids&gifs MP4 to GIF converter",
   url: PAGE_URL,
   applicationCategory: "MultimediaApplication",
   operatingSystem: "Any (browser-based)",
@@ -144,10 +145,10 @@ const APP_JSON_LD = {
     priceCurrency: "USD",
   },
   featureList: [
-    "Convert GIF files to MP4 (H.264) entirely in the browser",
+    "Convert MP4 / MOV / WebM / MKV to animated GIF entirely in the browser",
+    "Two-pass palette-optimized encode for native-ffmpeg quality",
     "No file upload — privacy-preserving local conversion",
     "No signup, no watermark, no daily limit",
-    "Silent MP4 output with +faststart for instant streaming",
   ],
 };
 
@@ -178,18 +179,18 @@ const BREADCRUMB_JSON_LD = {
       "@type": "ListItem",
       position: 2,
       name: "Tools",
-      item: absoluteUrl("/tools/gif-to-mp4"),
+      item: absoluteUrl("/tools/mp4-to-gif"),
     },
     {
       "@type": "ListItem",
       position: 3,
-      name: "GIF to MP4 converter",
+      name: "MP4 to GIF converter",
       item: PAGE_URL,
     },
   ],
 };
 
-export default function GifToMp4Page() {
+export default function Mp4ToGifPage() {
   return (
     <Box>
       <script
@@ -213,7 +214,7 @@ export default function GifToMp4Page() {
         className="intro-panel-fade-up"
         style={{ ["--panel-index" as string]: 0 }}
       >
-        <GifToMp4Tool />
+        <Mp4ToGifTool />
       </div>
 
       <div
@@ -221,29 +222,30 @@ export default function GifToMp4Page() {
         style={{ ["--panel-index" as string]: 1, marginBottom: 32 }}
       >
         <Heading as="h2" size="7" mb="4" style={{ letterSpacing: "-0.02em" }}>
-          Why convert GIFs to MP4?
+          Why turn a video into a GIF?
         </Heading>
         <Text as="p" color="gray" size="3" mb="5" style={{ maxWidth: 700 }}>
-          GIF is a 35-year-old image format that every chat app secretly
-          re-encodes anyway. Converting yourself keeps you in control of the
-          quality, the framerate, and the file you actually share.
+          GIFs are bigger than equivalent MP4s, but they auto-play with no
+          controls, render where videos can't, and read as part of the
+          message. For short reactions, demo loops, and embed-hostile
+          surfaces, they're still the right tool.
         </Text>
 
         <Grid columns={{ initial: "1", sm: "3" }} gap="4">
           <BenefitCard
-            Icon={StackIcon}
-            title="5–20× smaller files"
-            body="An H.264 MP4 of the same clip is dramatically smaller than the GIF source — friendlier on data plans, faster on bad Wi-Fi, and within message-size limits that GIFs blow past."
+            Icon={LightningBoltIcon}
+            title="Auto-play, everywhere"
+            body="No play button, no codec negotiation, no autoplay policy fighting the browser. Drop a GIF in any chat, README, or email and it starts looping the moment it loads."
           />
           <BenefitCard
-            Icon={LightningBoltIcon}
-            title="Smoother playback"
-            body="GIFs are capped at a 256-color palette and dither aggressively. MP4 keeps full color and plays at any framerate the source contains, without the banded look."
+            Icon={StackIcon}
+            title="Native palette tuning"
+            body="A two-pass palettegen / paletteuse encode picks the best 256 colors for your specific clip — far cleaner than single-pass converters that use a fixed web-safe palette."
           />
           <BenefitCard
             Icon={LockClosedIcon}
             title="Privacy by default"
-            body="The conversion runs in this browser tab using ffmpeg.wasm. Your GIF is never uploaded, never queued, never logged. Close the tab and nothing remains."
+            body="The conversion runs in this browser tab using ffmpeg.wasm. Your video is never uploaded, never queued, never logged. Close the tab and nothing remains."
           />
         </Grid>
       </div>
@@ -253,28 +255,28 @@ export default function GifToMp4Page() {
         style={{ ["--panel-index" as string]: 2, marginBottom: 32 }}
       >
         <Heading as="h2" size="7" mb="4" style={{ letterSpacing: "-0.02em" }}>
-          Where MP4 wins over GIF
+          Where GIFs still win
         </Heading>
         <Grid columns={{ initial: "1", sm: "2" }} gap="4">
           <UseCaseCard
-            Icon={PaperPlaneIcon}
-            title="Telegram"
-            body="Telegram silently converts every GIF you upload to MP4 before sending. Doing it yourself means the chat shows the version you chose, not the version Telegram's auto-encoder produced."
+            Icon={CodeIcon}
+            title="GitHub READMEs"
+            body="GitHub renders GIFs inline in markdown. Videos render as a download link. If you want your README to demo the feature instead of asking a reader to download a clip, GIFs are still the answer."
+          />
+          <UseCaseCard
+            Icon={EnvelopeClosedIcon}
+            title="Email signatures and newsletters"
+            body="Most email clients block HTML5 video and strip half of any modern markup. An animated GIF is the lowest-common-denominator inline animation that still actually plays in Outlook, Gmail, and Apple Mail."
           />
           <UseCaseCard
             Icon={ChatBubbleIcon}
-            title="Discord"
-            body="Discord caps free-tier uploads at 25 MB per message. A 40 MB reaction GIF won't send — but the same clip as a 3 MB MP4 sails through, no Nitro required."
+            title="Comment threads"
+            body="Reddit, Hacker News, Lobste.rs, and most forum software allow image embeds but not video. GIFs render where MP4 links sit unwatched at the bottom of a thread."
           />
           <UseCaseCard
-            Icon={ShadowIcon}
-            title="Twitter / X"
-            body="X re-encodes uploaded GIFs to MP4 server-side and the result is often blocky. Uploading an MP4 directly skips the pipeline and preserves your original quality."
-          />
-          <UseCaseCard
-            Icon={LightningBoltIcon}
-            title="Web pages"
-            body="Replacing autoplay GIFs with looping MP4s (loop muted playsinline) cuts page weight by 80–95%. Web Vitals scores notice; mobile users notice more."
+            Icon={PaperPlaneIcon}
+            title="Quick reaction clips"
+            body="A 2-second reaction GIF carries the punch of an inline animation without dragging in a video player UI. For under-3-second clips, the file-size argument for MP4 mostly evaporates anyway."
           />
         </Grid>
       </div>
@@ -359,14 +361,14 @@ export default function GifToMp4Page() {
             See how the cross-chat library works →
           </Link>
           <Link
-            href="/tools/mp4-to-gif"
+            href="/tools/gif-to-mp4"
             style={{
               color: "var(--gray-11)",
               textDecoration: "underline",
               fontSize: "var(--font-size-3)",
             }}
           >
-            MP4 → GIF converter
+            GIF → MP4 converter
           </Link>
           <Link
             href="/faq"

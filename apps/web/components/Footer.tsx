@@ -41,10 +41,24 @@ export function Footer() {
         </Link>
         <Separator orientation="vertical" />
         <Link
+          href="/private-gif-library"
+          style={{ color: "inherit", fontSize: "var(--font-size-1)" }}
+        >
+          Private library
+        </Link>
+        <Separator orientation="vertical" />
+        <Link
           href="/tools/gif-to-mp4"
           style={{ color: "inherit", fontSize: "var(--font-size-1)" }}
         >
           GIF → MP4
+        </Link>
+        <Separator orientation="vertical" />
+        <Link
+          href="/tools/mp4-to-gif"
+          style={{ color: "inherit", fontSize: "var(--font-size-1)" }}
+        >
+          MP4 → GIF
         </Link>
         <Separator orientation="vertical" />
         {/* Discoverability anchor for the bot — Telegram's name search
