@@ -65,17 +65,32 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     {
       // Converter landings — public, no auth, with HowTo + FAQPage JSON-LD.
       // Target "gif to mp4 converter" / "mp4 to gif converter" queries that
-      // the rest of the app shell can't compete for.
+      // the rest of the app shell can't compete for. Each is bilingual via
+      // the /uk prefix; declare hreflang so Google indexes both.
       url: absoluteUrl("/tools/gif-to-mp4"),
       lastModified: now,
       changeFrequency: "monthly",
       priority: 0.7,
+      alternates: {
+        languages: {
+          en: absoluteUrl("/tools/gif-to-mp4"),
+          uk: absoluteUrl("/uk/tools/gif-to-mp4"),
+          "x-default": absoluteUrl("/tools/gif-to-mp4"),
+        },
+      },
     },
     {
       url: absoluteUrl("/tools/mp4-to-gif"),
       lastModified: now,
       changeFrequency: "monthly",
       priority: 0.7,
+      alternates: {
+        languages: {
+          en: absoluteUrl("/tools/mp4-to-gif"),
+          uk: absoluteUrl("/uk/tools/mp4-to-gif"),
+          "x-default": absoluteUrl("/tools/mp4-to-gif"),
+        },
+      },
     },
     {
       // Private library landing — SEO target for "private gif library" /
@@ -85,6 +100,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: now,
       changeFrequency: "monthly",
       priority: 0.8,
+      alternates: {
+        languages: {
+          en: absoluteUrl("/private-gif-library"),
+          uk: absoluteUrl("/uk/private-gif-library"),
+          "x-default": absoluteUrl("/private-gif-library"),
+        },
+      },
     },
     {
       // Static FAQ page — content rarely changes but worth a high-ish

@@ -22,29 +22,13 @@ import {
 import { absoluteUrl } from "@/lib/site";
 import { jsonLdScript } from "@/lib/seo";
 import { AnonChatLibraryHero } from "@/components/AnonChatLibraryHero";
+import { getServerLocale } from "@/lib/i18n/server";
+import type { Locale } from "@/lib/i18n/locale";
 
 const PAGE_PATH = "/private-gif-library";
-const PAGE_URL = absoluteUrl(PAGE_PATH);
-
-export const metadata: Metadata = {
-  title:
-    "Private GIF library — one shared library across Telegram and Discord",
-  description:
-    "Build a private library of GIFs and videos and send them inline from any Telegram or Discord chat — same folder, same search, every chat. Free.",
-  alternates: { canonical: PAGE_URL },
-  openGraph: {
-    type: "website",
-    title: "Private GIF library — one library, every chat (Telegram + Discord)",
-    description:
-      "Upload your GIFs and videos once. Send them inline from any Telegram chat (@vidsandgifsbot) or Discord channel (/gif). Private folders, scoped search, instant sharing.",
-    url: PAGE_URL,
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Private GIF library — one library, every chat",
-    description:
-      "Upload your GIFs once. Send them inline from any Telegram or Discord chat. Free.",
-  },
+const LOCALE_PATH: Record<Locale, string> = {
+  en: PAGE_PATH,
+  uk: `/uk${PAGE_PATH}`,
 };
 
 interface FaqEntry {
@@ -52,167 +36,509 @@ interface FaqEntry {
   answer: string;
 }
 
-const FAQ: FaqEntry[] = [
-  {
-    question: "What is a private GIF library?",
-    answer:
-      "A private library is a personal collection of GIFs and short videos that only you can see and search. Unlike Tenor or Giphy — which serve everyone the same public catalog — a private library contains exactly the reactions, jokes, and clips you've curated. On vids&gifs your library lives in folders you control, and the same library powers the Telegram inline picker and the Discord /gif autocomplete, so you don't have to maintain a separate set per platform.",
-  },
-  {
-    question: "How is this different from Telegram's built-in GIF saved list?",
-    answer:
-      "Telegram's saved-GIF list is per-account, lives only inside Telegram, and has no folders, no search beyond filename, and no way to share it with a friend. Your vids&gifs library is folder-based (you can keep separate sets for separate chats), tag-searchable, and accessible from a website, Telegram, and Discord with the same data backing all three. If you switch phones or sign in on a new device, everything is still there — and you can grant a friend read-only access to a folder so they can use your collection without rebuilding it themselves.",
-  },
-  {
-    question: "How do I send GIFs inline in Telegram?",
-    answer:
-      "Connect your Telegram account once in Settings → Connections, then in any chat type @vidsandgifsbot followed by a search term. Telegram's native inline picker pops up a grid of GIFs from your active folder — tap one and it sends instantly. Forwarding any GIF to the bot adds it to that same folder, so your library grows from inside the chat.",
-  },
-  {
-    question: "How do I send GIFs inline in Discord?",
-    answer:
-      "Add the vids&gifs Discord bot to your server (or use it in a DM), connect your account in Settings → Connections, and type /gif. Discord's slash-command autocomplete shows GIFs from your active folder as you type — pick one and the bot posts it to the channel. Use /upload-file to add a new GIF straight from Discord; it lands in your active folder and stays searchable on the website too.",
-  },
-  {
-    question: "What's an active folder, and why does it matter?",
-    answer:
-      "You can keep multiple folders (work GIFs, friends GIFs, a specific group joke, etc.) and pick one as 'active' at any time. The active folder is the search scope for the Telegram inline picker and the Discord /gif autocomplete. So when you switch from a work chat to a friends chat, you flip your active folder once on the website, and both bots immediately start surfacing the right set of reactions.",
-  },
-  {
-    question: "Can I share a folder with friends?",
-    answer:
-      "Yes. Open any folder and hit Share — that produces a read-only link. Anyone with the link sees your folder live as you add to it, with no copies and no manual sync. Their copy stays in sync automatically. Great for a friend group that wants a shared reaction library curated by one person.",
-  },
-  {
-    question: "Is my library actually private?",
-    answer:
-      "Yes. Your folders default to private — only you and accounts you've explicitly shared a folder with can see what's inside. Uploading something to your library does not publish it. The only way a GIF becomes public is if you manually flip the visibility on the upload itself.",
-  },
-  {
-    question: "Is this free?",
-    answer:
-      "Yes. Building folders, connecting Telegram and Discord, sending inline GIFs, sharing folders, and uploading new media all work on the free tier. A paid Pro tier exists for higher daily upload quotas, but every cross-chat library feature is on the free plan with no advertising.",
-  },
-  {
-    question: "What if I just want to convert a GIF to MP4 (or back)?",
-    answer:
-      "We have free standalone tools for that — no signup needed. Use the GIF → MP4 converter at vidsandgifs.com/tools/gif-to-mp4 or the MP4 → GIF converter at vidsandgifs.com/tools/mp4-to-gif. Both run entirely in your browser via ffmpeg.wasm; the file never leaves your device.",
-  },
-];
+interface CardEntry {
+  title: string;
+  body: string;
+}
 
-const HOW_TO_JSON_LD = {
-  "@context": "https://schema.org",
-  "@type": "HowTo",
-  name: "How to set up a private GIF library across Telegram and Discord",
-  description:
-    "Sign up for vids&gifs, connect Telegram and Discord, upload your GIFs into folders, and send them inline from any chat with @vidsandgifsbot or /gif.",
-  totalTime: "PT5M",
-  step: [
-    {
-      "@type": "HowToStep",
-      position: 1,
-      name: "Create a free account",
-      text: "Sign up at vidsandgifs.com/signup. No credit card required — every cross-chat library feature is on the free plan.",
-      url: absoluteUrl("/signup"),
+interface ChatEntry {
+  title: string;
+  steps: string[];
+}
+
+interface HowToStep {
+  name: string;
+  text: string;
+  url: string;
+}
+
+interface PageCopy {
+  title: string;
+  description: string;
+  ogTitle: string;
+  ogDescription: string;
+  oneLibHeading: string;
+  oneLibIntro: string;
+  benefits: [CardEntry, CardEntry, CardEntry];
+  howChatHeading: string;
+  chats: [ChatEntry, ChatEntry];
+  freeHeading: string;
+  free: [CardEntry, CardEntry, CardEntry, CardEntry];
+  ctaHeading: string;
+  ctaBody: string;
+  ctaSignup: string;
+  ctaSignin: string;
+  faqHeading: string;
+  faq: FaqEntry[];
+  moreBadge: string;
+  moreHeading: string;
+  moreBody: string;
+  ctaGifToMp4: string;
+  ctaMp4ToGif: string;
+  ctaFaq: string;
+  howToName: string;
+  howToDescription: string;
+  howToSteps: HowToStep[];
+  appName: string;
+  appFeatures: string[];
+  breadcrumb: { home: string; here: string };
+}
+
+const COPY: Record<Locale, PageCopy> = {
+  en: {
+    title:
+      "Private GIF library — one shared library across Telegram and Discord",
+    description:
+      "Build a private library of GIFs and videos and send them inline from any Telegram or Discord chat — same folder, same search, every chat. Free.",
+    ogTitle:
+      "Private GIF library — one library, every chat (Telegram + Discord)",
+    ogDescription:
+      "Upload your GIFs and videos once. Send them inline from any Telegram chat (@vidsandgifsbot) or Discord channel (/gif). Private folders, scoped search, instant sharing.",
+    oneLibHeading: "One library, every chat — that's the whole point",
+    oneLibIntro:
+      "Tenor and Giphy serve everyone the same public catalog. Telegram's saved-GIF list lives only inside Telegram. Your vids&gifs library is yours, organized into folders, and the same data backs inline pickers in both Telegram and Discord — no copies, no per-platform rebuilds.",
+    benefits: [
+      {
+        title: "Private folders",
+        body: "Group GIFs and videos by theme — work, friends, a specific group joke. The 'active' folder you pick on the website is exactly what the bots search inside.",
+      },
+      {
+        title: "Scoped search",
+        body: "Tag-based search runs against your folder, not a public catalog. Type three letters in the Telegram inline picker; the right reaction is one tap away.",
+      },
+      {
+        title: "Read-only sharing",
+        body: "Send a friend a share link to a folder. They see your collection live as you add to it, no copies and no manual sync. Perfect for a curated group library.",
+      },
+    ],
+    howChatHeading: "How it works in each chat",
+    chats: [
+      {
+        title: "Telegram",
+        steps: [
+          "In any chat, type @vidsandgifsbot followed by a search term.",
+          "Telegram's native inline picker shows a grid of GIFs from your active folder.",
+          "Tap one — it sends instantly, sourced from your private library, not Tenor.",
+          "Forward any GIF to the bot to add it to your active folder.",
+        ],
+      },
+      {
+        title: "Discord",
+        steps: [
+          "Add the vids&gifs bot to your server (or use it in a DM).",
+          "Type /gif and start typing a search term — slash autocomplete shows your folder.",
+          "Pick one and the bot posts it to the channel.",
+          "Use /upload-file to add a new GIF without leaving Discord.",
+        ],
+      },
+    ],
+    freeHeading: "What you get on the free tier",
+    free: [
+      {
+        title: "Private by default",
+        body: "Folders are private until you explicitly share them. Uploading a GIF doesn't publish it — your library is yours.",
+      },
+      {
+        title: "Auto-file from chats",
+        body: "Forward any GIF to @vidsandgifsbot or use Discord's /upload-file. The clip lands in your active folder and is searchable from every chat in seconds.",
+      },
+      {
+        title: "Tag and search",
+        body: "Tag GIFs once and the bots match against tags, not just filename. Three-letter searches in the inline picker hit the right clip the first time.",
+      },
+      {
+        title: "Read-only share links",
+        body: "Hand a friend a link and they get live read-only access to a folder — the bots search through their account but find your set.",
+      },
+    ],
+    ctaHeading: "Build your library in 5 minutes",
+    ctaBody:
+      "Sign up, drag a few GIFs in, connect Telegram and Discord, and the inline picker is yours in every chat. No payment information, no mandatory plan.",
+    ctaSignup: "Create a free account",
+    ctaSignin: "Sign in",
+    faqHeading: "Frequently asked questions",
+    faq: [
+      {
+        question: "What is a private GIF library?",
+        answer:
+          "A private library is a personal collection of GIFs and short videos that only you can see and search. Unlike Tenor or Giphy — which serve everyone the same public catalog — a private library contains exactly the reactions, jokes, and clips you've curated. On vids&gifs your library lives in folders you control, and the same library powers the Telegram inline picker and the Discord /gif autocomplete, so you don't have to maintain a separate set per platform.",
+      },
+      {
+        question: "How is this different from Telegram's built-in GIF saved list?",
+        answer:
+          "Telegram's saved-GIF list is per-account, lives only inside Telegram, and has no folders, no search beyond filename, and no way to share it with a friend. Your vids&gifs library is folder-based (you can keep separate sets for separate chats), tag-searchable, and accessible from a website, Telegram, and Discord with the same data backing all three. If you switch phones or sign in on a new device, everything is still there — and you can grant a friend read-only access to a folder so they can use your collection without rebuilding it themselves.",
+      },
+      {
+        question: "How do I send GIFs inline in Telegram?",
+        answer:
+          "Connect your Telegram account once in Settings → Connections, then in any chat type @vidsandgifsbot followed by a search term. Telegram's native inline picker pops up a grid of GIFs from your active folder — tap one and it sends instantly. Forwarding any GIF to the bot adds it to that same folder, so your library grows from inside the chat.",
+      },
+      {
+        question: "How do I send GIFs inline in Discord?",
+        answer:
+          "Add the vids&gifs Discord bot to your server (or use it in a DM), connect your account in Settings → Connections, and type /gif. Discord's slash-command autocomplete shows GIFs from your active folder as you type — pick one and the bot posts it to the channel. Use /upload-file to add a new GIF straight from Discord; it lands in your active folder and stays searchable on the website too.",
+      },
+      {
+        question: "What's an active folder, and why does it matter?",
+        answer:
+          "You can keep multiple folders (work GIFs, friends GIFs, a specific group joke, etc.) and pick one as 'active' at any time. The active folder is the search scope for the Telegram inline picker and the Discord /gif autocomplete. So when you switch from a work chat to a friends chat, you flip your active folder once on the website, and both bots immediately start surfacing the right set of reactions.",
+      },
+      {
+        question: "Can I share a folder with friends?",
+        answer:
+          "Yes. Open any folder and hit Share — that produces a read-only link. Anyone with the link sees your folder live as you add to it, with no copies and no manual sync. Their copy stays in sync automatically. Great for a friend group that wants a shared reaction library curated by one person.",
+      },
+      {
+        question: "Is my library actually private?",
+        answer:
+          "Yes. Your folders default to private — only you and accounts you've explicitly shared a folder with can see what's inside. Uploading something to your library does not publish it. The only way a GIF becomes public is if you manually flip the visibility on the upload itself.",
+      },
+      {
+        question: "Is this free?",
+        answer:
+          "Yes. Building folders, connecting Telegram and Discord, sending inline GIFs, sharing folders, and uploading new media all work on the free tier. A paid Pro tier exists for higher daily upload quotas, but every cross-chat library feature is on the free plan with no advertising.",
+      },
+      {
+        question: "What if I just want to convert a GIF to MP4 (or back)?",
+        answer:
+          "We have free standalone tools for that — no signup needed. Use the GIF → MP4 converter at vidsandgifs.com/tools/gif-to-mp4 or the MP4 → GIF converter at vidsandgifs.com/tools/mp4-to-gif. Both run entirely in your browser via ffmpeg.wasm; the file never leaves your device.",
+      },
+    ],
+    moreBadge: "More",
+    moreHeading: "Free side-tools",
+    moreBody:
+      "Need to convert a clip before you upload it to your library? We have two free standalone converters that run entirely in your browser — no signup, no upload.",
+    ctaGifToMp4: "GIF → MP4 converter →",
+    ctaMp4ToGif: "MP4 → GIF converter →",
+    ctaFaq: "Read the full FAQ",
+    howToName:
+      "How to set up a private GIF library across Telegram and Discord",
+    howToDescription:
+      "Sign up for vids&gifs, connect Telegram and Discord, upload your GIFs into folders, and send them inline from any chat with @vidsandgifsbot or /gif.",
+    howToSteps: [
+      {
+        name: "Create a free account",
+        text: "Sign up at vidsandgifs.com/signup. No credit card required — every cross-chat library feature is on the free plan.",
+        url: "/signup",
+      },
+      {
+        name: "Upload your GIFs into folders",
+        text: "Drag GIFs and short videos into the dashboard. Group them into folders by theme — work, friends, a specific group chat — and pick one as your 'active' folder.",
+        url: "/folders",
+      },
+      {
+        name: "Connect Telegram",
+        text: "In Settings → Connections, link @vidsandgifsbot to your account. From any Telegram chat type '@vidsandgifsbot search-term' to inline-pick a GIF from your active folder.",
+        url: "/settings",
+      },
+      {
+        name: "Connect Discord",
+        text: "Add the vids&gifs Discord bot to your server (or DM it) and link your account. Use /gif to autocomplete from your active folder, or /upload-file to add new media without leaving Discord.",
+        url: "/settings",
+      },
+    ],
+    appName: "vids&gifs — private GIF library for Telegram and Discord",
+    appFeatures: [
+      "Private GIF and video library, organized into folders",
+      "Inline GIF picker in Telegram via @vidsandgifsbot",
+      "Inline GIF autocomplete in Discord via /gif slash command",
+      "Read-only folder sharing with live updates",
+      "Tag-based search, scoped to your active folder",
+      "Forward any GIF to the bot to add it to your active folder",
+    ],
+    breadcrumb: {
+      home: "vids&gifs",
+      here: "Private GIF library",
     },
-    {
-      "@type": "HowToStep",
-      position: 2,
-      name: "Upload your GIFs into folders",
-      text: "Drag GIFs and short videos into the dashboard. Group them into folders by theme — work, friends, a specific group chat — and pick one as your 'active' folder.",
-      url: absoluteUrl("/folders"),
+  },
+  uk: {
+    title:
+      "Приватна бібліотека GIF — одна спільна бібліотека для Telegram і Discord",
+    description:
+      "Збери приватну бібліотеку GIF і відео й надсилай їх інлайн з будь-якого чату Telegram або Discord — та сама папка, той самий пошук, у кожному чаті. Безкоштовно.",
+    ogTitle:
+      "Приватна бібліотека GIF — одна бібліотека, кожен чат (Telegram + Discord)",
+    ogDescription:
+      "Завантаж GIF і відео один раз. Надсилай їх інлайн з будь-якого чату Telegram (@vidsandgifsbot) або каналу Discord (/gif). Приватні папки, обмежений пошук, миттєвий шеринг.",
+    oneLibHeading: "Одна бібліотека, кожен чат — у цьому й уся суть",
+    oneLibIntro:
+      "Tenor і Giphy показують усім той самий публічний каталог. Збережені GIF у Telegram живуть тільки в Telegram. Твоя бібліотека vids&gifs — твоя, структурована в папки, і ті самі дані живлять інлайн-пікери у Telegram і Discord. Жодних копій, жодних перебудовувань під кожну платформу.",
+    benefits: [
+      {
+        title: "Приватні папки",
+        body: "Групуй GIF і відео за темою — робота, друзі, окремий жарт у групі. «Активна» папка, яку ти обираєш на сайті, — саме та, у якій шукають боти.",
+      },
+      {
+        title: "Обмежений пошук",
+        body: "Тегований пошук працює по твоїй папці, а не по публічному каталогу. Набираєш три літери в інлайн-пікері Telegram — потрібна реакція за один тап.",
+      },
+      {
+        title: "Read-only шеринг",
+        body: "Надішли другу посилання на папку. Він бачить твою колекцію live, поки ти її поповнюєш, без копій і ручної синхронізації. Ідеально для дружньої групи з куратором.",
+      },
+    ],
+    howChatHeading: "Як це працює у кожному чаті",
+    chats: [
+      {
+        title: "Telegram",
+        steps: [
+          "У будь-якому чаті набираєш @vidsandgifsbot і пошуковий запит.",
+          "Telegram показує нативну інлайн-сітку з GIF твоєї активної папки.",
+          "Тапаєш на один — він одразу надсилається, з твоєї приватної бібліотеки, не з Tenor.",
+          "Перешли будь-який GIF боту, щоб додати його до активної папки.",
+        ],
+      },
+      {
+        title: "Discord",
+        steps: [
+          "Додай бота vids&gifs на сервер (або користуйся в DM).",
+          "Набери /gif і починай вводити запит — слеш-автодоповнення показує твою папку.",
+          "Обери один — бот опублікує його в каналі.",
+          "Використовуй /upload-file, щоб додати новий GIF, не виходячи з Discord.",
+        ],
+      },
+    ],
+    freeHeading: "Що ти отримуєш на безкоштовному тарифі",
+    free: [
+      {
+        title: "Приватність за замовчуванням",
+        body: "Папки приватні, поки ти явно ними не поділишся. Завантаження GIF не робить його публічним — твоя бібліотека твоя.",
+      },
+      {
+        title: "Авто-додавання з чатів",
+        body: "Перешли будь-який GIF на @vidsandgifsbot або використай /upload-file у Discord. Кліп потрапляє в активну папку й стає шукабельним з кожного чату за секунди.",
+      },
+      {
+        title: "Теги і пошук",
+        body: "Тегаєш GIF один раз — боти матчать по тегах, а не лише по імені файлу. Тризначні пошуки в інлайн-пікері знаходять потрібний кліп з першого разу.",
+      },
+      {
+        title: "Read-only посилання",
+        body: "Даєш другу посилання — він отримує live read-only доступ до папки. Боти шукають через його акаунт, але знаходять твій набір.",
+      },
+    ],
+    ctaHeading: "Збери свою бібліотеку за 5 хвилин",
+    ctaBody:
+      "Зареєструйся, перетягни кілька GIF, підʼєднай Telegram і Discord — і інлайн-пікер твій у кожному чаті. Без платіжних даних, без обовʼязкового плану.",
+    ctaSignup: "Створити безкоштовний акаунт",
+    ctaSignin: "Увійти",
+    faqHeading: "Часті запитання",
+    faq: [
+      {
+        question: "Що таке приватна бібліотека GIF?",
+        answer:
+          "Приватна бібліотека — це особиста колекція GIF і коротких відео, яку бачиш і шукаєш лише ти. На відміну від Tenor чи Giphy, що показують усім той самий публічний каталог, приватна бібліотека містить рівно ті реакції, жарти й кліпи, які ти зібрав сам. На vids&gifs твоя бібліотека живе у папках, які ти контролюєш, і та сама бібліотека живить інлайн-пікер Telegram і автодоповнення /gif у Discord — тобі не доведеться тримати окремий набір під кожну платформу.",
+      },
+      {
+        question: "Чим це відрізняється від збережених GIF у Telegram?",
+        answer:
+          "Список збережених GIF у Telegram існує тільки в межах Telegram, не має папок, не має пошуку поза іменем файлу й немає способу поділитися ним з другом. Твоя бібліотека vids&gifs — папкова (можеш тримати окремі набори під різні чати), пошукова за тегами й доступна з вебсайту, Telegram і Discord з тими самими даними. Перехід на новий телефон чи новий пристрій — усе на місці. А другу можеш дати read-only доступ до папки, щоб він користувався твоєю колекцією, не збираючи її сам.",
+      },
+      {
+        question: "Як надсилати GIF інлайн у Telegram?",
+        answer:
+          "Підʼєднай свій Telegram-акаунт у Налаштуваннях → Підключення, потім у будь-якому чаті набери @vidsandgifsbot і пошуковий запит. Telegram покаже нативну інлайн-сітку з GIF твоєї активної папки — тапнеш на потрібний, і він одразу надішлеться. Перешлеш будь-який GIF боту — він додасться в ту саму папку, тож бібліотека росте з самого чату.",
+      },
+      {
+        question: "Як надсилати GIF інлайн у Discord?",
+        answer:
+          "Додай бота vids&gifs на свій сервер (або користуйся в DM), підʼєднай акаунт у Налаштуваннях → Підключення й набери /gif. Слеш-автодоповнення Discord показує GIF з твоєї активної папки під час набору — обираєш потрібний, і бот публікує його в каналі. Команда /upload-file додає новий GIF просто з Discord; він потрапляє в активну папку й залишається пошуковим і на сайті.",
+      },
+      {
+        question: "Що таке активна папка і чому це важливо?",
+        answer:
+          "Можеш тримати кілька папок (робочі GIF, гіфки для друзів, окремий жарт у групі тощо) й позначити одну з них «активною» в будь-який момент. Активна папка — це область пошуку для інлайн-пікера Telegram і автодоповнення /gif у Discord. Перемикаючись з робочого чату на дружній, ти один раз перемикаєш активну папку на сайті — обидва боти одразу починають показувати правильний набір реакцій.",
+      },
+      {
+        question: "Чи можу я поділитися папкою з друзями?",
+        answer:
+          "Так. Відкрий будь-яку папку й натисни «Поділитися» — це згенерує read-only посилання. Хто має посилання, бачить твою папку live, поки ти її поповнюєш, без копій і ручної синхронізації. Їхня копія сама синхронізується. Чудово для групи друзів, яка хоче спільну реакційну бібліотеку, куратовану однією людиною.",
+      },
+      {
+        question: "Чи моя бібліотека справді приватна?",
+        answer:
+          "Так. Папки приватні за замовчуванням — лише ти й акаунти, з якими ти явно поділився папкою, бачать вміст. Завантаження чогось у бібліотеку не публікує це. Єдиний спосіб, яким GIF стає публічним, — якщо ти вручну змінюєш видимість самого завантаження.",
+      },
+      {
+        question: "Чи це безкоштовно?",
+        answer:
+          "Так. Створення папок, підʼєднання Telegram і Discord, інлайн-надсилання GIF, шеринг папок і завантаження нового медіа — усе працює на безкоштовному тарифі. Платний Pro-тариф існує для збільшених щоденних квот завантажень, але кожна функція крос-чатової бібліотеки доступна на безкоштовному плані без реклами.",
+      },
+      {
+        question: "А якщо я просто хочу конвертувати GIF у MP4 (чи навпаки)?",
+        answer:
+          "Маємо безкоштовні окремі інструменти для цього — без реєстрації. Конвертер GIF → MP4 на vidsandgifs.com/uk/tools/gif-to-mp4, а MP4 → GIF — на vidsandgifs.com/uk/tools/mp4-to-gif. Обидва працюють повністю у твоєму браузері через ffmpeg.wasm; файл не покидає пристрій.",
+      },
+    ],
+    moreBadge: "Ще",
+    moreHeading: "Безкоштовні бічні інструменти",
+    moreBody:
+      "Треба конвертувати кліп перед завантаженням у бібліотеку? Маємо два безкоштовні окремі конвертери, що працюють повністю у браузері — без реєстрації, без завантаження.",
+    ctaGifToMp4: "Конвертер GIF → MP4 →",
+    ctaMp4ToGif: "Конвертер MP4 → GIF →",
+    ctaFaq: "Повний FAQ",
+    howToName:
+      "Як налаштувати приватну бібліотеку GIF для Telegram і Discord",
+    howToDescription:
+      "Зареєструйся на vids&gifs, підʼєднай Telegram і Discord, завантаж свої GIF у папки й надсилай їх інлайн з будь-якого чату через @vidsandgifsbot або /gif.",
+    howToSteps: [
+      {
+        name: "Створи безкоштовний акаунт",
+        text: "Зареєструйся на vidsandgifs.com/uk/signup. Платіжна картка не потрібна — кожна функція крос-чатової бібліотеки доступна на безкоштовному плані.",
+        url: "/uk/signup",
+      },
+      {
+        name: "Завантаж GIF у папки",
+        text: "Перетягни GIF і короткі відео в дашборд. Згрупуй їх у папки за темою — робота, друзі, окремий груповий чат — і обери одну як «активну».",
+        url: "/uk/folders",
+      },
+      {
+        name: "Підʼєднай Telegram",
+        text: "У Налаштуваннях → Підключення зв'яжи @vidsandgifsbot зі своїм акаунтом. У будь-якому чаті Telegram набирай '@vidsandgifsbot пошук-термін' для інлайн-вибору GIF з активної папки.",
+        url: "/uk/settings",
+      },
+      {
+        name: "Підʼєднай Discord",
+        text: "Додай бота vids&gifs на сервер (або у DM) і зв'яжи акаунт. Використовуй /gif для автодоповнення з активної папки або /upload-file для додавання нового медіа, не виходячи з Discord.",
+        url: "/uk/settings",
+      },
+    ],
+    appName: "vids&gifs — приватна бібліотека GIF для Telegram і Discord",
+    appFeatures: [
+      "Приватна бібліотека GIF і відео, організована в папки",
+      "Інлайн-пікер GIF у Telegram через @vidsandgifsbot",
+      "Інлайн-автодоповнення GIF у Discord через слеш-команду /gif",
+      "Read-only шеринг папок із live-оновленнями",
+      "Пошук за тегами в межах активної папки",
+      "Перешли GIF боту — він додасться в активну папку",
+    ],
+    breadcrumb: {
+      home: "vids&gifs",
+      here: "Приватна бібліотека GIF",
     },
-    {
-      "@type": "HowToStep",
-      position: 3,
-      name: "Connect Telegram",
-      text: "In Settings → Connections, link @vidsandgifsbot to your account. From any Telegram chat type '@vidsandgifsbot search-term' to inline-pick a GIF from your active folder.",
-      url: absoluteUrl("/settings"),
-    },
-    {
-      "@type": "HowToStep",
-      position: 4,
-      name: "Connect Discord",
-      text: "Add the vids&gifs Discord bot to your server (or DM it) and link your account. Use /gif to autocomplete from your active folder, or /upload-file to add new media without leaving Discord.",
-      url: absoluteUrl("/settings"),
-    },
-  ],
+  },
 };
 
-const APP_JSON_LD = {
-  "@context": "https://schema.org",
-  "@type": "WebApplication",
-  name: "vids&gifs — private GIF library for Telegram and Discord",
-  url: PAGE_URL,
-  applicationCategory: "CommunicationApplication",
-  operatingSystem: "Any (browser-based + Telegram bot + Discord bot)",
-  browserRequirements:
-    "Modern browser with JavaScript enabled; Telegram and/or Discord account for inline use",
-  offers: {
-    "@type": "Offer",
-    price: "0",
-    priceCurrency: "USD",
-  },
-  featureList: [
-    "Private GIF and video library, organized into folders",
-    "Inline GIF picker in Telegram via @vidsandgifsbot",
-    "Inline GIF autocomplete in Discord via /gif slash command",
-    "Read-only folder sharing with live updates",
-    "Tag-based search, scoped to your active folder",
-    "Forward any GIF to the bot to add it to your active folder",
-  ],
-};
-
-const FAQ_JSON_LD = {
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  mainEntity: FAQ.map((entry) => ({
-    "@type": "Question",
-    name: entry.question,
-    acceptedAnswer: {
-      "@type": "Answer",
-      text: entry.answer,
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getServerLocale();
+  const c = COPY[locale];
+  const url = absoluteUrl(LOCALE_PATH[locale]);
+  return {
+    title: c.title,
+    description: c.description,
+    alternates: {
+      canonical: url,
+      languages: {
+        en: absoluteUrl(LOCALE_PATH.en),
+        uk: absoluteUrl(LOCALE_PATH.uk),
+        "x-default": absoluteUrl(LOCALE_PATH.en),
+      },
     },
-  })),
-};
-
-const BREADCRUMB_JSON_LD = {
-  "@context": "https://schema.org",
-  "@type": "BreadcrumbList",
-  itemListElement: [
-    {
-      "@type": "ListItem",
-      position: 1,
-      name: "vids&gifs",
-      item: absoluteUrl("/"),
+    openGraph: {
+      type: "website",
+      title: c.ogTitle,
+      description: c.ogDescription,
+      url,
+      locale: locale === "uk" ? "uk_UA" : "en_US",
+      alternateLocale: locale === "uk" ? ["en_US"] : ["uk_UA"],
     },
-    {
-      "@type": "ListItem",
-      position: 2,
-      name: "Private GIF library",
-      item: PAGE_URL,
+    twitter: {
+      card: "summary_large_image",
+      title: c.ogTitle,
+      description: c.description,
     },
-  ],
-};
+  };
+}
 
-export default function PrivateGifLibraryPage() {
+export default async function PrivateGifLibraryPage() {
+  const locale = await getServerLocale();
+  const c = COPY[locale];
+  const pageUrl = absoluteUrl(LOCALE_PATH[locale]);
+  const otherLocale: Locale = locale === "uk" ? "en" : "uk";
+
+  const homeUrl = locale === "uk" ? "/uk" : "/";
+  const signupUrl = locale === "uk" ? "/uk/signup" : "/signup";
+  const loginUrl = locale === "uk" ? "/uk/login" : "/login";
+  const gifToMp4Url =
+    locale === "uk" ? "/uk/tools/gif-to-mp4" : "/tools/gif-to-mp4";
+  const mp4ToGifUrl =
+    locale === "uk" ? "/uk/tools/mp4-to-gif" : "/tools/mp4-to-gif";
+  const faqUrl = locale === "uk" ? "/uk/faq" : "/faq";
+
+  const howToJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    inLanguage: locale,
+    name: c.howToName,
+    description: c.howToDescription,
+    totalTime: "PT5M",
+    step: c.howToSteps.map((step, i) => ({
+      "@type": "HowToStep",
+      position: i + 1,
+      name: step.name,
+      text: step.text,
+      url: absoluteUrl(step.url),
+    })),
+  };
+  const appJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    inLanguage: locale,
+    name: c.appName,
+    url: pageUrl,
+    applicationCategory: "CommunicationApplication",
+    operatingSystem: "Any (browser-based + Telegram bot + Discord bot)",
+    browserRequirements:
+      "Modern browser with JavaScript enabled; Telegram and/or Discord account for inline use",
+    offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+    featureList: c.appFeatures,
+  };
+  const faqJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    inLanguage: locale,
+    mainEntity: c.faq.map((entry) => ({
+      "@type": "Question",
+      name: entry.question,
+      acceptedAnswer: { "@type": "Answer", text: entry.answer },
+    })),
+  };
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: c.breadcrumb.home,
+        item: absoluteUrl(homeUrl),
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: c.breadcrumb.here,
+        item: pageUrl,
+      },
+    ],
+  };
+
   return (
     <Box>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: jsonLdScript(HOW_TO_JSON_LD) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(howToJsonLd) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: jsonLdScript(APP_JSON_LD) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(appJsonLd) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: jsonLdScript(FAQ_JSON_LD) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(faqJsonLd) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: jsonLdScript(BREADCRUMB_JSON_LD) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbJsonLd) }}
       />
 
       <div
@@ -227,31 +553,27 @@ export default function PrivateGifLibraryPage() {
         style={{ ["--panel-index" as string]: 1, marginBottom: 32 }}
       >
         <Heading as="h2" size="7" mb="4" style={{ letterSpacing: "-0.02em" }}>
-          One library, every chat — that's the whole point
+          {c.oneLibHeading}
         </Heading>
         <Text as="p" color="gray" size="3" mb="5" style={{ maxWidth: 720 }}>
-          Tenor and Giphy serve everyone the same public catalog. Telegram's
-          saved-GIF list lives only inside Telegram. Your vids&amp;gifs
-          library is yours, organized into folders, and the same data backs
-          inline pickers in both Telegram and Discord — no copies, no
-          per-platform rebuilds.
+          {c.oneLibIntro}
         </Text>
 
         <Grid columns={{ initial: "1", sm: "3" }} gap="4">
           <BenefitCard
             Icon={ArchiveIcon}
-            title="Private folders"
-            body="Group GIFs and videos by theme — work, friends, a specific group joke. The 'active' folder you pick on the website is exactly what the bots search inside."
+            title={c.benefits[0].title}
+            body={c.benefits[0].body}
           />
           <BenefitCard
             Icon={MagnifyingGlassIcon}
-            title="Scoped search"
-            body="Tag-based search runs against your folder, not a public catalog. Type three letters in the Telegram inline picker; the right reaction is one tap away."
+            title={c.benefits[1].title}
+            body={c.benefits[1].body}
           />
           <BenefitCard
             Icon={Share1Icon}
-            title="Read-only sharing"
-            body="Send a friend a share link to a folder. They see your collection live as you add to it, no copies and no manual sync. Perfect for a curated group library."
+            title={c.benefits[2].title}
+            body={c.benefits[2].body}
           />
         </Grid>
       </div>
@@ -261,28 +583,18 @@ export default function PrivateGifLibraryPage() {
         style={{ ["--panel-index" as string]: 2, marginBottom: 32 }}
       >
         <Heading as="h2" size="7" mb="4" style={{ letterSpacing: "-0.02em" }}>
-          How it works in each chat
+          {c.howChatHeading}
         </Heading>
         <Grid columns={{ initial: "1", sm: "2" }} gap="4">
           <ChatCard
             Icon={PaperPlaneIcon}
-            title="Telegram"
-            body={[
-              "In any chat, type @vidsandgifsbot followed by a search term.",
-              "Telegram's native inline picker shows a grid of GIFs from your active folder.",
-              "Tap one — it sends instantly, sourced from your private library, not Tenor.",
-              "Forward any GIF to the bot to add it to your active folder.",
-            ]}
+            title={c.chats[0].title}
+            steps={c.chats[0].steps}
           />
           <ChatCard
             Icon={ChatBubbleIcon}
-            title="Discord"
-            body={[
-              "Add the vids&gifs bot to your server (or use it in a DM).",
-              "Type /gif and start typing a search term — slash autocomplete shows your folder.",
-              "Pick one and the bot posts it to the channel.",
-              "Use /upload-file to add a new GIF without leaving Discord.",
-            ]}
+            title={c.chats[1].title}
+            steps={c.chats[1].steps}
           />
         </Grid>
       </div>
@@ -292,28 +604,28 @@ export default function PrivateGifLibraryPage() {
         style={{ ["--panel-index" as string]: 3, marginBottom: 32 }}
       >
         <Heading as="h2" size="7" mb="4" style={{ letterSpacing: "-0.02em" }}>
-          What you get on the free tier
+          {c.freeHeading}
         </Heading>
         <Grid columns={{ initial: "1", sm: "2" }} gap="4">
           <UseCaseCard
             Icon={LockClosedIcon}
-            title="Private by default"
-            body="Folders are private until you explicitly share them. Uploading a GIF doesn't publish it — your library is yours."
+            title={c.free[0].title}
+            body={c.free[0].body}
           />
           <UseCaseCard
             Icon={MixIcon}
-            title="Auto-file from chats"
-            body="Forward any GIF to @vidsandgifsbot or use Discord's /upload-file. The clip lands in your active folder and is searchable from every chat in seconds."
+            title={c.free[1].title}
+            body={c.free[1].body}
           />
           <UseCaseCard
             Icon={MagnifyingGlassIcon}
-            title="Tag and search"
-            body="Tag GIFs once and the bots match against tags, not just filename. Three-letter searches in the inline picker hit the right clip the first time."
+            title={c.free[2].title}
+            body={c.free[2].body}
           />
           <UseCaseCard
             Icon={Share1Icon}
-            title="Read-only share links"
-            body="Hand a friend a link and they get live read-only access to a folder — the bots search through their account but find your set."
+            title={c.free[3].title}
+            body={c.free[3].body}
           />
         </Grid>
       </div>
@@ -334,20 +646,23 @@ export default function PrivateGifLibraryPage() {
           marginBottom: 32,
         }}
       >
-        <Heading as="h2" size="6" align="center" style={{ letterSpacing: "-0.02em" }}>
-          Build your library in 5 minutes
+        <Heading
+          as="h2"
+          size="6"
+          align="center"
+          style={{ letterSpacing: "-0.02em" }}
+        >
+          {c.ctaHeading}
         </Heading>
         <Text as="p" color="gray" size="3" align="center" style={{ maxWidth: 560 }}>
-          Sign up, drag a few GIFs in, connect Telegram and Discord, and the
-          inline picker is yours in every chat. No payment information, no
-          mandatory plan.
+          {c.ctaBody}
         </Text>
         <Flex gap="3" wrap="wrap" justify="center" mt="2">
           <Button asChild size="3" variant="solid" color="iris">
-            <Link href="/signup">Create a free account</Link>
+            <Link href={signupUrl}>{c.ctaSignup}</Link>
           </Button>
           <Button asChild size="3" variant="soft" color="gray">
-            <Link href="/login">Sign in</Link>
+            <Link href={loginUrl}>{c.ctaSignin}</Link>
           </Button>
         </Flex>
       </Flex>
@@ -357,10 +672,10 @@ export default function PrivateGifLibraryPage() {
         style={{ ["--panel-index" as string]: 5, marginBottom: 32 }}
       >
         <Heading as="h2" size="7" mb="4" style={{ letterSpacing: "-0.02em" }}>
-          Frequently asked questions
+          {c.faqHeading}
         </Heading>
         <Box style={{ maxWidth: 760 }}>
-          {FAQ.map((entry) => (
+          {c.faq.map((entry) => (
             <Box
               key={entry.question}
               asChild
@@ -407,46 +722,54 @@ export default function PrivateGifLibraryPage() {
         style={{ ["--panel-index" as string]: 6, maxWidth: 760 }}
       >
         <Badge color="iris" variant="surface" radius="full">
-          More
+          {c.moreBadge}
         </Badge>
         <Heading as="h2" size="6" style={{ letterSpacing: "-0.02em" }}>
-          Free side-tools
+          {c.moreHeading}
         </Heading>
         <Text as="p" color="gray" size="3" style={{ lineHeight: 1.6 }}>
-          Need to convert a clip before you upload it to your library? We have
-          two free standalone converters that run entirely in your browser —
-          no signup, no upload.
+          {c.moreBody}
         </Text>
         <Flex gap="3" wrap="wrap" mt="2">
           <Link
-            href="/tools/gif-to-mp4"
+            href={gifToMp4Url}
             style={{
               color: "var(--accent-11)",
               textDecoration: "underline",
               fontSize: "var(--font-size-3)",
             }}
           >
-            GIF → MP4 converter →
+            {c.ctaGifToMp4}
           </Link>
           <Link
-            href="/tools/mp4-to-gif"
+            href={mp4ToGifUrl}
             style={{
               color: "var(--accent-11)",
               textDecoration: "underline",
               fontSize: "var(--font-size-3)",
             }}
           >
-            MP4 → GIF converter →
+            {c.ctaMp4ToGif}
           </Link>
           <Link
-            href="/faq"
+            href={faqUrl}
             style={{
               color: "var(--gray-11)",
               textDecoration: "underline",
               fontSize: "var(--font-size-3)",
             }}
           >
-            Read the full FAQ
+            {c.ctaFaq}
+          </Link>
+          <Link
+            href={LOCALE_PATH[otherLocale]}
+            style={{
+              color: "var(--gray-11)",
+              textDecoration: "underline",
+              fontSize: "var(--font-size-3)",
+            }}
+          >
+            {otherLocale === "uk" ? "Українською" : "English"}
           </Link>
         </Flex>
       </Flex>
@@ -504,11 +827,11 @@ function BenefitCard({
 function ChatCard({
   Icon,
   title,
-  body,
+  steps,
 }: {
   Icon: typeof PaperPlaneIcon;
   title: string;
-  body: string[];
+  steps: string[];
 }) {
   return (
     <Box
@@ -549,7 +872,7 @@ function ChatCard({
         }}
       >
         <ol>
-          {body.map((line, i) => (
+          {steps.map((line, i) => (
             <li key={i} style={{ marginBottom: 6 }}>
               {line}
             </li>

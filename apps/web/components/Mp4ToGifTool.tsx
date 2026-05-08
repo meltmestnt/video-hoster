@@ -24,6 +24,39 @@ import { trackEvent } from "@/lib/analytics";
 
 type Phase = "idle" | "loading" | "encoding" | "done" | "error";
 
+export interface Mp4ToGifStrings {
+  badge: string;
+  headlineBefore: string;
+  headlineHighlight: string;
+  subtitle: string;
+  dropzoneTitle: string;
+  dropzoneSubtitle: string;
+  notVideoError: string;
+  phaseLoading: string;
+  phaseEncoding: string;
+  phaseDone: string;
+  phaseError: string;
+  phaseIdle: string;
+  encodingHint: string;
+  resultBadge: string;
+  reset: string;
+  errorGeneric: string;
+  download: string;
+  convertAnother: string;
+  step1Title: string;
+  step1Body: string;
+  step2Title: string;
+  step2Body: string;
+  step3Title: string;
+  step3Body: string;
+  localCallout: string;
+  previewAlt: string;
+}
+
+interface Props {
+  strings: Mp4ToGifStrings;
+}
+
 const triggerDownload = (blob: Blob, name: string) => {
   const href = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -38,7 +71,8 @@ const triggerDownload = (blob: Blob, name: string) => {
 const baseStem = (name: string) =>
   name.replace(/\.[^.]+$/, "").trim() || "converted";
 
-export function Mp4ToGifTool() {
+export function Mp4ToGifTool({ strings }: Props) {
+  const s = strings;
   const [file, setFile] = useState<File | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [progress, setProgress] = useState(0);
@@ -72,9 +106,7 @@ export function Mp4ToGifTool() {
     setError(null);
     const looksLikeVideo = await sniffIsVideoFile(next);
     if (!looksLikeVideo) {
-      setError(
-        "That doesn't look like a video. Drop an .mp4, .mov, .webm or .mkv file.",
-      );
+      setError(s.notVideoError);
       return;
     }
     setFile(next);
@@ -121,14 +153,14 @@ export function Mp4ToGifTool() {
   const isWorking = phase === "loading" || phase === "encoding";
   const phaseLabel =
     phase === "loading"
-      ? "Loading ffmpeg"
+      ? s.phaseLoading
       : phase === "encoding"
-        ? "Rendering GIF"
+        ? s.phaseEncoding
         : phase === "done"
-          ? "Done"
+          ? s.phaseDone
           : phase === "error"
-            ? "Something went wrong"
-            : "Drop a video";
+            ? s.phaseError
+            : s.phaseIdle;
 
   return (
     <Box
@@ -175,7 +207,7 @@ export function Mp4ToGifTool() {
         >
           <RocketIcon width="12" height="12" />
           <Text size="1" weight="medium" ml="1">
-            ffmpeg in your browser · no upload
+            {s.badge}
           </Text>
         </Badge>
         <Heading
@@ -188,9 +220,9 @@ export function Mp4ToGifTool() {
             maxWidth: 900,
           }}
         >
-          MP4 to GIF converter,{" "}
+          {s.headlineBefore}{" "}
           <Text as="span" className="tool-headline-grad">
-            free and instant
+            {s.headlineHighlight}
           </Text>
         </Heading>
         <Text
@@ -200,9 +232,7 @@ export function Mp4ToGifTool() {
           mt="2"
           style={{ maxWidth: 680, lineHeight: 1.5 }}
         >
-          Drop a video, get an animated GIF — perfect for READMEs, chat
-          reactions, and anywhere autoplay videos don't render. Conversion runs
-          entirely in your browser; the file never leaves your machine.
+          {s.subtitle}
         </Text>
       </Flex>
 
@@ -273,11 +303,10 @@ export function Mp4ToGifTool() {
                   <UploadIcon width="22" height="22" />
                 </Box>
                 <Text size="3" weight="medium">
-                  Drop a video here or click to pick
+                  {s.dropzoneTitle}
                 </Text>
                 <Text size="2" color="gray" align="center">
-                  Short clips work best — keep it under ~20 seconds for a
-                  snappy GIF.
+                  {s.dropzoneSubtitle}
                 </Text>
                 <Flex gap="2" wrap="wrap" justify="center">
                   <Badge color="gray" variant="soft">
@@ -331,8 +360,7 @@ export function Mp4ToGifTool() {
                   />
                 </Box>
                 <Text size="1" color="gray" align="center">
-                  Encoding entirely in your browser — feel free to keep
-                  scrolling.
+                  {s.encodingHint}
                 </Text>
               </Flex>
             )}
@@ -353,7 +381,7 @@ export function Mp4ToGifTool() {
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={previewUrl}
-                    alt="Converted GIF preview"
+                    alt={s.previewAlt}
                     style={{
                       maxWidth: "100%",
                       maxHeight: "100%",
@@ -364,7 +392,7 @@ export function Mp4ToGifTool() {
                 <Flex justify="between" align="center" gap="2" wrap="wrap">
                   <Flex gap="2" align="center" wrap="wrap">
                     <Badge color="green" variant="soft">
-                      <CheckIcon /> GIF ready
+                      <CheckIcon /> {s.resultBadge}
                     </Badge>
                     {resultBlob && (
                       <Text size="1" color="gray">
@@ -376,7 +404,7 @@ export function Mp4ToGifTool() {
                     size="1"
                     variant="ghost"
                     color="gray"
-                    aria-label="Reset"
+                    aria-label={s.reset}
                     onClick={reset}
                   >
                     <Cross1Icon />
@@ -394,10 +422,10 @@ export function Mp4ToGifTool() {
                 style={{ minHeight: 240 }}
               >
                 <Text color="red" size="2">
-                  {error ?? "Something went wrong."}
+                  {error ?? s.errorGeneric}
                 </Text>
                 <Button variant="soft" color="gray" onClick={reset}>
-                  Reset
+                  {s.reset}
                 </Button>
               </Flex>
             )}
@@ -421,10 +449,10 @@ export function Mp4ToGifTool() {
                   triggerDownload(resultBlob, resultName);
                 }}
               >
-                <DownloadIcon /> Download GIF
+                <DownloadIcon /> {s.download}
               </Button>
               <Button size="3" variant="soft" color="gray" onClick={reset}>
-                Convert another
+                {s.convertAnother}
               </Button>
             </Flex>
           )}
@@ -434,24 +462,24 @@ export function Mp4ToGifTool() {
           <Flex direction="column" gap="3">
             <Step
               n={1}
-              title="Drop your video"
-              body="Click the dropzone or drag an .mp4, .mov, .webm, or .mkv file. The tool reads it locally — nothing is uploaded."
+              title={s.step1Title}
+              body={s.step1Body}
               active={phase === "idle"}
               done={phase !== "idle"}
             />
             <ArrowDown />
             <Step
               n={2}
-              title="Render the GIF"
-              body="ffmpeg.wasm runs a two-pass palette-optimized GIF encode in your browser tab — quality matches native ffmpeg, not a plain single-pass converter."
+              title={s.step2Title}
+              body={s.step2Body}
               active={isWorking}
               done={phase === "done"}
             />
             <ArrowDown />
             <Step
               n={3}
-              title="Download the GIF"
-              body="Save the file or drop it straight into a chat. Output is 480px wide at 12 fps — the sweet spot for size and smoothness."
+              title={s.step3Title}
+              body={s.step3Body}
               active={phase === "done"}
               done={false}
             />
@@ -468,10 +496,11 @@ export function Mp4ToGifTool() {
               border: "1px solid rgba(118, 99, 224, 0.24)",
             }}
           >
-            <Text size="2" color="gray">
-              <strong>100% local.</strong> The video never leaves your machine
-              — the entire encode runs in this tab via ffmpeg.wasm.
-            </Text>
+            <Text
+              size="2"
+              color="gray"
+              dangerouslySetInnerHTML={{ __html: s.localCallout }}
+            />
           </Flex>
         </Box>
       </Flex>
