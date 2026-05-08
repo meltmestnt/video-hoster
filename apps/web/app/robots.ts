@@ -6,17 +6,15 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: "*",
-        allow: ["/", "/videos/", "/search"],
+        allow: ["/", "/videos/", "/search",  "/gifs/", "/signup"],
         // /gifs/ and /screenshots/ both redirect anonymous viewers to
         // /login now, so disallow crawling them — Google would otherwise
         // log every URL as a soft 404.
         disallow: [
           "/login",
-          "/signup",
           "/confirm",
           "/api/",
           "/favorites",
-          "/gifs/",
           "/screenshots/",
         ],
       },
