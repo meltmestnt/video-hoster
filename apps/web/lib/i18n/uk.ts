@@ -114,6 +114,9 @@ export const uk: EnDict = {
   // ─── Footer ───
   "footer.privacy": "Конфіденційність",
   "footer.faq": "Питання",
+  "footer.privateLibrary": "Приватна бібліотека",
+  "footer.gifToMp4": "GIF → MP4",
+  "footer.mp4ToGif": "MP4 → GIF",
   "footer.cookieSettings": "Налаштування cookie",
   "footer.createdBy": "Створено",
   "footer.withHelpFrom": "за допомогою",

@@ -112,6 +112,9 @@ export const en = {
   // ─── Footer ───
   "footer.privacy": "Privacy",
   "footer.faq": "FAQ",
+  "footer.privateLibrary": "Private library",
+  "footer.gifToMp4": "GIF → MP4",
+  "footer.mp4ToGif": "MP4 → GIF",
   "footer.cookieSettings": "Cookie settings",
   "footer.createdBy": "Created by",
   "footer.withHelpFrom": "with the help from",
