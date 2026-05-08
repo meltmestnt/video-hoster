@@ -40,6 +40,13 @@ export function Footer() {
           {t("footer.faq")}
         </Link>
         <Separator orientation="vertical" />
+        <Link
+          href="/tools/gif-to-mp4"
+          style={{ color: "inherit", fontSize: "var(--font-size-1)" }}
+        >
+          GIF → MP4
+        </Link>
+        <Separator orientation="vertical" />
         {/* Discoverability anchor for the bot — Telegram's name search
             is popularity-gated, so a stable footer link gives every
             visitor a one-tap path to @vidsandgifsbot. */}

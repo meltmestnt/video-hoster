@@ -63,6 +63,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     },
     {
+      // Converter landing — public, no auth, with HowTo + FAQPage JSON-LD.
+      // Targets "gif to mp4 converter" / "convert gif to mp4" queries
+      // that the rest of the app shell can't compete for.
+      url: absoluteUrl("/tools/gif-to-mp4"),
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
       // Static FAQ page — content rarely changes but worth a high-ish
       // priority because it's the page targeting "what is a gif" /
       // "how to convert gif to mp4" search queries. Both English and

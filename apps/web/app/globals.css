@@ -1106,6 +1106,36 @@ body[data-morphing] .page-header {
   }
 }
 
+/* ───── /tools/gif-to-mp4 — converter landing ─────
+ * Reuses .intro-card (crimson running highlight) + .intro-panel-fade-up
+ * (staggered panel entrance) from the home landing. The bits below are
+ * tool-specific: an animated gradient on the H1, matching the
+ * blue→iris→lavender sweep used on the chat-library hero so the two
+ * landings feel related. */
+
+.tool-headline-grad {
+  background-image: linear-gradient(
+    120deg,
+    var(--accent-9) 0%,
+    var(--blue-10) 50%,
+    #d6c8ff 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .tool-headline-grad {
+    animation: anonChatLibGradShift 7s ease-in-out infinite alternate;
+  }
+}
+
+.tool-headline {
+  font-size: clamp(2rem, 5vw, 3.6rem);
+}
+
 /* Sort-change pending state — VideoSortSelect sets body[data-sort-pending]
  * while it's waiting for the server to render the new sort. Dim the grid
  * and overlay a centered spinner so the user gets instant feedback that
