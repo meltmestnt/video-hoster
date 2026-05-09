@@ -156,11 +156,21 @@ export function GifCard({
                   videos+gifs daily cap still gates clicks into the
                   detail page for anon viewers. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
+              {/* No loading="lazy" on purpose. The infinite scroller
+                  already paginates, so we're never asking the browser
+                  to download more than one page worth of GIFs at a time.
+                  Lazy loading defers below-the-fold images until they
+                  intersect the viewport, which means GifsInfiniteList's
+                  batch-reveal counter never reaches threshold for a
+                  freshly-loaded page — the timeout fires while most
+                  items are still suspended, and they then pop in one by
+                  one as the user scrolls. Eager loading lets every item
+                  in a new page start fetching at the same moment so the
+                  whole batch can reveal together. */}
               <img
                 ref={imgRef}
                 src={gif.gifUrl}
                 alt={gif.title}
-                loading="lazy"
                 decoding="async"
                 onLoad={() => setHasFirstFrame(true)}
                 onError={() => setHasFirstFrame(true)}
