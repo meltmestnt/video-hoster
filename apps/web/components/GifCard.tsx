@@ -22,17 +22,16 @@ interface GifCardData {
 export function GifCard({
   gif,
   index = 0,
-  revealMedia = true,
-  onMediaReady,
+  instantEntry = false,
 }: {
   gif: GifCardData;
   index?: number;
-  // When false, the image element stays hidden behind the spinner even
-  // after its first frame has decoded. The infinite list uses this to
-  // batch-reveal a newly-loaded page so cards don't pop in at staggered
-  // times based purely on per-GIF file size and network variance.
-  revealMedia?: boolean;
-  onMediaReady?: () => void;
+  // True for cards loaded via infinite scroll. Skips the videoCardFadeIn
+  // cascade and the per-image opacity transition, so each card pops in
+  // instantly the moment its first frame decodes. With loading=lazy off
+  // the whole new page fetches in parallel, so this gives the snappiest
+  // possible reveal without synthesized waits.
+  instantEntry?: boolean;
 }) {
   const router = useRouter();
   const t = useT();
@@ -47,11 +46,6 @@ export function GifCard({
   // show — the still first frame acts as a thumbnail until the rest of the
   // bytes arrive and the browser starts animating.
   const [hasFirstFrame, setHasFirstFrame] = useState(false);
-  // Latest callback in a ref so the polling effect doesn't restart whenever
-  // the parent re-renders with a new closure.
-  const onMediaReadyRef = useRef(onMediaReady);
-  onMediaReadyRef.current = onMediaReady;
-  const reportedReadyRef = useRef(false);
 
   // No router.prefetch here on purpose. App Router's prefetch caches the
   // RSC payload; if a prefetch ever lands during a transient bad-auth or
@@ -63,7 +57,6 @@ export function GifCard({
 
   useEffect(() => {
     setHasFirstFrame(false);
-    reportedReadyRef.current = false;
     const img = imgRef.current;
     if (!img) return;
     if (img.complete && img.naturalWidth > 0) {
@@ -82,12 +75,6 @@ export function GifCard({
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [gif.gifUrl]);
-
-  useEffect(() => {
-    if (!hasFirstFrame || reportedReadyRef.current) return;
-    reportedReadyRef.current = true;
-    onMediaReadyRef.current?.();
-  }, [hasFirstFrame]);
 
   const navigate = (e: React.MouseEvent) => {
     if (e.metaKey || e.ctrlKey || e.button === 1) return;
@@ -140,7 +127,13 @@ export function GifCard({
       onClick={navigate}
       className="video-card"
       aria-label={gif.title}
-      style={{ ["--card-index" as string]: index }}
+      style={{
+        ["--card-index" as string]: index,
+        // Infinite-scrolled cards skip the cascade keyframe entirely and
+        // appear at their final state. Otherwise the user sees ~1s of
+        // page-1 cards drip-fading even after we zeroed --card-index.
+        ...(instantEntry ? { animation: "none", opacity: 1 } : null),
+      }}
     >
       <Card style={{ overflow: "hidden", padding: 0 }}>
         <div
@@ -175,13 +168,15 @@ export function GifCard({
                 onLoad={() => setHasFirstFrame(true)}
                 onError={() => setHasFirstFrame(true)}
                 style={{
-                  opacity: hasFirstFrame && revealMedia ? 1 : 0,
-                  transition: "opacity 200ms ease",
+                  opacity: hasFirstFrame ? 1 : 0,
+                  // Infinite-scrolled cards pop in instantly so a
+                  // staggered fade-in doesn't read as "still loading".
+                  // Page 0 keeps the soft fade for the SSR→hydrated
+                  // handoff.
+                  transition: instantEntry ? "none" : "opacity 200ms ease",
                 }}
               />
-              {(!hasFirstFrame || !revealMedia) && (
-                <div className="media-loader" aria-hidden />
-              )}
+              {!hasFirstFrame && <div className="media-loader" aria-hidden />}
               <Badge
                 variant="solid"
                 color="iris"
