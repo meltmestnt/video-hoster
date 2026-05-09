@@ -155,7 +155,11 @@ export function GifsInfiniteList({
           <GifCard
             key={gif.id}
             gif={gif}
-            index={i % limit}
+            // Cascade only for the initial paint. Items loaded by the
+            // infinite scroller use index 0 so the whole revealed batch
+            // animates in together rather than dripping over ~1.1s
+            // (20 items × 55ms stagger in videoCardFadeIn).
+            index={pageIdx === 0 ? i % limit : 0}
             revealMedia={revealedPages.has(pageIdx)}
             onMediaReady={() => handleItemReady(pageIdx, pageSize)}
           />
