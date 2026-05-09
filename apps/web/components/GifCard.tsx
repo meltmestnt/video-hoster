@@ -22,9 +22,17 @@ interface GifCardData {
 export function GifCard({
   gif,
   index = 0,
+  revealMedia = true,
+  onMediaReady,
 }: {
   gif: GifCardData;
   index?: number;
+  // When false, the image element stays hidden behind the spinner even
+  // after its first frame has decoded. The infinite list uses this to
+  // batch-reveal a newly-loaded page so cards don't pop in at staggered
+  // times based purely on per-GIF file size and network variance.
+  revealMedia?: boolean;
+  onMediaReady?: () => void;
 }) {
   const router = useRouter();
   const t = useT();
@@ -39,6 +47,11 @@ export function GifCard({
   // show — the still first frame acts as a thumbnail until the rest of the
   // bytes arrive and the browser starts animating.
   const [hasFirstFrame, setHasFirstFrame] = useState(false);
+  // Latest callback in a ref so the polling effect doesn't restart whenever
+  // the parent re-renders with a new closure.
+  const onMediaReadyRef = useRef(onMediaReady);
+  onMediaReadyRef.current = onMediaReady;
+  const reportedReadyRef = useRef(false);
 
   // No router.prefetch here on purpose. App Router's prefetch caches the
   // RSC payload; if a prefetch ever lands during a transient bad-auth or
@@ -50,6 +63,7 @@ export function GifCard({
 
   useEffect(() => {
     setHasFirstFrame(false);
+    reportedReadyRef.current = false;
     const img = imgRef.current;
     if (!img) return;
     if (img.complete && img.naturalWidth > 0) {
@@ -68,6 +82,12 @@ export function GifCard({
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [gif.gifUrl]);
+
+  useEffect(() => {
+    if (!hasFirstFrame || reportedReadyRef.current) return;
+    reportedReadyRef.current = true;
+    onMediaReadyRef.current?.();
+  }, [hasFirstFrame]);
 
   const navigate = (e: React.MouseEvent) => {
     if (e.metaKey || e.ctrlKey || e.button === 1) return;
@@ -145,11 +165,13 @@ export function GifCard({
                 onLoad={() => setHasFirstFrame(true)}
                 onError={() => setHasFirstFrame(true)}
                 style={{
-                  opacity: hasFirstFrame ? 1 : 0,
+                  opacity: hasFirstFrame && revealMedia ? 1 : 0,
                   transition: "opacity 200ms ease",
                 }}
               />
-              {!hasFirstFrame && <div className="media-loader" aria-hidden />}
+              {(!hasFirstFrame || !revealMedia) && (
+                <div className="media-loader" aria-hidden />
+              )}
               <Badge
                 variant="solid"
                 color="iris"
