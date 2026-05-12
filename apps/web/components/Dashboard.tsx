@@ -45,28 +45,44 @@ export function Dashboard({
     },
   );
 
-  const videos = videosQuery.data?.pages.flatMap((p) => p.items) ?? [];
-  const gifs = gifsQuery.data?.pages.flatMap((p) => p.items) ?? [];
+  // Carry pageIdx alongside each item so the merged grid can tell
+  // SSR'd / first-fetch items apart from infinite-loaded ones. The two
+  // streams interleave by createdAt, so a page-1 video can land between
+  // page-0 gifs — a position-based "first N are initial" rule wouldn't
+  // be reliable.
+  const videos =
+    videosQuery.data?.pages.flatMap((p, pageIdx) =>
+      p.items.map((v) => ({ item: v, pageIdx })),
+    ) ?? [];
+  const gifs =
+    gifsQuery.data?.pages.flatMap((p, pageIdx) =>
+      p.items.map((g) => ({ item: g, pageIdx })),
+    ) ?? [];
 
   // Interleave videos and gifs by createdAt so the freshest content of
   // either kind appears first. The chosen sort still applies inside each
   // list (the API ordered them); merging by createdAt for the "newest"
   // view feels most natural and is a reasonable approximation for the
   // count-based sorts since the per-list ordering is preserved.
+  type VideoData = (typeof videos)[number]["item"];
+  type GifData = (typeof gifs)[number]["item"];
   type Item =
-    | { kind: "video"; data: (typeof videos)[number] }
-    | { kind: "gif"; data: (typeof gifs)[number] };
+    | { kind: "video"; data: VideoData; pageIdx: number }
+    | { kind: "gif"; data: GifData; pageIdx: number };
   const merged: Item[] = [];
   let vi = 0;
   let gi = 0;
   while (vi < videos.length || gi < gifs.length) {
     const v = videos[vi];
     const g = gifs[gi];
-    if (v && (!g || new Date(v.createdAt) >= new Date(g.createdAt))) {
-      merged.push({ kind: "video", data: v });
+    if (
+      v &&
+      (!g || new Date(v.item.createdAt) >= new Date(g.item.createdAt))
+    ) {
+      merged.push({ kind: "video", data: v.item, pageIdx: v.pageIdx });
       vi++;
     } else if (g) {
-      merged.push({ kind: "gif", data: g });
+      merged.push({ kind: "gif", data: g.item, pageIdx: g.pageIdx });
       gi++;
     }
   }
@@ -108,17 +124,26 @@ export function Dashboard({
     <>
       <div className="dashboard-grid">
         {merged.map((item, i) => {
-          // Stagger animation per page-sized batch so newly loaded items
-          // ripple in and don't all sit at huge delays.
-          const idx = i % (PAGE_LIMIT * 2);
+          // Cascade only for the SSR'd / first-fetch batch. Infinite-loaded
+          // items get instantEntry — no cascade, no staggered delay — so
+          // the new batch pops in at its final state instead of trickling
+          // in below the existing grid.
+          const isInfinite = item.pageIdx > 0;
+          const idx = isInfinite ? 0 : i % (PAGE_LIMIT * 2);
           return item.kind === "video" ? (
             <VideoCard
               key={`v-${item.data.id}`}
               video={item.data}
               index={idx}
+              instantEntry={isInfinite}
             />
           ) : (
-            <GifCard key={`g-${item.data.id}`} gif={item.data} index={idx} />
+            <GifCard
+              key={`g-${item.data.id}`}
+              gif={item.data}
+              index={idx}
+              instantEntry={isInfinite}
+            />
           );
         })}
       </div>
