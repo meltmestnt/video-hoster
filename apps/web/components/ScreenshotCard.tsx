@@ -22,15 +22,22 @@ interface ScreenshotCardData {
 export function ScreenshotCard({
   shot,
   index = 0,
+  instantEntry = false,
 }: {
   shot: ScreenshotCardData;
   index?: number;
+  // True for cards loaded via infinite scroll. Skips the videoCardFadeIn
+  // cascade — see GifCard for the original rationale.
+  instantEntry?: boolean;
 }) {
   const t = useT();
   const href = `/screenshots/${shot.id}`;
   return (
     <div
       className="video-card"
+      // See GifCard for rationale — paired with a CSS rule that resets
+      // the videoCardFadeIn cascade for infinite-loaded cards.
+      data-instant-entry={instantEntry ? "1" : undefined}
       style={{ ["--card-index" as string]: index }}
     >
       <Card style={{ overflow: "hidden", padding: 0 }}>

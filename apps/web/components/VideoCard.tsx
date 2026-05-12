@@ -77,9 +77,14 @@ function computePlayerRect() {
 export function VideoCard({
   video,
   index = 0,
+  instantEntry = false,
 }: {
   video: VideoCardData;
   index?: number;
+  // True for cards loaded via infinite scroll. Skips the videoCardFadeIn
+  // cascade so the new page appears at its final state instead of
+  // re-staggering — see GifCard for the original rationale.
+  instantEntry?: boolean;
 }) {
   const router = useRouter();
   const { status: authStatus } = useSession();
@@ -315,6 +320,9 @@ export function VideoCard({
       onMouseLeave={cancelPreview}
       className="video-card"
       aria-label={video.title}
+      // See GifCard for rationale — paired with a CSS rule that resets
+      // the videoCardFadeIn cascade for infinite-loaded cards.
+      data-instant-entry={instantEntry ? "1" : undefined}
       style={{ ["--card-index" as string]: index }}
     >
       <Card style={{ overflow: "hidden", padding: 0 }}>

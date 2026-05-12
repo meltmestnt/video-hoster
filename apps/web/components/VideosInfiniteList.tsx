@@ -31,7 +31,10 @@ export function VideosInfiniteList({ initial, sort, limit = 20 }: Props) {
     },
   );
 
-  const items = query.data?.pages.flatMap((p) => p.items) ?? [];
+  const items =
+    query.data?.pages.flatMap((p, pageIdx) =>
+      p.items.map((v) => ({ video: v, pageIdx })),
+    ) ?? [];
 
   if (items.length === 0) {
     return (
@@ -55,10 +58,16 @@ export function VideosInfiniteList({ initial, sort, limit = 20 }: Props) {
   return (
     <>
       <div className="dashboard-grid">
-        {items.map((v, i) => (
-          // index % limit so each fresh page restarts the stagger and old
-          // pages don't push later batches' delays past a reasonable max.
-          <VideoCard key={v.id} video={v} index={i % limit} />
+        {items.map(({ video, pageIdx }, i) => (
+          // Cascade only for the SSR'd / first-fetch page. Infinite-scrolled
+          // pages get instantEntry — no cascade — so each new batch appears
+          // at its final state instead of re-staggering as the user scrolls.
+          <VideoCard
+            key={video.id}
+            video={video}
+            index={pageIdx === 0 ? i % limit : 0}
+            instantEntry={pageIdx > 0}
+          />
         ))}
       </div>
       {query.isFetchingNextPage && <InfiniteScrollSpinner />}

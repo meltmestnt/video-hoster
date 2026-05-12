@@ -127,13 +127,12 @@ export function GifCard({
       onClick={navigate}
       className="video-card"
       aria-label={gif.title}
-      style={{
-        ["--card-index" as string]: index,
-        // Infinite-scrolled cards skip the cascade keyframe entirely and
-        // appear at their final state. Otherwise the user sees ~1s of
-        // page-1 cards drip-fading even after we zeroed --card-index.
-        ...(instantEntry ? { animation: "none", opacity: 1 } : null),
-      }}
+      // data-instant-entry pairs with a CSS rule in globals.css that
+      // disables the videoCardFadeIn cascade. Using a data attribute (not
+      // inline animation:none) so the cascade reset wins deterministically
+      // and isn't sensitive to React style serialization quirks.
+      data-instant-entry={instantEntry ? "1" : undefined}
+      style={{ ["--card-index" as string]: index }}
     >
       <Card style={{ overflow: "hidden", padding: 0 }}>
         <div
