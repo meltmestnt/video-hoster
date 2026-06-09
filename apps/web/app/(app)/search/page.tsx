@@ -77,10 +77,21 @@ export async function generateMetadata({
     hasMore: !!videoResult.nextCursor || !!gifResult.nextCursor,
   });
 
+  // Tag-only pages are real indexable surfaces, so their canonical must
+  // include the tag — otherwise Google sees `/search?tag=cat` pointing
+  // at bare `/search` and files it as "Alternate page with canonical
+  // tag", which drops it from the index. Sort is intentionally omitted
+  // so the default-sort URL wins as the canonical form. Query (q) pages
+  // are noindex anyway and canonicalize back to bare `/search`.
+  const canonicalPath =
+    trimmedTag && !trimmedQ
+      ? `/search?tag=${encodeURIComponent(trimmedTag)}`
+      : "/search";
+
   return {
     title: `Search${titleSuffix}`,
     description,
-    alternates: { canonical: absoluteUrl("/search") },
+    alternates: { canonical: absoluteUrl(canonicalPath) },
     robots: indexable
       ? undefined
       : { index: false, follow: true, googleBot: { index: false, follow: true } },
