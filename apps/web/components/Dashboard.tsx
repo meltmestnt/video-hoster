@@ -22,28 +22,35 @@ export function Dashboard({
   initial,
   initialGifs,
   sort,
+  initialPage = 1,
 }: {
   initial: VideoListResult;
   initialGifs: GifListResult;
   sort: VideoSort;
+  // SSR-time page so a /?page=N or /all?page=N deep link keeps showing
+  // the right slice across refetches. Both lists offset to the same
+  // page; the merged grid still interleaves by createdAt.
+  initialPage?: number;
 }) {
   const t = useT();
-  const videosQuery = trpc.videos.list.useInfiniteQuery(
-    { limit: PAGE_LIMIT, sort },
-    {
-      initialData: { pages: [initial], pageParams: [undefined] },
-      getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-      staleTime: 10_000,
-    },
-  );
-  const gifsQuery = trpc.gifs.list.useInfiniteQuery(
-    { limit: PAGE_LIMIT, sort },
-    {
-      initialData: { pages: [initialGifs], pageParams: [undefined] },
-      getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-      staleTime: 10_000,
-    },
-  );
+  const videoInput =
+    initialPage > 1
+      ? { limit: PAGE_LIMIT, sort, page: initialPage }
+      : { limit: PAGE_LIMIT, sort };
+  const gifInput =
+    initialPage > 1
+      ? { limit: PAGE_LIMIT, sort, page: initialPage }
+      : { limit: PAGE_LIMIT, sort };
+  const videosQuery = trpc.videos.list.useInfiniteQuery(videoInput, {
+    initialData: { pages: [initial], pageParams: [undefined] },
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    staleTime: 10_000,
+  });
+  const gifsQuery = trpc.gifs.list.useInfiniteQuery(gifInput, {
+    initialData: { pages: [initialGifs], pageParams: [undefined] },
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    staleTime: 10_000,
+  });
 
   // Carry pageIdx alongside each item so the merged grid can tell
   // SSR'd / first-fetch items apart from infinite-loaded ones. The two

@@ -733,11 +733,13 @@ export class VideosService {
 
   async list({
     cursor,
+    page,
     limit,
     viewerId,
     sort = "newest",
   }: {
     cursor?: string;
+    page?: number;
     limit: number;
     viewerId?: string | null;
     sort?: VideoSort;
@@ -763,10 +765,20 @@ export class VideosService {
     this.applyVisibility(qb, viewerId);
 
     if (cursor) {
+      // Cursor (infinite scroll) wins over page — once the client has a
+      // last-seen id, keyset paging is more stable than offset (no
+      // duplicates or skips when new items appear at the head of the
+      // feed between fetches).
       const c = await this.videos.findOne({ where: { id: cursor } });
       if (c) {
         qb.andWhere("v.createdAt < :cAt", { cAt: c.createdAt });
       }
+    } else if (page && page > 1) {
+      // SEO-friendly /videos?page=N: offset by full pages so a crawler
+      // landing on page 5 sees the same slice every visit. New uploads
+      // can shift the boundary by one row across requests; that's fine
+      // for crawl discovery and not user-visible.
+      qb.skip((page - 1) * limit);
     }
     const rows = await qb.getMany();
     const hasMore = rows.length > limit;
@@ -778,6 +790,17 @@ export class VideosService {
       items: await this.attachExtras(items, viewerId),
       nextCursor,
     };
+  }
+
+  /**
+   * Total ready+public-visible video count. Used by the sitemap to
+   * enumerate /videos?page=N entries; deliberately ignores viewer-private
+   * videos because the sitemap is anonymous-bot crawlable.
+   */
+  countPublic(): Promise<number> {
+    return this.videos.count({
+      where: { status: "ready", visibility: "public" },
+    });
   }
 
   /**

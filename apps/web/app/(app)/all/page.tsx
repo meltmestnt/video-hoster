@@ -6,24 +6,40 @@ import { getServerTrpc } from "@/lib/trpc-server";
 import { Dashboard } from "@/components/Dashboard";
 import { VideoSortSelect } from "@/components/VideoSortSelect";
 import { DropTile } from "@/components/DropTile";
+import { SeoPagination } from "@/components/SeoPagination";
 import type { VideoSort } from "@repo/shared";
 import { absoluteUrl } from "@/lib/site";
 import { T } from "@/lib/i18n";
+import {
+  LISTING_PAGE_LIMIT,
+  buildPagedUrl,
+  parsePageParam,
+} from "@/lib/seo-pagination";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "All",
-  description:
-    "Browse the latest videos and GIFs uploaded to vids&gifs. Sort by newest, most liked, or most disliked.",
-  alternates: { canonical: absoluteUrl("/all") },
-  openGraph: {
-    title: "All — vids&gifs",
-    description: "Browse the latest videos and GIFs uploaded to vids&gifs.",
-    url: absoluteUrl("/all"),
-    type: "website",
-  },
-};
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ sort?: string; page?: string }>;
+}): Promise<Metadata> {
+  const { page: pageRaw } = await searchParams;
+  const page = parsePageParam(pageRaw);
+  const canonical = absoluteUrl(buildPagedUrl("/all", page));
+  const titleSuffix = page > 1 ? ` — page ${page}` : "";
+  return {
+    title: `All${titleSuffix}`,
+    description:
+      "Browse the latest videos and GIFs uploaded to vids&gifs. Sort by newest, most liked, or most disliked.",
+    alternates: { canonical },
+    openGraph: {
+      title: `All${titleSuffix} — vids&gifs`,
+      description: "Browse the latest videos and GIFs uploaded to vids&gifs.",
+      url: canonical,
+      type: "website",
+    },
+  };
+}
 
 const VALID_SORTS: VideoSort[] = ["newest", "mostLiked", "mostDisliked"];
 function normalizeSort(raw: string | undefined): VideoSort {
@@ -42,18 +58,25 @@ function normalizeSort(raw: string | undefined): VideoSort {
 export default async function AllPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string }>;
+  searchParams: Promise<{ sort?: string; page?: string }>;
 }) {
   const session = await getServerSession(authOptions);
   const signedIn = !!session?.user;
-  const { sort: sortRaw } = await searchParams;
+  const { sort: sortRaw, page: pageRaw } = await searchParams;
   const sort = normalizeSort(sortRaw);
+  const page = parsePageParam(pageRaw);
 
   const trpc = await getServerTrpc();
+  const pagedInput = page > 1 ? { page } : {};
   const [initial, initialGifs] = await Promise.all([
-    trpc.videos.list.query({ limit: 20, sort }),
-    trpc.gifs.list.query({ limit: 20, sort }),
+    trpc.videos.list.query({ limit: LISTING_PAGE_LIMIT, sort, ...pagedInput }),
+    trpc.gifs.list.query({ limit: LISTING_PAGE_LIMIT, sort, ...pagedInput }),
   ]);
+
+  // Either list still having a next cursor means there's more content
+  // on page+1 — even if one list ran out, the other might still feed
+  // the merged grid.
+  const hasNextPage = !!initial.nextCursor || !!initialGifs.nextCursor;
 
   return (
     <>
@@ -71,7 +94,13 @@ export default async function AllPage({
         </Flex>
       </div>
       <DropTile mode="any" signedIn={signedIn} />
-      <Dashboard initial={initial} initialGifs={initialGifs} sort={sort} />
+      <Dashboard
+        initial={initial}
+        initialGifs={initialGifs}
+        sort={sort}
+        initialPage={page}
+      />
+      <SeoPagination path="/all" page={page} hasNextPage={hasNextPage} />
     </>
   );
 }

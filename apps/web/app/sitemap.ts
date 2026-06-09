@@ -1,6 +1,8 @@
 import type { MetadataRoute } from "next";
+import { SEO_PAGE_MAX } from "@repo/shared";
 import { getServerTrpc } from "@/lib/trpc-server";
 import { absoluteUrl } from "@/lib/site";
+import { LISTING_PAGE_LIMIT } from "@/lib/seo-pagination";
 
 // Static + ISR. Without this, Next ignores `revalidate` and SSRs the
 // sitemap on every fetch — Google retrieves /sitemap.xml frequently
@@ -11,17 +13,48 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const trpc = await getServerTrpc();
 
   let videos: Array<{ id: string; createdAt: string | Date }> = [];
+  let videoCount = 0;
+  let gifCount = 0;
   // GIF and screenshot detail pages now redirect anonymous viewers to
   // /login, so we deliberately don't include them in the sitemap —
   // Google flags sitemap entries that 30x as soft errors.
   try {
-    [videos] = await Promise.all([trpc.videos.sitemap.query()]);
+    [videos, videoCount, gifCount] = await Promise.all([
+      trpc.videos.sitemap.query(),
+      trpc.videos.countPublic.query(),
+      trpc.gifs.countPublic.query(),
+    ]);
   } catch {
     // If the API is briefly unavailable, ship the static entries rather
     // than a 500 — Google will retry the sitemap.
   }
 
   const now = new Date();
+
+  // /videos and /gifs use a 20-per-page grid; /all interleaves both
+  // streams so its longest page run is bounded by whichever list is
+  // longer. Cap at SEO_PAGE_MAX so a runaway count doesn't balloon the
+  // sitemap past Google's 50k-URL limit (also matches the API's input
+  // validation — listing beyond that returns 400).
+  const pagesFor = (count: number) =>
+    Math.min(SEO_PAGE_MAX, Math.max(1, Math.ceil(count / LISTING_PAGE_LIMIT)));
+  const videoPageCount = pagesFor(videoCount);
+  const gifPageCount = pagesFor(gifCount);
+  const allPageCount = Math.max(videoPageCount, gifPageCount);
+
+  // Page 1 is the bare URL (already in staticEntries); only emit page
+  // 2+ here so we don't duplicate the canonical landing URL.
+  const paginatedEntries = (
+    path: string,
+    pageCount: number,
+    priority: number,
+  ): MetadataRoute.Sitemap =>
+    Array.from({ length: Math.max(0, pageCount - 1) }, (_, i) => ({
+      url: absoluteUrl(`${path}?page=${i + 2}`),
+      lastModified: now,
+      changeFrequency: "daily" as const,
+      priority,
+    }));
 
   // Each bilingual page is listed once at the English URL with the
   // Ukrainian variant declared in `alternates.languages`. Google reads
@@ -131,5 +164,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }));
 
-  return [...staticEntries, ...videoEntries];
+  // SEO-friendly pagination URLs. Page 1 == bare URL (already above);
+  // we enumerate page 2..N so Googlebot can reach every grid item
+  // without depending on the JS infinite-scroll path. Mirrored at
+  // runtime by ?page=N support in each route's `searchParams` handler.
+  const paginatedListings: MetadataRoute.Sitemap = [
+    ...paginatedEntries("/videos", videoPageCount, 0.6),
+    ...paginatedEntries("/gifs", gifPageCount, 0.6),
+    ...paginatedEntries("/all", allPageCount, 0.5),
+  ];
+
+  return [...staticEntries, ...paginatedListings, ...videoEntries];
 }

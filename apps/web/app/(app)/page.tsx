@@ -10,11 +10,13 @@ import { DropTile } from "@/components/DropTile";
 import { TelegramPromoBanner } from "@/components/TelegramPromoBanner";
 import { DiscordPromoBanner } from "@/components/DiscordPromoBanner";
 import { FolderOnboardingBanner } from "@/components/FolderOnboardingBanner";
+import { SeoPagination } from "@/components/SeoPagination";
 import type { VideoSort } from "@repo/shared";
 import { absoluteUrl } from "@/lib/site";
 import { T } from "@/lib/i18n";
 import { getServerLocale } from "@/lib/i18n/server";
 import type { Locale } from "@/lib/i18n/locale";
+import { LISTING_PAGE_LIMIT, parsePageParam } from "@/lib/seo-pagination";
 
 // Anonymous visitors return early with a static-friendly intro panel —
 // no DB calls, no session-dependent UI — so we don't force-mark this
@@ -92,24 +94,30 @@ function normalizeSort(raw: string | undefined): VideoSort {
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string }>;
+  searchParams: Promise<{ sort?: string; page?: string }>;
 }) {
   const session = await getServerSession(authOptions);
   // Signed-out visitors see the marketing landing instead of the feed —
   // they can still browse content via the "Browse all videos" link or by
-  // navigating to /videos / /gifs / /screenshots directly.
+  // navigating to /videos / /gifs / /screenshots directly. Note that
+  // this also means ?page=N on / is meaningless for SEO: bots get the
+  // intro. The crawlable paginated surface is /all (which mirrors this
+  // feed for anonymous viewers too) — sitemap entries point at that.
   if (!session?.user) {
     return <AnonymousIntro />;
   }
 
-  const { sort: sortRaw } = await searchParams;
+  const { sort: sortRaw, page: pageRaw } = await searchParams;
   const sort = normalizeSort(sortRaw);
+  const page = parsePageParam(pageRaw);
 
   const trpc = await getServerTrpc();
+  const pagedInput = page > 1 ? { page } : {};
   const [initial, initialGifs] = await Promise.all([
-    trpc.videos.list.query({ limit: 20, sort }),
-    trpc.gifs.list.query({ limit: 20, sort }),
+    trpc.videos.list.query({ limit: LISTING_PAGE_LIMIT, sort, ...pagedInput }),
+    trpc.gifs.list.query({ limit: LISTING_PAGE_LIMIT, sort, ...pagedInput }),
   ]);
+  const hasNextPage = !!initial.nextCursor || !!initialGifs.nextCursor;
 
   return (
     <>
@@ -130,7 +138,13 @@ export default async function DashboardPage({
       <DiscordPromoBanner />
       <FolderOnboardingBanner />
       <DropTile mode="any" signedIn />
-      <Dashboard initial={initial} initialGifs={initialGifs} sort={sort} />
+      <Dashboard
+        initial={initial}
+        initialGifs={initialGifs}
+        sort={sort}
+        initialPage={page}
+      />
+      <SeoPagination path="/" page={page} hasNextPage={hasNextPage} />
     </>
   );
 }

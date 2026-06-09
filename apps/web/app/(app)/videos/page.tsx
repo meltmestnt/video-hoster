@@ -6,9 +6,15 @@ import { getServerTrpc } from "@/lib/trpc-server";
 import { VideosInfiniteList } from "@/components/VideosInfiniteList";
 import { VideoSortSelect } from "@/components/VideoSortSelect";
 import { DropTile } from "@/components/DropTile";
+import { SeoPagination } from "@/components/SeoPagination";
 import type { VideoSort } from "@repo/shared";
 import { absoluteUrl } from "@/lib/site";
 import { T } from "@/lib/i18n";
+import {
+  LISTING_PAGE_LIMIT,
+  buildPagedUrl,
+  parsePageParam,
+} from "@/lib/seo-pagination";
 
 export const dynamic = "force-dynamic";
 
@@ -19,31 +25,46 @@ function normalizeSort(raw: string | undefined): VideoSort {
     : "newest";
 }
 
-export const metadata: Metadata = {
-  title: "All videos",
-  description:
-    "Browse the latest public videos uploaded to vids&gifs. Sort by newest, most liked, or most disliked.",
-  alternates: { canonical: absoluteUrl("/videos") },
-  openGraph: {
-    title: "All videos — vids&gifs",
-    description: "Browse the latest public videos uploaded to vids&gifs.",
-    url: absoluteUrl("/videos"),
-    type: "website",
-  },
-};
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ sort?: string; page?: string }>;
+}): Promise<Metadata> {
+  const { page: pageRaw } = await searchParams;
+  const page = parsePageParam(pageRaw);
+  const canonical = absoluteUrl(buildPagedUrl("/videos", page));
+  const titleSuffix = page > 1 ? ` — page ${page}` : "";
+  return {
+    title: `All videos${titleSuffix}`,
+    description:
+      "Browse the latest public videos uploaded to vids&gifs. Sort by newest, most liked, or most disliked.",
+    alternates: { canonical },
+    openGraph: {
+      title: `All videos${titleSuffix} — vids&gifs`,
+      description: "Browse the latest public videos uploaded to vids&gifs.",
+      url: canonical,
+      type: "website",
+    },
+  };
+}
 
 export default async function VideosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string }>;
+  searchParams: Promise<{ sort?: string; page?: string }>;
 }) {
-  const { sort: sortRaw } = await searchParams;
+  const { sort: sortRaw, page: pageRaw } = await searchParams;
   const sort = normalizeSort(sortRaw);
+  const page = parsePageParam(pageRaw);
 
   const session = await getServerSession(authOptions);
   const signedIn = !!session?.user;
   const trpc = await getServerTrpc();
-  const initial = await trpc.videos.list.query({ limit: 20, sort });
+  const initial = await trpc.videos.list.query({
+    limit: LISTING_PAGE_LIMIT,
+    sort,
+    ...(page > 1 ? { page } : {}),
+  });
 
   return (
     <>
@@ -61,7 +82,12 @@ export default async function VideosPage({
         </Flex>
       </div>
       <DropTile mode="video" signedIn={signedIn} />
-      <VideosInfiniteList initial={initial} sort={sort} />
+      <VideosInfiniteList initial={initial} sort={sort} initialPage={page} />
+      <SeoPagination
+        path="/videos"
+        page={page}
+        hasNextPage={!!initial.nextCursor}
+      />
     </>
   );
 }

@@ -20,6 +20,14 @@ export const tagNameSchema = z
 export const videoVisibilitySchema = z.enum(["public", "private"]);
 export type VideoVisibility = z.infer<typeof videoVisibilitySchema>;
 
+// Cap for the ?page=N SEO pagination knob. At limit=20 that's 10k items,
+// well past the depth Googlebot will follow before deduping; raising it
+// just lets attackers force deep OFFSET scans, which Postgres pays for
+// linearly. 500 is the sweet spot — generous enough that current and
+// near-future inventory fits, restrictive enough that the offset stays
+// fast even without keyset tricks.
+export const SEO_PAGE_MAX = 500;
+
 export const videoDownloadPolicySchema = z.enum(["full", "audio", "none"]);
 export type VideoDownloadPolicy = z.infer<typeof videoDownloadPolicySchema>;
 
@@ -102,6 +110,10 @@ export type VideoSort = z.infer<typeof videoSortSchema>;
 
 export const listVideosInputSchema = z.object({
   cursor: z.string().uuid().optional(),
+  // 1-indexed offset page used by SEO-friendly /videos?page=N URLs so
+  // Googlebot can crawl every page. Cursor mode (infinite scroll) takes
+  // precedence; the two never combine.
+  page: z.number().int().min(1).max(SEO_PAGE_MAX).optional(),
   limit: z.number().int().min(1).max(50).default(24),
   sort: videoSortSchema,
 });
@@ -157,6 +169,7 @@ export type ReactToGifInput = z.infer<typeof reactToGifInputSchema>;
 
 export const listGifsInputSchema = z.object({
   cursor: z.string().uuid().optional(),
+  page: z.number().int().min(1).max(SEO_PAGE_MAX).optional(),
   limit: z.number().int().min(1).max(50).default(24),
   sort: videoSortSchema,
 });

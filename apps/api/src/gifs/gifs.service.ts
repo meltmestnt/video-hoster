@@ -891,11 +891,13 @@ export class GifsService implements OnApplicationBootstrap {
 
   async list({
     cursor,
+    page,
     limit,
     viewerId,
     sort = "newest",
   }: {
     cursor?: string;
+    page?: number;
     limit: number;
     viewerId?: string | null;
     sort?: VideoSort;
@@ -920,8 +922,13 @@ export class GifsService implements OnApplicationBootstrap {
     this.applyVisibility(qb, viewerId);
 
     if (cursor) {
+      // Cursor wins over page — see the matching note in
+      // videos.service.list. Infinite scroll continues by keyset from
+      // wherever SSR left off.
       const c = await this.gifs.findOne({ where: { id: cursor } });
       if (c) qb.andWhere("g.createdAt < :cAt", { cAt: c.createdAt });
+    } else if (page && page > 1) {
+      qb.skip((page - 1) * limit);
     }
     const rows = await qb.getMany();
     const hasMore = rows.length > limit;
@@ -932,6 +939,16 @@ export class GifsService implements OnApplicationBootstrap {
       items: await this.attachExtras(items, viewerId),
       nextCursor,
     };
+  }
+
+  /**
+   * Total ready+public gif count. Same purpose as videos.countPublic:
+   * sitemap enumeration of /gifs?page=N URLs.
+   */
+  countPublic(): Promise<number> {
+    return this.gifs.count({
+      where: { status: "ready", visibility: "public" },
+    });
   }
 
   /** Newest-first list of one owner's GIFs for /@username pages. */

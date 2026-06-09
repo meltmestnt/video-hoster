@@ -18,18 +18,25 @@ interface Props {
   initial: VideoListResult;
   sort: VideoSort;
   limit?: number;
+  // SSR-time page so React Query's input key includes the offset.
+  // See the matching note in GifsInfiniteList.
+  initialPage?: number;
 }
 
-export function VideosInfiniteList({ initial, sort, limit = 20 }: Props) {
+export function VideosInfiniteList({
+  initial,
+  sort,
+  limit = 20,
+  initialPage = 1,
+}: Props) {
   const t = useT();
-  const query = trpc.videos.list.useInfiniteQuery(
-    { limit, sort },
-    {
-      initialData: { pages: [initial], pageParams: [undefined] },
-      getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-      staleTime: 10_000,
-    },
-  );
+  const baseInput =
+    initialPage > 1 ? { limit, sort, page: initialPage } : { limit, sort };
+  const query = trpc.videos.list.useInfiniteQuery(baseInput, {
+    initialData: { pages: [initial], pageParams: [undefined] },
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    staleTime: 10_000,
+  });
 
   const items =
     query.data?.pages.flatMap((p, pageIdx) =>

@@ -20,6 +20,11 @@ interface Props {
   sort: VideoSort;
   signedIn: boolean;
   limit?: number;
+  // When SSR rendered a deep ?page=N landing, we have to thread the
+  // page into the query input. Otherwise React Query refetches with
+  // `{ limit, sort }` (no page, no cursor) on the next focus/refresh
+  // and replaces the rendered page-N slice with page-1 items.
+  initialPage?: number;
 }
 
 export function GifsInfiniteList({
@@ -27,16 +32,19 @@ export function GifsInfiniteList({
   sort,
   signedIn,
   limit = 20,
+  initialPage = 1,
 }: Props) {
   const t = useT();
-  const query = trpc.gifs.list.useInfiniteQuery(
-    { limit, sort },
-    {
-      initialData: { pages: [initial], pageParams: [undefined] },
-      getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-      staleTime: 10_000,
-    },
-  );
+  // Page only goes into the input when it's >1; the page=1 case stays
+  // identical to the pre-pagination cache key so existing prefetches
+  // and in-flight queries hit unchanged.
+  const baseInput =
+    initialPage > 1 ? { limit, sort, page: initialPage } : { limit, sort };
+  const query = trpc.gifs.list.useInfiniteQuery(baseInput, {
+    initialData: { pages: [initial], pageParams: [undefined] },
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    staleTime: 10_000,
+  });
 
   const items =
     query.data?.pages.flatMap((p, pageIdx) =>

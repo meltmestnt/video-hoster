@@ -284,6 +284,13 @@ export const appRouter = router({
       ctx.services.videos.listPublicForSitemap(),
     ),
 
+    // Total public-video count for sitemap pagination: lets sitemap.ts
+    // emit /videos?page=N up to ceil(total/pageSize) without scanning
+    // the table.
+    countPublic: publicProcedure.query(({ ctx }) =>
+      ctx.services.videos.countPublic(),
+    ),
+
     // Per-user listing for the /@username profile page.
     byOwner: publicProcedure
       .input(listByOwnerInputSchema)
@@ -615,6 +622,10 @@ export const appRouter = router({
 
     sitemap: publicProcedure.query(({ ctx }) =>
       ctx.services.gifs.listPublicForSitemap(),
+    ),
+
+    countPublic: publicProcedure.query(({ ctx }) =>
+      ctx.services.gifs.countPublic(),
     ),
 
     byOwner: publicProcedure
