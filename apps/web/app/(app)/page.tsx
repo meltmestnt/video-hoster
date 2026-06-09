@@ -1,28 +1,8 @@
 import type { Metadata } from "next";
-import { Flex, Heading, Text } from "@radix-ui/themes";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { getServerTrpc } from "@/lib/trpc-server";
-import { Dashboard } from "@/components/Dashboard";
-import { VideoSortSelect } from "@/components/VideoSortSelect";
 import { AnonymousIntro } from "@/components/AnonymousIntro";
-import { DropTile } from "@/components/DropTile";
-import { TelegramPromoBanner } from "@/components/TelegramPromoBanner";
-import { DiscordPromoBanner } from "@/components/DiscordPromoBanner";
-import { FolderOnboardingBanner } from "@/components/FolderOnboardingBanner";
-import { SeoPagination } from "@/components/SeoPagination";
-import type { VideoSort } from "@repo/shared";
 import { absoluteUrl } from "@/lib/site";
-import { T } from "@/lib/i18n";
 import { getServerLocale } from "@/lib/i18n/server";
 import type { Locale } from "@/lib/i18n/locale";
-import { LISTING_PAGE_LIMIT, parsePageParam } from "@/lib/seo-pagination";
-
-// Anonymous visitors return early with a static-friendly intro panel —
-// no DB calls, no session-dependent UI — so we don't force-mark this
-// route dynamic. Next.js detects the cookie/searchParams reads downstream
-// and switches to dynamic rendering automatically when a session exists,
-// while letting the anon path stay cheap.
 
 // The root path is the natural landing for any "vids and gifs" /
 // "vidsandgifs" search, so we use `title.absolute` here to break out of
@@ -84,67 +64,11 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-const VALID_SORTS: VideoSort[] = ["newest", "mostLiked", "mostDisliked"];
-function normalizeSort(raw: string | undefined): VideoSort {
-  return (VALID_SORTS as string[]).includes(raw ?? "")
-    ? (raw as VideoSort)
-    : "newest";
-}
-
-export default async function DashboardPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ sort?: string; page?: string }>;
-}) {
-  const session = await getServerSession(authOptions);
-  // Signed-out visitors see the marketing landing instead of the feed —
-  // they can still browse content via the "Browse all videos" link or by
-  // navigating to /videos / /gifs / /screenshots directly. Note that
-  // this also means ?page=N on / is meaningless for SEO: bots get the
-  // intro. The crawlable paginated surface is /all (which mirrors this
-  // feed for anonymous viewers too) — sitemap entries point at that.
-  if (!session?.user) {
-    return <AnonymousIntro />;
-  }
-
-  const { sort: sortRaw, page: pageRaw } = await searchParams;
-  const sort = normalizeSort(sortRaw);
-  const page = parsePageParam(pageRaw);
-
-  const trpc = await getServerTrpc();
-  const pagedInput = page > 1 ? { page } : {};
-  const [initial, initialGifs] = await Promise.all([
-    trpc.videos.list.query({ limit: LISTING_PAGE_LIMIT, sort, ...pagedInput }),
-    trpc.gifs.list.query({ limit: LISTING_PAGE_LIMIT, sort, ...pagedInput }),
-  ]);
-  const hasNextPage = !!initial.nextCursor || !!initialGifs.nextCursor;
-
-  return (
-    <>
-      <div className="page-header">
-        <Flex align="end" justify="between" gap="3" wrap="wrap" mb="5">
-          <div>
-            <Heading size="6" mb="1">
-              <T k="page.dashboard.heading" />
-            </Heading>
-            <Text as="p" color="gray" size="2">
-              <T k="page.dashboard.subtitle" />
-            </Text>
-          </div>
-          <VideoSortSelect value={sort} />
-        </Flex>
-      </div>
-      <TelegramPromoBanner />
-      <DiscordPromoBanner />
-      <FolderOnboardingBanner />
-      <DropTile mode="any" signedIn />
-      <Dashboard
-        initial={initial}
-        initialGifs={initialGifs}
-        sort={sort}
-        initialPage={page}
-      />
-      <SeoPagination path="/" page={page} hasNextPage={hasNextPage} />
-    </>
-  );
+// `/` is now the marketing landing for every visitor, signed-in or not.
+// The signed-in feed (with promo banners, drop tile, and the merged
+// videos+gifs grid) moved to `/all`, which is the entry the topbar
+// already points at — so signed-in users still have a one-click path to
+// their library without `/` cluttering the brand landing.
+export default function DashboardPage() {
+  return <AnonymousIntro />;
 }
