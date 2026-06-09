@@ -52,45 +52,41 @@ export function Dashboard({
     staleTime: 10_000,
   });
 
-  // Carry pageIdx alongside each item so the merged grid can tell
-  // SSR'd / first-fetch items apart from infinite-loaded ones. The two
-  // streams interleave by createdAt, so a page-1 video can land between
-  // page-0 gifs — a position-based "first N are initial" rule wouldn't
-  // be reliable.
-  const videos =
-    videosQuery.data?.pages.flatMap((p, pageIdx) =>
-      p.items.map((v) => ({ item: v, pageIdx })),
-    ) ?? [];
-  const gifs =
-    gifsQuery.data?.pages.flatMap((p, pageIdx) =>
-      p.items.map((g) => ({ item: g, pageIdx })),
-    ) ?? [];
-
-  // Interleave videos and gifs by createdAt so the freshest content of
-  // either kind appears first. The chosen sort still applies inside each
-  // list (the API ordered them); merging by createdAt for the "newest"
-  // view feels most natural and is a reasonable approximation for the
-  // count-based sorts since the per-list ordering is preserved.
-  type VideoData = (typeof videos)[number]["item"];
-  type GifData = (typeof gifs)[number]["item"];
+  // Interleave videos and gifs by createdAt *per page*, then concatenate.
+  // Merging across all pages at once causes the last few page-N items
+  // to shift down when page N+1 lands: a freshly fetched video can
+  // have a createdAt that sits between two already-rendered gifs, so
+  // it slots into the middle of page N's tail and pushes those gifs
+  // into what looks like the next batch. Per-page merge locks each
+  // batch's order in place — once a page renders, its items stay put.
+  // Across batch boundaries the merge isn't strictly createdAt-sorted,
+  // but that's an acceptable trade since cursor pagination already
+  // guarantees page N+1 only contains items older than page N's tail.
+  type VideoItem = (typeof initial)["items"][number];
+  type GifItem = (typeof initialGifs)["items"][number];
   type Item =
-    | { kind: "video"; data: VideoData; pageIdx: number }
-    | { kind: "gif"; data: GifData; pageIdx: number };
+    | { kind: "video"; data: VideoItem; pageIdx: number }
+    | { kind: "gif"; data: GifItem; pageIdx: number };
+
+  const videoPages = videosQuery.data?.pages ?? [];
+  const gifPages = gifsQuery.data?.pages ?? [];
+  const pageCount = Math.max(videoPages.length, gifPages.length);
   const merged: Item[] = [];
-  let vi = 0;
-  let gi = 0;
-  while (vi < videos.length || gi < gifs.length) {
-    const v = videos[vi];
-    const g = gifs[gi];
-    if (
-      v &&
-      (!g || new Date(v.item.createdAt) >= new Date(g.item.createdAt))
-    ) {
-      merged.push({ kind: "video", data: v.item, pageIdx: v.pageIdx });
-      vi++;
-    } else if (g) {
-      merged.push({ kind: "gif", data: g.item, pageIdx: g.pageIdx });
-      gi++;
+  for (let p = 0; p < pageCount; p++) {
+    const vp = videoPages[p]?.items ?? [];
+    const gp = gifPages[p]?.items ?? [];
+    let vi = 0;
+    let gi = 0;
+    while (vi < vp.length || gi < gp.length) {
+      const v = vp[vi];
+      const g = gp[gi];
+      if (v && (!g || new Date(v.createdAt) >= new Date(g.createdAt))) {
+        merged.push({ kind: "video", data: v, pageIdx: p });
+        vi++;
+      } else if (g) {
+        merged.push({ kind: "gif", data: g, pageIdx: p });
+        gi++;
+      }
     }
   }
 
