@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import {
@@ -37,6 +38,15 @@ function normalizeUsername(raw: string): string | null {
   return lower;
 }
 
+// Dedupe the profile fetch within a single request — generateMetadata
+// and the page component both need it, and without React.cache() they'd
+// each fire the tRPC round-trip (findByUsername + 5 counts + avatar) for
+// a doubled ~14 DB queries per profile view.
+const getProfile = cache(async (slug: string) => {
+  const trpc = await getServerTrpc();
+  return trpc.users.profile.query({ username: slug });
+});
+
 export async function generateMetadata({
   params,
 }: {
@@ -47,10 +57,9 @@ export async function generateMetadata({
   if (!slug) {
     return { title: "Profile not found", robots: { index: false, follow: false } };
   }
-  const trpc = await getServerTrpc();
   let profile;
   try {
-    profile = await trpc.users.profile.query({ username: slug });
+    profile = await getProfile(slug);
   } catch {
     return { title: "Profile not found", robots: { index: false, follow: false } };
   }
@@ -79,12 +88,11 @@ export default async function ProfilePage({
   const slug = normalizeUsername(username);
   if (!slug) notFound();
 
-  const trpc = await getServerTrpc();
   const session = await getServerSession(authOptions);
 
   let profile;
   try {
-    profile = await trpc.users.profile.query({ username: slug });
+    profile = await getProfile(slug);
   } catch {
     notFound();
   }
@@ -92,6 +100,7 @@ export default async function ProfilePage({
   // Fetch the three lists in parallel. Each endpoint already filters
   // private items unless the viewer is the owner, so we don't need a
   // second pass here.
+  const trpc = await getServerTrpc();
   const [videos, gifs, screenshots] = await Promise.all([
     trpc.videos.byOwner.query({ ownerId: profile.id, limit: 24 }),
     trpc.gifs.byOwner.query({ ownerId: profile.id, limit: 24 }),

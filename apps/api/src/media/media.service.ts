@@ -141,7 +141,22 @@ export class MediaService {
     // handing out URLs that would 404 on resolution.
     const key = await this.resolveKey(args.kind, args.id);
     if (!key) return null;
-    const exp = isCacheableKind(args.kind)
+    return this.buildProxyUrl(args.kind, args.id);
+  }
+
+  /**
+   * Synchronous signer for callers that have already verified the row
+   * exists + has an S3 key — skips the resolveKey DB roundtrip. Hot-
+   * path listing endpoints (videos.attachExtras, gifs.attachExtras) use
+   * this to avoid an N+1 findOne per item just to re-check what the
+   * outer list query already told them.
+   *
+   * Prefer signUrl() for callers that don't already have the row in
+   * hand; misuse of buildProxyUrl on a missing row still produces a
+   * valid signature but the /media proxy will 404 on resolution.
+   */
+  buildProxyUrl(kind: MediaKind, id: string): string {
+    const exp = isCacheableKind(kind)
       ? // Round-down to the current bucket and add the long TTL so
         // every request within the same bucket window produces the
         // exact same `exp` (and therefore the same signature, querystring,
@@ -154,8 +169,8 @@ export class MediaService {
     const sig = signMediaUrl({
       secret: this.secret,
       fingerprint: this.license.getFingerprint(),
-      kind: args.kind,
-      id: args.id,
+      kind,
+      id,
       exp,
     });
     const params = new URLSearchParams({ exp: String(exp), sig });
@@ -164,8 +179,8 @@ export class MediaService {
     // recognizable video extension. The signature is still computed
     // over the bare id — the controller strips the suffix before
     // verifying so existing kinds keep working unchanged.
-    const ext = pathExtensionFor(args.kind);
-    return `${this.publicBase}/media/${args.kind}/${args.id}${ext}?${params.toString()}`;
+    const ext = pathExtensionFor(kind);
+    return `${this.publicBase}/media/${kind}/${id}${ext}?${params.toString()}`;
   }
 
   /** Verify a signature; throws on failure. */

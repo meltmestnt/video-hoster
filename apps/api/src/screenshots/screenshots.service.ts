@@ -259,7 +259,7 @@ export class ScreenshotsService {
       hasMore && items.length > 0 ? items[items.length - 1].id : null;
 
     return {
-      items: await Promise.all(items.map((s) => this.toDto(s))),
+      items: items.map((s) => this.toDto(s)),
       nextCursor,
     };
   }
@@ -306,10 +306,14 @@ export class ScreenshotsService {
     return { viewCount: result[0]?.viewCount ?? 0 };
   }
 
-  private async toDto(s: Screenshot) {
+  private toDto(s: Screenshot) {
+    // buildProxyUrl skips signUrl's per-item findOne — the caller path
+    // already gave us `s` with status + s3Key from the outer query.
+    // Doing a fresh resolveKey per screenshot was an N+1 that made a
+    // 24-item profile-tab render fire 24 extra DB roundtrips.
     const url =
-      s.status === "ready"
-        ? await this.media.signUrl({ kind: "screenshot", id: s.id })
+      s.status === "ready" && s.s3Key
+        ? this.media.buildProxyUrl("screenshot", s.id)
         : null;
     return {
       id: s.id,

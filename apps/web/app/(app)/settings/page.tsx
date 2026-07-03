@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { Heading, Text } from "@radix-ui/themes";
 import { authOptions } from "@/lib/auth";
-import { getServerTrpc } from "@/lib/trpc-server";
+import { getMe } from "@/lib/trpc-server";
 import { SettingsForm } from "@/components/SettingsForm";
 import { T } from "@/lib/i18n";
 
@@ -22,9 +22,9 @@ export default async function SettingsPage() {
   // very first render already reflects the DB state. Without this the
   // toggles flash to their defaults for ~100 ms while the client tRPC
   // query catches up — which users perceive as "I disabled it but it
-  // came back on" after a reload.
-  const trpc = await getServerTrpc();
-  const me = await trpc.auth.me.query();
+  // came back on" after a reload. getMe() is React-cached so we share
+  // the fetch with the layout's TopBar (which also renders `me`).
+  const me = await getMe();
   return (
     <>
       <div className="page-header">

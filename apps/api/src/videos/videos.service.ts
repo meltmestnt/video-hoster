@@ -1148,54 +1148,56 @@ export class VideosService {
       ]);
     const thumbIdByVideo = new Map(thumbRows.map((r) => [r.videoId, r.id]));
 
-    return Promise.all(
-      videos.map(async (v) => {
-        const thumbId = thumbIdByVideo.get(v.id) ?? null;
-        const [thumbnailUrl, videoUrl] = await Promise.all([
-          thumbId
-            ? this.media.signUrl({ kind: "thumbnail", id: thumbId })
-            : Promise.resolve(null),
-          v.status === "ready" && v.s3Key
-            ? this.media.signUrl({ kind: "video", id: v.id })
-            : Promise.resolve(null),
-        ]);
-        const c = counts.get(v.id) ?? { likes: 0, dislikes: 0 };
-        return {
-          id: v.id,
-          title: v.title,
-          description: v.description,
-          mimeType: v.mimeType,
-          sizeBytes: v.sizeBytes,
-          status: v.status,
-          visibility: v.visibility,
-          downloadPolicy: v.downloadPolicy,
-          createdAt: v.createdAt,
-          owner: {
-            id: v.owner.id,
-            name: v.owner.name,
-            username: v.owner.username,
-            avatarUrl: v.owner.avatarUrl,
-          },
-          tags: v.tags.map((t) => ({ id: t.id, name: t.name })),
-          thumbnailUrl,
-          videoUrl,
-          likeCount: c.likes,
-          dislikeCount: c.dislikes,
-          // Display floor: anyone who reacted obviously also viewed, so
-          // `views >= likes + dislikes` is a logical invariant. Cheap fix
-          // for two cases: rows that predate the viewCount column (still
-          // 0 in the DB but with old reactions) and rows where a quick
-          // reload sat behind the per-session sessionStorage guard so
-          // the increment never fired. Raw viewCount stays in the DB —
-          // only the surfaced number is floored.
-          viewCount: Math.max(v.viewCount ?? 0, c.likes + c.dislikes),
-          viewerReaction: viewerReactions.get(v.id) ?? null,
-          viewerFavorited: favoritedSet.has(v.id),
-          mainAudioMuted: v.mainAudioMuted,
-          audioTracks: audioByVideo.get(v.id) ?? [],
-        };
-      }),
-    );
+    return videos.map((v) => {
+      const thumbId = thumbIdByVideo.get(v.id) ?? null;
+      // Bypass signUrl's per-item findOne — the parent list query already
+      // filtered to status="ready" and the thumbnail id came from a batch
+      // SELECT that guarantees the row exists. Doing a fresh lookup here
+      // was an N+1 that made a 20-item /videos SSR fire 40 extra DB
+      // roundtrips just to re-verify what the caller had already loaded.
+      const thumbnailUrl = thumbId
+        ? this.media.buildProxyUrl("thumbnail", thumbId)
+        : null;
+      const videoUrl =
+        v.status === "ready" && v.s3Key
+          ? this.media.buildProxyUrl("video", v.id)
+          : null;
+      const c = counts.get(v.id) ?? { likes: 0, dislikes: 0 };
+      return {
+        id: v.id,
+        title: v.title,
+        description: v.description,
+        mimeType: v.mimeType,
+        sizeBytes: v.sizeBytes,
+        status: v.status,
+        visibility: v.visibility,
+        downloadPolicy: v.downloadPolicy,
+        createdAt: v.createdAt,
+        owner: {
+          id: v.owner.id,
+          name: v.owner.name,
+          username: v.owner.username,
+          avatarUrl: v.owner.avatarUrl,
+        },
+        tags: v.tags.map((t) => ({ id: t.id, name: t.name })),
+        thumbnailUrl,
+        videoUrl,
+        likeCount: c.likes,
+        dislikeCount: c.dislikes,
+        // Display floor: anyone who reacted obviously also viewed, so
+        // `views >= likes + dislikes` is a logical invariant. Cheap fix
+        // for two cases: rows that predate the viewCount column (still
+        // 0 in the DB but with old reactions) and rows where a quick
+        // reload sat behind the per-session sessionStorage guard so
+        // the increment never fired. Raw viewCount stays in the DB —
+        // only the surfaced number is floored.
+        viewCount: Math.max(v.viewCount ?? 0, c.likes + c.dislikes),
+        viewerReaction: viewerReactions.get(v.id) ?? null,
+        viewerFavorited: favoritedSet.has(v.id),
+        mainAudioMuted: v.mainAudioMuted,
+        audioTracks: audioByVideo.get(v.id) ?? [],
+      };
+    });
   }
 
   async listFavorites({

@@ -31,7 +31,10 @@ function makeSvc() {
   const notifications = {
     onGifUploaded: vi.fn(async () => undefined),
   };
-  const media = { signUrl: vi.fn(async () => "https://signed") };
+  const media = {
+    signUrl: vi.fn(async () => "https://signed"),
+    buildProxyUrl: vi.fn(() => "https://signed"),
+  };
   const transcoder = {
     compressGifToSd: vi.fn(),
     gifToMp4: vi.fn(),

@@ -51,7 +51,10 @@ function makeSvc() {
   const mail = {
     notifyAdminsOfVideoUpload: vi.fn(async () => undefined),
   };
-  const media = { signUrl: vi.fn(async () => "https://signed") };
+  const media = {
+    signUrl: vi.fn(async () => "https://signed"),
+    buildProxyUrl: vi.fn(() => "https://signed"),
+  };
 
   // Cast to the service's actual constructor types via `unknown` so we
   // don't have to mirror the full Repository<T> / service surfaces in

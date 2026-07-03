@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getServerTrpc } from "@/lib/trpc-server";
+import { getMe } from "@/lib/trpc-server";
 import { TopBar } from "@/components/TopBar";
 import { MiniPlayer } from "@/components/MiniPlayer";
 import { UnverifiedBanner } from "@/components/UnverifiedBanner";
@@ -21,13 +21,7 @@ export default async function AppLayout({
   const session = await getServerSession(authOptions);
   const signedIn = !!session?.user;
 
-  let me: Awaited<
-    ReturnType<Awaited<ReturnType<typeof getServerTrpc>>["auth"]["me"]["query"]>
-  > = null;
-  if (signedIn) {
-    const trpc = await getServerTrpc();
-    me = await trpc.auth.me.query();
-  }
+  const me = signedIn ? await getMe() : null;
 
   return (
     <AuthRequiredProvider signedIn={signedIn}>

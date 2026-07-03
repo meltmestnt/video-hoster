@@ -91,14 +91,14 @@ export const appRouter = router({
   auth: router({
     me: publicProcedure.query(async ({ ctx }) => {
       if (!ctx.user) return null;
-      const [videoCount, gifCount, telegramLink, discordLink, avatarUrl] =
+      const [videoCount, gifCount, telegramLink, discordLink] =
         await Promise.all([
           ctx.services.videos.countByOwner(ctx.user.id),
           ctx.services.gifs.countByOwner(ctx.user.id),
           ctx.services.telegramLinks.findByUserId(ctx.user.id),
           ctx.services.discordLinks.findByUserId(ctx.user.id),
-          ctx.services.users.resolveAvatarUrl(ctx.user),
         ]);
+      const avatarUrl = ctx.services.users.resolveAvatarUrl(ctx.user);
       return {
         id: ctx.user.id,
         email: ctx.user.email,

@@ -1304,43 +1304,45 @@ export class GifsService implements OnApplicationBootstrap {
         : Promise.resolve(new Map<string, ReactionType>()),
     ]);
 
-    return Promise.all(
-      gifs.map(async (g) => {
-        // The S3 object IS the gif itself — its proxy URL doubles as a
-        // "thumbnail" for grid display.
-        const url = g.status === "ready"
-          ? await this.media.signUrl({ kind: "gif", id: g.id })
+    return gifs.map((g) => {
+      // The S3 object IS the gif itself — its proxy URL doubles as a
+      // "thumbnail" for grid display. Skip signUrl's per-item findOne
+      // (the list query already filtered to status="ready" so we know
+      // the row + s3Key are there); resolving that again per item was
+      // an N+1 that made a 20-item /gifs SSR fire 20 extra DB queries.
+      const url =
+        g.status === "ready" && g.s3Key
+          ? this.media.buildProxyUrl("gif", g.id)
           : null;
-        const c = counts.get(g.id) ?? { likes: 0, dislikes: 0 };
-        return {
-          id: g.id,
-          title: g.title,
-          description: g.description,
-          sizeBytes: g.sizeBytes,
-          durationSeconds: g.durationSeconds,
-          status: g.status,
-          visibility: g.visibility,
-          source: g.source,
-          createdAt: g.createdAt,
-          owner: {
-            id: g.owner.id,
-            name: g.owner.name,
-            username: g.owner.username,
-            avatarUrl: g.owner.avatarUrl,
-          },
-          tags: g.tags.map((t) => ({ id: t.id, name: t.name })),
-          gifUrl: url,
-          thumbnailUrl: url,
-          likeCount: c.likes,
-          dislikeCount: c.dislikes,
-          // Floor with reactions — every reactor saw it, so views can
-          // never legitimately be lower. Catches old rows that predate
-          // the viewCount column and reload-loops blocked by the
-          // per-session client-side dedupe. Raw column stays in the DB.
-          viewCount: Math.max(g.viewCount ?? 0, c.likes + c.dislikes),
-          viewerReaction: viewerReactions.get(g.id) ?? null,
-        };
-      }),
-    );
+      const c = counts.get(g.id) ?? { likes: 0, dislikes: 0 };
+      return {
+        id: g.id,
+        title: g.title,
+        description: g.description,
+        sizeBytes: g.sizeBytes,
+        durationSeconds: g.durationSeconds,
+        status: g.status,
+        visibility: g.visibility,
+        source: g.source,
+        createdAt: g.createdAt,
+        owner: {
+          id: g.owner.id,
+          name: g.owner.name,
+          username: g.owner.username,
+          avatarUrl: g.owner.avatarUrl,
+        },
+        tags: g.tags.map((t) => ({ id: t.id, name: t.name })),
+        gifUrl: url,
+        thumbnailUrl: url,
+        likeCount: c.likes,
+        dislikeCount: c.dislikes,
+        // Floor with reactions — every reactor saw it, so views can
+        // never legitimately be lower. Catches old rows that predate
+        // the viewCount column and reload-loops blocked by the
+        // per-session client-side dedupe. Raw column stays in the DB.
+        viewCount: Math.max(g.viewCount ?? 0, c.likes + c.dislikes),
+        viewerReaction: viewerReactions.get(g.id) ?? null,
+      };
+    });
   }
 }

@@ -113,9 +113,11 @@ export class UsersService implements OnModuleInit {
     }
   }
 
-  async resolveAvatarUrl(user: User): Promise<string | null> {
+  resolveAvatarUrl(user: User): string | null {
+    // Skip signUrl's per-item findOne — the caller already has the User
+    // row in memory, so the DB check for avatarS3Key is redundant.
     if (user.avatarS3Key) {
-      return this.media.signUrl({ kind: "avatar", id: user.id });
+      return this.media.buildProxyUrl("avatar", user.id);
     }
     return user.avatarUrl ?? null;
   }
@@ -410,7 +412,7 @@ export class UsersService implements OnModuleInit {
         .then((rows) => Number(rows[0]?.count ?? 0)),
     ]);
 
-    const avatarUrl = await this.resolveAvatarUrl(user);
+    const avatarUrl = this.resolveAvatarUrl(user);
     return {
       id: user.id,
       name: user.name,
