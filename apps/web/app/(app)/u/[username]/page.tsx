@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { cache } from "react";
 import { notFound } from "next/navigation";
-import { getServerSession } from "next-auth";
 import {
   Avatar,
   Badge,
@@ -11,8 +10,7 @@ import {
   Tabs,
   Text,
 } from "@radix-ui/themes";
-import { authOptions } from "@/lib/auth";
-import { getServerTrpc } from "@/lib/trpc-server";
+import { getServerTrpc, getSession } from "@/lib/trpc-server";
 import { absoluteUrl } from "@/lib/site";
 import { VideoCard } from "@/components/VideoCard";
 import { GifCard } from "@/components/GifCard";
@@ -88,7 +86,7 @@ export default async function ProfilePage({
   const slug = normalizeUsername(username);
   if (!slug) notFound();
 
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
 
   let profile;
   try {

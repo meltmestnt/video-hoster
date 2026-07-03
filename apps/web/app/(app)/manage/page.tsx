@@ -1,24 +1,24 @@
 import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
 import { Heading, Text } from "@radix-ui/themes";
-import { authOptions } from "@/lib/auth";
-import { getServerTrpc } from "@/lib/trpc-server";
+import { getMe, getServerTrpc, getSession } from "@/lib/trpc-server";
 import { ManageUsersList } from "@/components/ManageUsersList";
 import { T } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
 export default async function ManagePage() {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user) redirect("/login");
 
-  const trpc = await getServerTrpc();
-  const me = await trpc.auth.me.query();
+  // getMe() is React-cached and the (app) layout already fetched it —
+  // this is a same-request cache hit, no extra tRPC round-trip.
+  const me = await getMe();
   if (!me || me.role !== "admin") {
     // Don't leak the page's existence — bounce non-admins to home.
     redirect("/");
   }
 
+  const trpc = await getServerTrpc();
   const initial = await trpc.admin.listUsers.query({ limit: 50 });
 
   return (

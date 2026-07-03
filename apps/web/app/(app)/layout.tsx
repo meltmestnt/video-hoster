@@ -1,6 +1,4 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { getMe } from "@/lib/trpc-server";
+import { getMe, getSession } from "@/lib/trpc-server";
 import { TopBar } from "@/components/TopBar";
 import { MiniPlayer } from "@/components/MiniPlayer";
 import { UnverifiedBanner } from "@/components/UnverifiedBanner";
@@ -18,9 +16,12 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   const signedIn = !!session?.user;
 
+  // Kick off `me` in parallel with the layout's own work — the TopBar
+  // doesn't render until we await it, but the network round-trip can
+  // overlap with whatever else React is resolving in the tree.
   const me = signedIn ? await getMe() : null;
 
   return (

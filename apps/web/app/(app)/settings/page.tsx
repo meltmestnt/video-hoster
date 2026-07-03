@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
 import { Heading, Text } from "@radix-ui/themes";
-import { authOptions } from "@/lib/auth";
-import { getMe } from "@/lib/trpc-server";
+import { getMe, getSession } from "@/lib/trpc-server";
 import { SettingsForm } from "@/components/SettingsForm";
 import { T } from "@/lib/i18n";
 
@@ -14,7 +12,7 @@ export const metadata = {
 };
 
 export default async function SettingsPage() {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user) {
     redirect("/login?callbackUrl=/settings");
   }

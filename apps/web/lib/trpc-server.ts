@@ -10,6 +10,15 @@ const apiUrl = () =>
   `${process.env.NEST_URL ?? "http://localhost:4000"}/trpc`;
 
 /**
+ * Per-request memoized session lookup. next-auth's getServerSession
+ * decodes the JWT cookie + runs the whole callback chain on every call;
+ * the layout, getServerTrpc, and each page component all pull the
+ * session, so a single /manage render was decoding it ~4 times. Cache
+ * dedupes to one decode per request.
+ */
+export const getSession = cache(() => getServerSession(authOptions));
+
+/**
  * Per-request memoized `auth.me` fetch. The (app) layout renders the
  * TopBar off it, and several pages (/settings, uploads, etc.) also need
  * it — without cache() each would fire its own tRPC round-trip
@@ -18,14 +27,14 @@ const apiUrl = () =>
  * result across layout + page in the same request.
  */
 export const getMe = cache(async () => {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user) return null;
   const trpc = await getServerTrpc();
   return trpc.auth.me.query();
 });
 
 export async function getServerTrpc() {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   // Forward the original client IP so the API's per-IP throttles and
   // anon-view counter operate on the visitor — not on the Next.js host.
   // Without this, every anonymous SSR request looks like one IP (the
